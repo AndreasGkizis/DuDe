@@ -1,3 +1,0 @@
-source=<source_folder_path>
-target=<target_folder_path>
-result_file=<target_output_path>
