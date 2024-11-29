@@ -31,5 +31,4 @@ bin/
 testfiles/
 
 # args.txt to hide local filepaths 
-cmd/args.txt
 cmd/results.*
