@@ -36,40 +36,34 @@ func FindFullFilePath(dir string, filename string) (string, error) {
 }
 
 func StoreFilePaths(result *[]models.DuDeFile) func(path string, d fs.DirEntry, err error) error {
-	// hasherMD5 := md5.New()
-	// var doneFiles float64 = 0
-
 	return func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			f, _ := os.Open(path)
 			defer f.Close()
-			// io.Copy(hasherMD5, f)
-			// md5hash := hasherMD5.Sum(nil)
-
 			newFile := models.DuDeFile{
 				FullPath: path,
-				// Hash:     fmt.Sprintf("%x", md5hash),
 			}
 			*result = append(*result, newFile)
-			// myHashMap[path] = fmt.Sprintf("%x", md5hash)
-
-			// hasherMD5.Reset()
-			// doneFiles++
-
-			// if *enableBenchmark {
-			// 	elapsed := time.Since(timer)
-			// 	fileInfo, _ := os.Stat(path)
-			// 	fileSizeMB := float64(fileInfo.Size()) / (1 << 20) // Convert to MB (1 << 20 = 1048576)
-			// 	log.Debug().Msgf("\nFilename: %s | Size: %0.2f MB | Took: %v | MD5: %s\n", d.Name(), fileSizeMB, elapsed, file.Filename)
-			// }
 		}
 
 		return nil
 	}
 }
 
+// func PopulateFilenames(sourceFiles *[]models.DuDeFile) {
+// 	for index := range *sourceFiles {
+// 		(*sourceFiles)[index].Filename = getFileName((*sourceFiles)[index].FullPath)
+// 	}
+// }
+
 func GetFileName(input string) string {
+	if input == "" {
+		return ""
+	}
 	parts := strings.Split(input, "/")
+	if len(parts) == 0 {
+		return ""
+	}
 	return parts[len(parts)-1]
 }
 

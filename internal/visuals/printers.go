@@ -3,6 +3,7 @@ package visuals
 import (
 	logger "DuDe/common"
 	"DuDe/models"
+	"fmt"
 	"log"
 	"runtime"
 	"time"
@@ -22,7 +23,6 @@ func PrintDuplicates(input []models.DuDeFile) {
 }
 
 func PrintIntro() {
-	logger := logger.GetLogger()
 	intro := `
  ██████╗  ██╗   ██╗        ██████╗  ███████╗ 
  ██╔══██╗ ██║   ██║        ██╔══██╗ ██╔════╝ 
@@ -36,7 +36,7 @@ func PrintIntro() {
  
  🔍 Let's find those duplicates...  
  💀 ..and....KILL 'EM!`
-	logger.Info(intro)
+	fmt.Print(intro)
 }
 
 func MonitorGoroutines(stopChan chan struct{}) {

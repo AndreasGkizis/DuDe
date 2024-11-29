@@ -7,9 +7,42 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
-func CalculateMD5Hash(file models.DuDeFile) (string, error) {
+func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int) error {
+
+	var wg sync.WaitGroup
+	mutex := sync.Mutex{}
+	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
+
+	for i := range *sourceFiles {
+		wg.Add(1)
+		go func(index int) error {
+			defer wg.Done()
+
+			// using struct{}{} since it allocates nothing , it is a pure signal
+			sem <- struct{}{}        // Acquire a slot
+			defer func() { <-sem }() // Release the slot
+
+			hash, err := calculateMD5Hash((*sourceFiles)[index])
+			if err != nil {
+				return err
+			}
+			name := GetFileName((*sourceFiles)[index].FullPath)
+			mutex.Lock()
+			(*sourceFiles)[index].Hash = hash
+			(*sourceFiles)[index].Filename = name
+			mutex.Unlock()
+			return nil
+		}(i)
+	}
+	wg.Wait()
+	close(sem)
+	return nil
+}
+
+func calculateMD5Hash(file models.DuDeFile) (string, error) {
 	hasherMD5 := md5.New()
 
 	f, err := os.Open(file.FullPath)
