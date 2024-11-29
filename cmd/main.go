@@ -2,20 +2,31 @@ package main
 
 import (
 	logger "DuDe/common"
-	handlers "DuDe/internal/handlers"
 	process "DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	// loads values from .env into the system
+	log := logger.GetLogger()
+
+	if err := godotenv.Load(); err != nil {
+		log.Warnln("No .env file found")
+	}
+}
 
 func main() {
 	log := logger.GetLogger()
 	visuals.PrintIntro()
 	// cliArgs := handlers.GetCLIArgs()
-	v := handlers.GetFileArguments()
+	myEnv, _ := godotenv.Read()
+	// v := handlers.GetFileArguments()
 
 	sem := make(chan struct{}, 8) // semaphore which allows 8 workers at the same time
 
@@ -25,7 +36,7 @@ func main() {
 	sourceFiles := make([]models.DuDeFile, 0)
 	timer := time.Now()
 
-	filepath.WalkDir(v[0], process.StoreFilePaths(&sourceFiles))
+	filepath.WalkDir(myEnv["SOURCE"], process.StoreFilePaths(&sourceFiles))
 
 	log.Infof("Started %v", "Paralel")
 
