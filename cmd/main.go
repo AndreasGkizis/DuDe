@@ -50,7 +50,9 @@ func main() {
 	process.FindDuplicates(&sourceFiles)
 	duplicates := process.GetDuplicates(&sourceFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
-	process.SaveAsCSV(flattenedDuplicates, myEnv["RESULT_FILE"])
-
+	err1 := process.SaveAsCSV(flattenedDuplicates, myEnv["RESULT_FILE"])
+	if err1 != nil {
+		logger.PanicAndLog(err1)
+	}
 	// visuals.PrintDuplicates(sourceFiles)
 }

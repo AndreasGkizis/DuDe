@@ -88,6 +88,7 @@ func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
 
 func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
+	empty := models.ResultEntry{}
 	for _, val := range *input {
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
@@ -98,6 +99,7 @@ func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 			}
 			result = append(result, a)
 		}
+		result = append(result, empty)
 	}
 	return result
 }
