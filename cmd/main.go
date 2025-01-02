@@ -36,7 +36,7 @@ func main() {
 	hashMemory, err := process.LoadMemoryCSV(loadedArgs[st.GetMemDirTag()])
 	logger.PanicAndLog(err)
 
-	// #region paralel
+	// #region parallel
 	sourceFiles := make([]models.DuDeFile, 0)
 
 	start := time.Now()
@@ -55,8 +55,8 @@ func main() {
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
 	elapsed := time.Since(start)
-	log.Infof("paralel took: %s for %v files", &elapsed, len(sourceFiles))
-	// #endregion paralel
+	log.Infof("parallel took: %s for %v files", &elapsed, len(sourceFiles))
+	// #endregion parallel
 
 	process.FindDuplicates(&sourceFiles)
 	duplicates := process.GetDuplicates(&sourceFiles)
