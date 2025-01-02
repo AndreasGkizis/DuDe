@@ -65,7 +65,6 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 				}
 
 				*memory = append(*memory, newMem)
-				fmt.Printf("\nsending %v", newMem)
 				memoryChan <- newMem
 			}
 
@@ -100,11 +99,11 @@ func calculateMD5Hash(file models.DuDeFile) (string, error) {
 
 func FindDuplicates(input *[]models.DuDeFile) {
 	for i := range *input {
-		occuranceCounter := 0
+		occurrenceCounter := 0
 		for j := range *input {
 			if (*input)[i].Hash == (*input)[j].Hash {
-				if occuranceCounter == 0 {
-					occuranceCounter++
+				if occurrenceCounter == 0 {
+					occurrenceCounter++
 				} else {
 					(*input)[i].DuplicatesFound = append((*input)[i].DuplicatesFound, (*input)[j])
 				}

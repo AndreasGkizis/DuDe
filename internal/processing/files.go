@@ -2,6 +2,7 @@ package processing
 
 import (
 	logger "DuDe/common"
+	"DuDe/internal/static"
 	"DuDe/models"
 	"encoding/csv"
 	"errors"
@@ -67,7 +68,7 @@ func GetFileName(input string) string {
 }
 
 func CreateArgsFile() error {
-	filename := "arguments.txt"
+	filename := static.GetArgFilename()
 	basedir := "."
 
 	targetsPath, _ := FindFullFilePath(basedir, filename)
@@ -250,5 +251,4 @@ func LoadMemoryCSV(filepath string) ([]models.FileHash, error) {
 			return result, nil
 		}
 	}
-
 }
