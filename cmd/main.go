@@ -4,6 +4,7 @@ import (
 	logger "DuDe/common"
 	handlers "DuDe/internal/handlers"
 	process "DuDe/internal/processing"
+	st "DuDe/internal/static"
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"path/filepath"
@@ -19,12 +20,11 @@ func main() {
 	progressCh := make(chan int)
 	memoryChan := make(chan models.FileHash)
 
-	mem_arg := "MEMORY_FILE"
-	results_arg := "RESULT_FILE"
-	source_arg := "SOURCE_DIR"
-	target_arg := "TARGET_DIR"
-
-	args := []string{mem_arg, results_arg, source_arg, target_arg}
+	args := []string{
+		st.GetMemDirTag(),
+		st.GetResultDirTag(),
+		st.GetSourceDirTag(),
+		st.GetTargetDirTag()}
 
 	log := logger.GetLogger()
 
@@ -32,8 +32,8 @@ func main() {
 
 	// myEnv, _ := godotenv.Read()
 	loadedArgs := handlers.GetFileArguments(args)
-	process.CreateMemoryCSV(loadedArgs[mem_arg])
-	hashMemory, err := process.LoadMemoryCSV(loadedArgs[mem_arg])
+	process.CreateMemoryCSV(loadedArgs[st.GetMemDirTag()])
+	hashMemory, err := process.LoadMemoryCSV(loadedArgs[st.GetMemDirTag()])
 	logger.PanicAndLog(err)
 
 	// #region paralel
@@ -41,7 +41,7 @@ func main() {
 
 	start := time.Now()
 
-	err = filepath.WalkDir(loadedArgs[source_arg], process.StoreFilePaths(&sourceFiles))
+	err = filepath.WalkDir(loadedArgs[st.GetSourceDirTag()], process.StoreFilePaths(&sourceFiles))
 	go visuals.MonitorProgress(len(sourceFiles), progressCh)
 
 	if err != nil {
@@ -49,11 +49,9 @@ func main() {
 		return
 	}
 
-	log.Infof("Started %v", "Paralel")
-
 	availableCPUs := runtime.NumCPU()
 
-	process.StartMemoryUpdateBackground(loadedArgs[mem_arg], memoryChan)
+	process.StartMemoryUpdateBackground(loadedArgs[st.GetMemDirTag()], memoryChan)
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
 	elapsed := time.Since(start)
@@ -64,7 +62,7 @@ func main() {
 	duplicates := process.GetDuplicates(&sourceFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 
-	err1 := process.SaveResultsAsCSV(flattenedDuplicates, loadedArgs[results_arg])
+	err1 := process.SaveResultsAsCSV(flattenedDuplicates, loadedArgs[st.GetResultDirTag()])
 
 	if err1 != nil {
 		logger.PanicAndLog(err1)
