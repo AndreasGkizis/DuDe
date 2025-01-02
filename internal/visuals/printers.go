@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -36,7 +37,7 @@ func PrintIntro() {
  
  🔍 Let's find those duplicates...  
  💀 ..and....KILL 'EM!`
-	fmt.Print(intro)
+	fmt.Print(intro + "\n")
 }
 
 func MonitorGoroutines(stopChan chan struct{}) {
@@ -50,6 +51,31 @@ func MonitorGoroutines(stopChan chan struct{}) {
 		case <-ticker.C:
 			// Print the current number of goroutines
 			log.Printf("Active goroutines: %d\n", runtime.NumGoroutine())
+		}
+	}
+}
+
+func MonitorProgress(totalFiles int, progressCh <-chan int) {
+
+	var currentProgress int
+	var percentage float64
+
+	for {
+		select {
+		case currentProgress = <-progressCh:
+
+			percentage = float64(currentProgress) / float64(totalFiles) * 100
+
+			barLength := 50 // Length of the progress bar in characters
+			progress := int(float64(barLength) * percentage / 100)
+			progressBar := strings.Repeat("█", progress) + strings.Repeat("░", barLength-progress)
+
+			fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
+
+			if currentProgress == totalFiles {
+				fmt.Println("\nAll files processed!")
+				return
+			}
 		}
 	}
 }

@@ -18,27 +18,34 @@ func GetCLIArgs() map[string]string {
 	return result
 }
 
-func GetFileArguments() []string {
+func GetFileArguments(args []string) map[string]string {
 
-	result := make([]string, 0)
+	result := make(map[string]string, 0)
 	basedir := "."
 
 	targetsPath, _ := process.FindFullFilePath(basedir, "args.txt")
 	dat, err := os.ReadFile(targetsPath)
 	common.PanicAndLog(err)
-	targets := strings.Split(string(dat), "\n")
 
-	for _, v := range targets {
-		if strings.HasPrefix(v, "source") {
-			result = append(result, strings.Trim(strings.SplitAfter(v, "=")[1], "\r"))
-		} else if strings.HasPrefix(v, "target") {
-			result = append(result, strings.Trim(strings.SplitAfter(v, "=")[1], "\r"))
+	lines := strings.Split(string(dat), "\n")
+
+	for _, line := range lines {
+
+		if !strings.Contains(line, "=") {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		for _, arg := range args {
+			if key == arg {
+				result[arg] = value
+				break
+			}
 		}
 	}
-	// _, targetError := os.ReadDir(result["target"])
-	// check(targetError)
-	// _, sourceErr := os.ReadDir(result["source"])
-	// check(sourceErr)
 
 	return result
 }

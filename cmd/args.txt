@@ -1,3 +1,0 @@
-source=<... your desired source full path...>
-target=<... your desired target full path...>
-result_file=<... your desired result file full path...>

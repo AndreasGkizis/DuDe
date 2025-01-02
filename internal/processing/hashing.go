@@ -2,15 +2,18 @@ package processing
 
 import (
 	logger "DuDe/common"
-	"DuDe/models"
+	models "DuDe/models"
 	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
-func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int) error {
+func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash, enableMemory bool) error {
+
+	var doneFiles int32 // Atomic counter for progress tracking
 
 	var wg sync.WaitGroup
 	mutex := sync.Mutex{}
@@ -20,25 +23,63 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int) error {
 		wg.Add(1)
 		go func(index int) error {
 			defer wg.Done()
-
+			var hash string
+			var err error
 			// using struct{}{} since it allocates nothing , it is a pure signal
 			sem <- struct{}{}        // Acquire a slot
 			defer func() { <-sem }() // Release the slot
 
-			hash, err := calculateMD5Hash((*sourceFiles)[index])
-			if err != nil {
-				return err
+			if enableMemory {
+
+				path := (*sourceFiles)[index].FullPath
+				memoryOfFile := models.FindByPath(*memory, path)
+				stats, _ := os.Stat(path)
+
+				if memoryOfFile == nil ||
+					memoryOfFile.FileSize != stats.Size() ||
+					memoryOfFile.ModTime != stats.ModTime().Unix() {
+					hash, err = calculateMD5Hash((*sourceFiles)[index])
+					if err != nil {
+						return err
+					}
+
+				} else {
+					hash = memoryOfFile.Hash
+				}
 			}
+
 			name := GetFileName((*sourceFiles)[index].FullPath)
 			mutex.Lock()
 			(*sourceFiles)[index].Hash = hash
 			(*sourceFiles)[index].Filename = name
 			mutex.Unlock()
+
+			if enableMemory {
+
+				fileStats, _ := os.Stat((*sourceFiles)[index].FullPath)
+				newMem := models.FileHash{
+					FilePath: (*sourceFiles)[index].FullPath,
+					Hash:     (*sourceFiles)[index].Hash,
+					FileSize: fileStats.Size(),
+					ModTime:  fileStats.ModTime().Unix(),
+				}
+
+				*memory = append(*memory, newMem)
+				fmt.Printf("\nsending %v", newMem)
+				memoryChan <- newMem
+			}
+
+			atomic.AddInt32(&doneFiles, 1)
+			progressCh <- int(doneFiles)
 			return nil
 		}(i)
 	}
 	wg.Wait()
+
 	close(sem)
+	close(progressCh)
+	// close(memoryChan)
+
 	return nil
 }
 
