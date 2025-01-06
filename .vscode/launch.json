@@ -12,7 +12,10 @@
             "program": "cmd/main.go",
             "args": [
                 "-m=sf",
-                "-s=somepath/."
+                "-s=/home/andreas/Code/GoLang/Dude/testfiles/WorkingCopies/Test",
+                "-t=/home/andreas/Code/GoLang/Dude/testfiles/WorkingCopies/Test_target",
+                "-c=/home/andreas/Code/GoLang/Dude/cmd/memory.csv",
+                "-r=/home/andreas/Code/GoLang/Dude/cmd/results.csv"
                 ]
         }
     ]

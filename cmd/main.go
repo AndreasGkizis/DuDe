@@ -29,21 +29,32 @@ func main() {
 
 	visuals.PrintIntro()
 
+	// TODO: refactor into single method
+
 	loadedArgs := handlers.GetFileArguments(args)
 	//override file args with cli
 	loadedArgs = handlers.GetCLIArgs(loadedArgs)
 
-	process.CreateMemoryCSV(common.ArgFilename)
+	process.CreateMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
 	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
 
 	// #region parallel
 	sourceFiles := make([]models.DuDeFile, 0)
+	targetFiles := make([]models.DuDeFile, 0)
 
 	start := time.Now()
 
 	err = filepath.WalkDir(loadedArgs[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceFiles))
-	go visuals.MonitorProgress(len(sourceFiles), progressCh)
+
+	if err != nil {
+		log.Errorf("Error walking directory: %v", err)
+		return
+	}
+
+	err = filepath.WalkDir(loadedArgs[common.ArgFilename_targetDir], process.StoreFilePaths(&targetFiles))
+
+	go visuals.MonitorProgress(len(sourceFiles)+len(targetFiles), progressCh)
 
 	if err != nil {
 		log.Errorf("Error walking directory: %v", err)
@@ -55,12 +66,13 @@ func main() {
 	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
 
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
-
+	process.CreateHashes(&targetFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
+	close(progressCh)
 	elapsed := time.Since(start)
-	log.Infof("parallel took: %s for %v files", &elapsed, len(sourceFiles))
+	log.Infof("parallel took: %s for %v files", &elapsed, len(sourceFiles)+len(targetFiles))
 	// #endregion parallel
 
-	process.FindDuplicates(&sourceFiles)
+	process.FindDuplicates(&sourceFiles, &targetFiles)
 	duplicates := process.GetDuplicates(&sourceFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 

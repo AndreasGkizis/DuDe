@@ -7,7 +7,7 @@
     - [ ] upgrade to bubbleTea cli to make it pretty
   - [x] make friendly user messages when errors happen.
   - [ ] make more options for the user to use ( paths, cores, output target etc)
-    - [ ] work with file settings and override with cli args.
+    - [x] work with file settings and override with cli args.
     - [ ] create help menu
     - [ ] include descriptions in user files
   - [ ] improve ssd bottleneck if possible (probably not possible)

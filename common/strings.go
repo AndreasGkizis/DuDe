@@ -14,7 +14,7 @@ const (
 	ArgFileContent        = `SOURCE_DIR=<... your desired source full path...>
 TARGET_DIR=<... your desired target full path...>
 RESULT_FILE=<... your desired result file full path...>
-MEMORY_FILE=<... your desired memory file full path...>`
+CACHE_FILE=<... your desired memory file full path...>`
 )
 
 var (
