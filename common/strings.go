@@ -17,12 +17,6 @@ RESULT_FILE=<... your desired result file full path...>
 MEMORY_FILE=<... your desired memory file full path...>`
 )
 
-// messages
-const (
-	FileDoesNotExistMessageTemplate = `The file in the path:[%s] does not exist... 
-	please double check it is the full path to the file and rerun the program`
-)
-
 var (
 	mu            sync.Mutex
 	memoryHeader  = []string{"File Path", "Hash", "Modification Time", "File Size"}

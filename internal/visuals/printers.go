@@ -13,7 +13,14 @@ import (
 )
 
 func DirDoesNotExistMessage(path string) {
-	fmt.Printf(common.FileDoesNotExistMessageTemplate, path)
+	fmt.Printf("ERROR !... The path \"%s\" does not exist... ! ERROR\n", path)
+	fmt.Println("!~~ How to solve this issue ~~!")
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("1. Open the Arguments.txt and make sure the paths there are valid")
+	fmt.Println("2. Correct paths if needed and make sure the file is saved.")
+	fmt.Println("3. Try running the program again")
+
 	waitAndExit()
 }
 
@@ -29,7 +36,12 @@ func ArgsFileNotFound() {
 }
 
 func waitAndExit() {
-	fmt.Println("\nPress Enter to exit...")
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("--------> Press Enter key to exit <--------")
+	fmt.Println()
+	fmt.Println()
+
 	reader := bufio.NewReader(os.Stdin)
 	_, _ = reader.ReadString('\n')
 	os.Exit(0)

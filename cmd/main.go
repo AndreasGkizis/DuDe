@@ -53,6 +53,7 @@ func main() {
 	availableCPUs := runtime.NumCPU()
 
 	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
+
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
 	elapsed := time.Since(start)

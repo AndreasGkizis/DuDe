@@ -4,7 +4,6 @@ import (
 	common "DuDe/common"
 	process "DuDe/internal/processing"
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 )
@@ -18,6 +17,8 @@ func GetCLIArgs(result map[string]string) map[string]string {
 	var targetDir string
 	var cacheDir string
 	var resultDir string
+
+	flagsMap := make(map[string]string)
 
 	flag.StringVar(&curMode, "mode", def, "use sf for single-folder or df for dual-folder.")
 	flag.StringVar(&curMode, "m", def, "use sf for single-folder or df for dual-folder.")
@@ -36,10 +37,6 @@ func GetCLIArgs(result map[string]string) map[string]string {
 
 	flag.Parse()
 
-	bla := os.Args[1:]
-	fmt.Print(bla)
-
-	flagsMap := make(map[string]string)
 	flag.Visit(func(f *flag.Flag) {
 		flagsMap[f.Name] = f.Value.String()
 	})

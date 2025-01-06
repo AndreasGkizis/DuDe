@@ -47,7 +47,6 @@ func StoreFilePaths(result *[]models.DuDeFile) func(path string, d fs.DirEntry, 
 		if err != nil {
 			if os.IsNotExist(err) {
 				visuals.DirDoesNotExistMessage(path)
-
 			}
 			return err
 		}
@@ -221,9 +220,14 @@ func UpsertMemoryCSV(memoryPath string, info []models.FileHash) error {
 func LoadMemoryCSV(filepath string) ([]models.FileHash, error) {
 	result := make([]models.FileHash, 0)
 	f, err := os.Open(filepath)
+
 	if err != nil {
+		if os.IsNotExist(err) {
+			visuals.DirDoesNotExistMessage(filepath)
+		}
 		return nil, err
 	}
+
 	defer f.Close()
 
 	reader := csv.NewReader(f)

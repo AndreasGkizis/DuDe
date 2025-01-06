@@ -12,6 +12,7 @@
             "program": "cmd/main.go",
             "args": [
                 "-m=sf",
+                "-s=somepath/."
                 ]
         }
     ]
