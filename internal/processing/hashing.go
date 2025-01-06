@@ -76,8 +76,7 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 	wg.Wait()
 
 	close(sem)
-	close(progressCh)
-	// close(memoryChan)
+	// close(progressCh)
 
 	return nil
 }
@@ -97,19 +96,38 @@ func calculateMD5Hash(file models.DuDeFile) (string, error) {
 	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), err
 }
 
-func FindDuplicates(input *[]models.DuDeFile) {
-	for i := range *input {
-		occurrenceCounter := 0
-		for j := range *input {
-			if (*input)[i].Hash == (*input)[j].Hash {
-				if occurrenceCounter == 0 {
-					occurrenceCounter++
-				} else {
-					(*input)[i].DuplicatesFound = append((*input)[i].DuplicatesFound, (*input)[j])
+func FindDuplicates(inputs ...*[]models.DuDeFile) {
+
+	if len(inputs) == 1 {
+		input := inputs[0]
+
+		for i := range *input {
+			occurrenceCounter := 0
+			for j := range *input {
+				if (*input)[i].Hash == (*input)[j].Hash {
+					if occurrenceCounter == 0 {
+						occurrenceCounter++
+					} else {
+						(*input)[i].DuplicatesFound = append((*input)[i].DuplicatesFound, (*input)[j])
+					}
+				}
+			}
+		}
+	} else if len(inputs) == 2 {
+
+		first := inputs[0]
+		second := inputs[1]
+
+		for i := range *first {
+			// occurrenceCounter := 0
+			for j := range *second {
+				if (*first)[i].Hash == (*second)[j].Hash {
+					(*first)[i].DuplicatesFound = append((*first)[i].DuplicatesFound, (*second)[i])
 				}
 			}
 		}
 	}
+
 }
 
 func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
@@ -128,7 +146,7 @@ func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
 
 func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
-	empty := models.ResultEntry{}
+	separator := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
 	for _, val := range *input {
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
@@ -139,7 +157,7 @@ func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 			}
 			result = append(result, a)
 		}
-		result = append(result, empty)
+		result = append(result, separator)
 	}
 	return result
 }

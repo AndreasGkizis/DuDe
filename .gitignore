@@ -32,3 +32,4 @@ testfiles/
 
 # args.txt to hide local filepaths 
 cmd/results.*
+cmd/memory.*
