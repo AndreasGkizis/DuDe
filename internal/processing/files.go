@@ -2,6 +2,7 @@ package processing
 
 import (
 	common "DuDe/common"
+	"DuDe/internal/visuals"
 	"DuDe/models"
 	"encoding/csv"
 	"errors"
@@ -42,6 +43,15 @@ func FindFullFilePath(dir string, filename string) (string, error) {
 
 func StoreFilePaths(result *[]models.DuDeFile) func(path string, d fs.DirEntry, err error) error {
 	return func(path string, d fs.DirEntry, err error) error {
+
+		if err != nil {
+			if os.IsNotExist(err) {
+				visuals.DirDoesNotExistMessage(path)
+
+			}
+			return err
+		}
+
 		if !d.IsDir() {
 			newFile := models.DuDeFile{
 				FullPath: path,
@@ -80,26 +90,16 @@ func CreateArgsFile() error {
 		}
 		defer file.Close()
 
-		// Write default arguments to the file
-		_, err = file.WriteString(
-			`SOURCE_DIR=<... your desired source full path...>
-TARGET_DIR=<... your desired target full path...>
-RESULT_FILE=<... your desired result file full path...>
-MEMORY_FILE=<... your desired memory file full path...>`)
+		// Write default argument file
+		_, err = file.WriteString(common.ArgFileContent)
 
 		if err != nil {
 			common.PanicAndLog(err)
 			return err
 		}
 
-		fmt.Printf("\nThe '%s' file was not found! So a NEW one has been created for you =].\n", filename)
-		fmt.Print("Follow these steps:\n")
-		fmt.Print("1. Open the newly created 'arguments.txt' file.\n")
-		fmt.Print("2. Add the paths you want to the folders you want to scan.\n")
-		fmt.Print("3. Save the file.\n")
-		fmt.Print("4. Run the program again.\n")
+		visuals.ArgsFileNotFound()
 
-		WaitAndExit()
 	}
 	return nil
 }

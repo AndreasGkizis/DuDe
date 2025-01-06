@@ -7,10 +7,20 @@ const (
 	MemFilename = "memory.csv"
 	ResFilename = "results.csv"
 
-	ArgFilename_memDir    = "MEMORY_FILE"
+	ArgFilename_cacheDir  = "CACHE_FILE"
 	ArgFilename_resDir    = "RESULT_FILE"
 	ArgFilename_sourceDir = "SOURCE_DIR"
 	ArgFilename_targetDir = "TARGET_DIR"
+	ArgFileContent        = `SOURCE_DIR=<... your desired source full path...>
+TARGET_DIR=<... your desired target full path...>
+RESULT_FILE=<... your desired result file full path...>
+MEMORY_FILE=<... your desired memory file full path...>`
+)
+
+// messages
+const (
+	FileDoesNotExistMessageTemplate = `The file in the path:[%s] does not exist... 
+	please double check it is the full path to the file and rerun the program`
 )
 
 var (

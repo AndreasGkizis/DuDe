@@ -20,7 +20,7 @@ func main() {
 	memoryChan := make(chan models.FileHash)
 
 	args := []string{
-		common.ArgFilename_memDir,
+		common.ArgFilename_cacheDir,
 		common.ArgFilename_resDir,
 		common.ArgFilename_sourceDir,
 		common.ArgFilename_targetDir}
@@ -29,10 +29,12 @@ func main() {
 
 	visuals.PrintIntro()
 
-	// myEnv, _ := godotenv.Read()
 	loadedArgs := handlers.GetFileArguments(args)
-	process.CreateMemoryCSV(loadedArgs[common.ArgFilename_memDir])
-	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_memDir])
+	//override file args with cli
+	loadedArgs = handlers.GetCLIArgs(loadedArgs)
+
+	process.CreateMemoryCSV(common.ArgFilename)
+	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
 
 	// #region parallel
@@ -50,7 +52,7 @@ func main() {
 
 	availableCPUs := runtime.NumCPU()
 
-	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_memDir], memoryChan)
+	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
 	elapsed := time.Since(start)

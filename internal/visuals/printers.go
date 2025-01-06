@@ -1,18 +1,43 @@
 package visuals
 
 import (
-	logger "DuDe/common"
+	common "DuDe/common"
 	"DuDe/models"
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 	"strings"
 	"time"
 )
 
+func DirDoesNotExistMessage(path string) {
+	fmt.Printf(common.FileDoesNotExistMessageTemplate, path)
+	waitAndExit()
+}
+
+func ArgsFileNotFound() {
+	fmt.Printf("\nThe '%s' file was not found! So a NEW one has been created for you =].\n", common.ArgFilename)
+	fmt.Print("Follow these steps:\n")
+	fmt.Printf("1. Open the newly created '%s' file.\n", common.ArgFilename)
+	fmt.Print("2. Add the paths you want to the folders you want to scan.\n")
+	fmt.Print("3. Save the file.\n")
+	fmt.Print("4. Run the program again.\n")
+
+	waitAndExit()
+}
+
+func waitAndExit() {
+	fmt.Println("\nPress Enter to exit...")
+	reader := bufio.NewReader(os.Stdin)
+	_, _ = reader.ReadString('\n')
+	os.Exit(0)
+}
+
 func PrintDuplicates(input []models.DuDeFile) {
 
-	logger := logger.GetLogger()
+	logger := common.GetLogger()
 	for _, file := range input {
 		if len(file.DuplicatesFound) > 0 {
 			logger.Infof("File: %s, Duplicates: %d", file.Filename, len(file.DuplicatesFound))

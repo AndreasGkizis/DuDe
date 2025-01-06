@@ -4,17 +4,62 @@ import (
 	common "DuDe/common"
 	process "DuDe/internal/processing"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 )
 
-func GetCLIArgs() map[string]string {
-	result := make(map[string]string)
-	mode := flag.String("mode", "", "use sf for single-folder or df for dual-folder.")
+const def = "default"
+
+// get CLI arguments and overwrites the previous arguments
+func GetCLIArgs(result map[string]string) map[string]string {
+	var curMode string
+	var sourceDir string
+	var targetDir string
+	var cacheDir string
+	var resultDir string
+
+	flag.StringVar(&curMode, "mode", def, "use sf for single-folder or df for dual-folder.")
+	flag.StringVar(&curMode, "m", def, "use sf for single-folder or df for dual-folder.")
+
+	flag.StringVar(&sourceDir, "source", def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
+	flag.StringVar(&sourceDir, "s", def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
+
+	flag.StringVar(&targetDir, "target", def, "The directory of the source folder [absolute path].")
+	flag.StringVar(&targetDir, "t", def, "The directory of the source folder [absolute path].")
+
+	flag.StringVar(&cacheDir, "cache-dir", def, "The directory where the `memory.csv` file will be kept and created [relative path].")
+	flag.StringVar(&cacheDir, "c", def, "The directory where the `memory.csv` file will be kept and created [relative path].")
+
+	flag.StringVar(&resultDir, "results", def, "The directory where the `results.csv` file will be kept and created [relative path].")
+	flag.StringVar(&resultDir, "r", def, "The directory where the `results.csv` file will be kept and created [relative path].")
 
 	flag.Parse()
-	result["mode"] = *mode
 
+	bla := os.Args[1:]
+	fmt.Print(bla)
+
+	flagsMap := make(map[string]string)
+	flag.Visit(func(f *flag.Flag) {
+		flagsMap[f.Name] = f.Value.String()
+	})
+
+	for key, flag := range flagsMap {
+		if flag != def {
+			switch key {
+			case "mode", "m":
+				result[key] = flag
+			case "source", "s":
+				result[common.ArgFilename_sourceDir] = flag
+			case "target", "t":
+				result[common.ArgFilename_targetDir] = flag
+			case "cache-dir", "c":
+				result[common.ArgFilename_cacheDir] = flag
+			case "results", "r":
+				result[common.ArgFilename_resDir] = flag
+			}
+		}
+	}
 	return result
 }
 
