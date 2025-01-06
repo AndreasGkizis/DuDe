@@ -1,13 +1,10 @@
-## TODO
-  - [x] make parallel
-  - [x] make progress visible in cli
-  - [x] add state to remember already parsed files(needs testing still)
-  - [x] make an exe that opens the cli and keeps it open
-    - [ ] upgrade to bubbleTea cli to make it pretty
-  - [ ] make more options for the user to use ( paths, cores, output target etc)
-    - [ ] work with file settings and override with cli args.
-    - [ ] create help menu
-    - [ ] include descriptions in user files
-  - [ ] make friendly user messages when errors happen.
-  - [ ] improve ssd bottleneck if possible (probably not possible)
-  - [ ] add 2nd folder comparison.
+## TLDR
+This is a utility tool used to find duplicate files in directories.
+
+## Summary
+This is a tool created to find duplicate files in given directories, it ignores the filenames and looks at the actual file only. the results are presented in a csv file created.
+
+## How to use!
+An executable needs to be compiled for our system and run. 
+In the first run there will be an arguments.txt created which you will need to fill out, those directories will be used by the program
+
