@@ -1,10 +1,9 @@
 package main
 
 import (
-	logger "DuDe/common"
+	common "DuDe/common"
 	handlers "DuDe/internal/handlers"
 	process "DuDe/internal/processing"
-	st "DuDe/internal/static"
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"path/filepath"
@@ -21,27 +20,27 @@ func main() {
 	memoryChan := make(chan models.FileHash)
 
 	args := []string{
-		st.GetMemDirTag(),
-		st.GetResultDirTag(),
-		st.GetSourceDirTag(),
-		st.GetTargetDirTag()}
+		common.ArgFilename_memDir,
+		common.ArgFilename_resDir,
+		common.ArgFilename_sourceDir,
+		common.ArgFilename_targetDir}
 
-	log := logger.GetLogger()
+	log := common.GetLogger()
 
 	visuals.PrintIntro()
 
 	// myEnv, _ := godotenv.Read()
 	loadedArgs := handlers.GetFileArguments(args)
-	process.CreateMemoryCSV(loadedArgs[st.GetMemDirTag()])
-	hashMemory, err := process.LoadMemoryCSV(loadedArgs[st.GetMemDirTag()])
-	logger.PanicAndLog(err)
+	process.CreateMemoryCSV(loadedArgs[common.ArgFilename_memDir])
+	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_memDir])
+	common.PanicAndLog(err)
 
 	// #region parallel
 	sourceFiles := make([]models.DuDeFile, 0)
 
 	start := time.Now()
 
-	err = filepath.WalkDir(loadedArgs[st.GetSourceDirTag()], process.StoreFilePaths(&sourceFiles))
+	err = filepath.WalkDir(loadedArgs[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceFiles))
 	go visuals.MonitorProgress(len(sourceFiles), progressCh)
 
 	if err != nil {
@@ -51,7 +50,7 @@ func main() {
 
 	availableCPUs := runtime.NumCPU()
 
-	process.StartMemoryUpdateBackground(loadedArgs[st.GetMemDirTag()], memoryChan)
+	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_memDir], memoryChan)
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
 	elapsed := time.Since(start)
@@ -62,10 +61,10 @@ func main() {
 	duplicates := process.GetDuplicates(&sourceFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 
-	err1 := process.SaveResultsAsCSV(flattenedDuplicates, loadedArgs[st.GetResultDirTag()])
+	err1 := process.SaveResultsAsCSV(flattenedDuplicates, loadedArgs[common.ArgFilename_resDir])
 
 	if err1 != nil {
-		logger.PanicAndLog(err1)
+		common.PanicAndLog(err1)
 	}
 	// visuals.PrintDuplicates(sourceFiles)
 }

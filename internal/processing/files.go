@@ -1,8 +1,7 @@
 package processing
 
 import (
-	logger "DuDe/common"
-	"DuDe/internal/static"
+	common "DuDe/common"
 	"DuDe/models"
 	"encoding/csv"
 	"errors"
@@ -68,7 +67,7 @@ func GetFileName(input string) string {
 }
 
 func CreateArgsFile() error {
-	filename := static.GetArgFilename()
+	filename := common.ArgFilename
 	basedir := "."
 
 	targetsPath, _ := FindFullFilePath(basedir, filename)
@@ -77,7 +76,7 @@ func CreateArgsFile() error {
 	if os.IsNotExist(err) {
 		file, err := os.Create(filename)
 		if err != nil {
-			logger.PanicAndLog(err)
+			common.PanicAndLog(err)
 		}
 		defer file.Close()
 
@@ -89,7 +88,7 @@ RESULT_FILE=<... your desired result file full path...>
 MEMORY_FILE=<... your desired memory file full path...>`)
 
 		if err != nil {
-			logger.PanicAndLog(err)
+			common.PanicAndLog(err)
 			return err
 		}
 
@@ -116,7 +115,7 @@ func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
 	defer writer.Flush()
 
 	// Write header
-	header := []string{"File Name", "Path", "Duplicate File Name", "Duplicate Path"}
+	header := common.GetResultsHeader()
 	err = writer.Write(header)
 	if err != nil {
 		return err
@@ -143,7 +142,7 @@ func CreateMemoryCSV(filename string) error {
 	_, err := os.Stat(filename)
 	if err == nil {
 		// File exists, no need to create it again
-		logger.GetLogger().Info("File already exists. Skipping creation.")
+		common.GetLogger().Info("File already exists. Skipping creation.")
 		return nil
 	}
 	file, err := os.Create(filename)
@@ -156,7 +155,7 @@ func CreateMemoryCSV(filename string) error {
 	defer writer.Flush()
 
 	// Write header
-	header := []string{"File Path", "Hash", "Modification Time", "File Size"}
+	header := common.GetMemHeader()
 	err = writer.Write(header)
 	if err != nil {
 		return err

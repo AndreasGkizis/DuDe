@@ -3,7 +3,6 @@ package handlers
 import (
 	common "DuDe/common"
 	process "DuDe/internal/processing"
-	"DuDe/internal/static"
 	"flag"
 	"os"
 	"strings"
@@ -24,7 +23,7 @@ func GetFileArguments(args []string) map[string]string {
 	result := make(map[string]string, 0)
 	basedir := "."
 
-	targetsPath, _ := process.FindFullFilePath(basedir, static.GetArgFilename())
+	targetsPath, _ := process.FindFullFilePath(basedir, common.ArgFilename)
 	dat, err := os.ReadFile(targetsPath)
 	common.PanicAndLog(err)
 
