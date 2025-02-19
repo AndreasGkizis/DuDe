@@ -141,7 +141,7 @@ func CreateMemoryCSV(filename string) error {
 	_, err := os.Stat(filename)
 	if err == nil {
 		// File exists, no need to create it again
-		common.GetLogger().Info("File already exists. Skipping creation.")
+		common.GetLogger().Debug("File already exists. Skipping creation.")
 		return nil
 	}
 	file, err := os.Create(filename)
@@ -187,6 +187,90 @@ func AddSingleToMemoryCSV(memoryPath string, info models.FileHash) error {
 	return nil
 }
 
+// func UpsertMemoryCSV(memoryPath string, info models.FileHash) error {
+// 	// 1. Read the existing CSV file.
+// 	records, err := readCSV(memoryPath)
+// 	if err != nil {
+// 		return fmt.Errorf("error reading CSV: %w", err)
+// 	}
+
+// 	// 2. Check if the record exists.
+// 	index := findRecordIndex(records, info.Hash)
+
+// 	// 3. Update or Append
+// 	if index != -1 {
+// 		// Update existing record
+// 		records[index] = []string{
+// 			info.FilePath,
+// 			info.Hash,
+// 			fmt.Sprintf("%d", info.ModTime),
+// 			fmt.Sprintf("%d", info.FileSize),
+// 		}
+// 	} else {
+// 		// Append new record
+// 		records = append(records, []string{
+// 			info.FilePath,
+// 			info.Hash,
+// 			fmt.Sprintf("%d", info.ModTime),
+// 			fmt.Sprintf("%d", info.FileSize),
+// 		})
+// 	}
+
+// 	// 4. Write the updated records back to the CSV file.
+// 	if err := writeCSV(memoryPath, records); err != nil {
+// 		return fmt.Errorf("error writing CSV: %w", err)
+// 	}
+
+// 	return nil
+// }
+
+// Helper function to read the CSV file
+func readCSV(memoryPath string) ([][]string, error) {
+	f, err := os.OpenFile(memoryPath, os.O_RDONLY, 0444) // read-only
+
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records) > 0 {
+		records = records[1:] // Remove the first row (header)
+	}
+
+	return records, nil
+}
+
+// Helper function to write to the CSV file
+func writeCSV(memoryPath string, records [][]string) error {
+	f, err := os.OpenFile(memoryPath, os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
+	return writer.WriteAll(records)
+}
+
+// Helper function to find the index of a record by FilePath
+func findRecordIndex(records [][]string, hash string) int {
+	for i, record := range records {
+		if len(record) > 0 && record[1] == hash {
+			return i
+		}
+	}
+	return -1
+}
+
 func WriteManyToMemoryCSV(memoryPath string, info []models.FileHash) error {
 
 	f, err := os.OpenFile(memoryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -206,7 +290,7 @@ func WriteManyToMemoryCSV(memoryPath string, info []models.FileHash) error {
 
 }
 
-func UpsertMemoryCSV(memoryPath string, info []models.FileHash) error {
+func UpsertMemoryCSVOld(memoryPath string, info []models.FileHash) error {
 
 	f, err := os.OpenFile(memoryPath, os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {

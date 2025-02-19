@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Package",
+            "name": "LinuxHome",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -16,7 +16,21 @@
                 "-t=/home/andreas/Code/GoLang/Dude/testfiles/WorkingCopies/Test_target",
                 "-c=/home/andreas/Code/GoLang/Dude/cmd/memory.csv",
                 "-r=/home/andreas/Code/GoLang/Dude/cmd/results.csv"
-                ]
+            ]
+        },
+        {
+            "name": "Windows",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/main.go",
+            "args": [
+                "-m=sf",
+                "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
+                "-t=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test_target",
+                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.csv",
+                "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
+            ]
         }
     ]
 }

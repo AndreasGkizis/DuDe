@@ -21,6 +21,18 @@ type FileHash struct {
 	FileSize int64
 }
 
+type FileHashCollection struct {
+	Hashes map[string]FileHash
+}
+
+func (fhc *FileHashCollection) ToSlice() []FileHash {
+	fileHashes := make([]FileHash, 0, len(fhc.Hashes))
+	for _, fileHash := range fhc.Hashes {
+		fileHashes = append(fileHashes, fileHash)
+	}
+	return fileHashes
+}
+
 // #region helper methods
 
 func FindByPath(hashes []FileHash, filePath string) *FileHash {
