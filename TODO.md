@@ -12,3 +12,5 @@
     - [ ] include descriptions in user files
   - [ ] improve ssd bottleneck if possible (probably not possible)
   - [ ] add 2nd folder comparison.
+  - [ ] logs to file per execution
+    - [ ] rolling log files with size limit.

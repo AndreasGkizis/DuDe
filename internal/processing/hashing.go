@@ -146,7 +146,7 @@ func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
 
 func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
-	separator := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
+	separatorEntry := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
 	for _, val := range *input {
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
@@ -157,7 +157,7 @@ func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
 			}
 			result = append(result, a)
 		}
-		result = append(result, separator)
+		result = append(result, separatorEntry)
 	}
 	return result
 }
