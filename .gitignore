@@ -30,6 +30,9 @@ bin/
 # Test files used
 testfiles/
 
+# execution log files
+logs/
+
 # args.txt to hide local filepaths 
 cmd/results.*
 cmd/memory.*

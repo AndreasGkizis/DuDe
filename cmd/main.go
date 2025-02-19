@@ -54,12 +54,12 @@ func main() {
 
 	err = filepath.WalkDir(loadedArgs[common.ArgFilename_targetDir], process.StoreFilePaths(&targetFiles))
 
-	go visuals.MonitorProgress(len(sourceFiles)+len(targetFiles), progressCh)
-
 	if err != nil {
 		log.Errorf("Error walking directory: %v", err)
 		return
 	}
+
+	go visuals.MonitorProgress(len(sourceFiles)+len(targetFiles), progressCh)
 
 	availableCPUs := runtime.NumCPU()
 
@@ -69,7 +69,7 @@ func main() {
 	process.CreateHashes(&targetFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 	close(progressCh)
 	elapsed := time.Since(start)
-	log.Infof("parallel took: %s for %v files", &elapsed, len(sourceFiles)+len(targetFiles))
+	log.Debugf("parallel took: %s for %v files", &elapsed, len(sourceFiles)+len(targetFiles))
 	// #endregion parallel
 
 	process.FindDuplicates(&sourceFiles, &targetFiles)
