@@ -17,7 +17,7 @@ func init() {
 
 func main() {
 	progressCh := make(chan int)
-	memoryChan := make(chan models.FileHash)
+	memoryChan := make(chan models.FileHash, 100)
 
 	args := []string{
 		common.ArgFilename_cacheDir,
@@ -63,12 +63,14 @@ func main() {
 
 	availableCPUs := runtime.NumCPU()
 
-	process.StartMemoryUpdateBackground(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
+	process.StartMemoryUpdateBackgroundProcess(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
 
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 	process.CreateHashes(&targetFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
-	close(progressCh)
+	// close(progressCh)
+
 	elapsed := time.Since(start)
+
 	log.Debugf("parallel took: %s for %v files", &elapsed, len(sourceFiles)+len(targetFiles))
 	// #endregion parallel
 

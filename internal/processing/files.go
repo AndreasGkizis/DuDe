@@ -162,43 +162,18 @@ func CreateMemoryCSV(filename string) error {
 	return nil
 }
 
-func AddSingleToMemoryCSV(memoryPath string, info models.FileHash) error {
-
-	f, err := os.OpenFile(memoryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	writer := csv.NewWriter(f)
-	defer writer.Flush()
-
-	// headers => "File Path", "Hash", "Modification Time", "File Size"
-	err = writer.Write([]string{
-		info.FilePath,
-		info.Hash,
-		fmt.Sprintf("%d", info.ModTime),
-		fmt.Sprintf("%d", info.FileSize),
-	})
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // func UpsertMemoryCSV(memoryPath string, info models.FileHash) error {
 // 	// 1. Read the existing CSV file.
-// 	records, err := readCSV(memoryPath)
+// 	records, err := readCSVintoFileHash(memoryPath)
 // 	if err != nil {
 // 		return fmt.Errorf("error reading CSV: %w", err)
 // 	}
 
 // 	// 2. Check if the record exists.
-// 	index := findRecordIndex(records, info.Hash)
+// 	index := records.FindByHash(info.Hash)
 
 // 	// 3. Update or Append
-// 	if index != -1 {
+// 	if index == nil {
 // 		// Update existing record
 // 		records[index] = []string{
 // 			info.FilePath,
@@ -225,7 +200,7 @@ func AddSingleToMemoryCSV(memoryPath string, info models.FileHash) error {
 // }
 
 // Helper function to read the CSV file
-func readCSV(memoryPath string) ([][]string, error) {
+func readCSVintoFileHash(memoryPath string) (models.FileHashSlice, error) {
 	f, err := os.OpenFile(memoryPath, os.O_RDONLY, 0444) // read-only
 
 	if err != nil {
@@ -235,16 +210,33 @@ func readCSV(memoryPath string) ([][]string, error) {
 
 	reader := csv.NewReader(f)
 	records, err := reader.ReadAll()
-
 	if err != nil {
-		return nil, err
+		return nil, err // Handle the error after reading CSV
 	}
 
-	if len(records) > 0 {
-		records = records[1:] // Remove the first row (header)
+	var results []models.FileHash
+
+	for idx, val := range records {
+		if idx == 0 {
+			// do nothing to skip headers
+		}
+
+		newMem := models.FileHash{
+			FilePath: val[0],
+			Hash:     val[1],
+			FileSize: func() int64 {
+				size, _ := strconv.ParseInt(val[2], 10, 64)
+				return size
+			}(),
+			ModTime: func() int64 {
+				size, _ := strconv.ParseInt(val[3], 10, 64)
+				return size
+			}(),
+		}
+		results = append(results, newMem)
 	}
 
-	return records, nil
+	return results, nil
 }
 
 // Helper function to write to the CSV file
@@ -271,11 +263,16 @@ func findRecordIndex(records [][]string, hash string) int {
 	return -1
 }
 
-func WriteManyToMemoryCSV(memoryPath string, info []models.FileHash) error {
+func WriteAllToMemoryCSV(memoryPath string, info models.FileHashSlice) error {
+	fmt.Print("das")
+	common.GetLogger().Info("writing memory file")
+	if _, err := os.Stat(memoryPath); os.IsNotExist(err) {
+		return err
+	}
 
 	f, err := os.OpenFile(memoryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening file %s: %w", memoryPath, err)
 	}
 	defer f.Close()
 
@@ -283,21 +280,18 @@ func WriteManyToMemoryCSV(memoryPath string, info []models.FileHash) error {
 	defer writer.Flush()
 
 	for _, v := range info {
-		AddSingleToMemoryCSV(memoryPath, v)
+		record := []string{
+			v.FilePath,
+			v.Hash,
+			strconv.FormatInt(v.ModTime, 10),
+			strconv.FormatInt(v.FileSize, 10),
+		}
+		err = writer.Write(record)
+		if err != nil {
+			return fmt.Errorf("error writing record to file %s: %w", memoryPath, err)
+		}
 	}
 
-	return nil
-
-}
-
-func UpsertMemoryCSVOld(memoryPath string, info []models.FileHash) error {
-
-	f, err := os.OpenFile(memoryPath, os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	WriteManyToMemoryCSV(memoryPath, info)
 	return nil
 }
 

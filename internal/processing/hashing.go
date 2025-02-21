@@ -22,7 +22,7 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 	for i := range *sourceFiles {
 		wg.Add(1)
 		go func(index int) error {
-			defer wg.Done()
+			// wg.Done()
 			var hash string
 			var err error
 			// using struct{}{} since it allocates nothing , it is a pure signal
@@ -64,18 +64,20 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 					ModTime:  fileStats.ModTime().Unix(),
 				}
 
-				*memory = append(*memory, newMem)
+				// *memory = append(*memory, newMem)
 				memoryChan <- newMem
 			}
 
 			atomic.AddInt32(&doneFiles, 1)
 			progressCh <- int(doneFiles)
+			wg.Done()
 			return nil
 		}(i)
 	}
 	wg.Wait()
 
 	close(sem)
+	// close(memoryChan)
 	// close(progressCh)
 
 	return nil
