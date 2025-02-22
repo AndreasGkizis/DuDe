@@ -1,4 +1,5 @@
 ## TODO
+
   - [x] make parallel
   - [x] make progress visible in cli
   - [x] add state to remember already parsed files(needs testing still)
@@ -13,4 +14,6 @@
   - [ ] improve ssd bottleneck if possible (probably not possible)
   - [ ] add 2nd folder comparison.
   - [ ] logs to file per execution
-    - [ ] rolling log files with size limit.
+    - [ ] rolling log files with size limit. probably useless...
+  - [ ] add sqlite? 
+  - [ ] add clear cache option
