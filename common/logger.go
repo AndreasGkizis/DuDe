@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger *zap.SugaredLogger
+var Logger *zap.SugaredLogger
 
 // init func always runs first no matter what. its a go thing
 func init() {
@@ -27,18 +27,14 @@ func init() {
 	core := zapcore.NewCore(encoder, zapcore.AddSync(logFile), zapcore.DebugLevel)
 
 	// Create the logger with the core
-	logger = zap.New(core).Sugar()
+	Logger = zap.New(core).Sugar()
 
 	// Create a new logger with development configuration or configure anything custom we like.
 }
 
-func GetLogger() *zap.SugaredLogger {
-	return logger
-}
-
 func PanicAndLog(e error) {
 	if e != nil {
-		logger.DPanic(e)
+		Logger.DPanic(e)
 	}
 }
 

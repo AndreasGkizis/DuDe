@@ -7,6 +7,9 @@ const (
 	MemFilename = "memory.csv"
 	ResFilename = "results.csv"
 
+	DbgFlagName_long      = "debug"
+	DbgFlagName           = "dbg"
+	DbgFlagActiveValue    = "enable"
 	ArgFilename_cacheDir  = "CACHE_FILE"
 	ArgFilename_resDir    = "RESULT_FILE"
 	ArgFilename_sourceDir = "SOURCE_DIR"

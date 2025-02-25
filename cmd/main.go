@@ -1,14 +1,14 @@
 package main
 
 import (
-	common "DuDe/common"
-	handlers "DuDe/internal/handlers"
+	"DuDe/common"
+	db "DuDe/internal/db"
+	"DuDe/internal/handlers"
 	process "DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
 func init() {
@@ -16,6 +16,7 @@ func init() {
 }
 
 func main() {
+
 	progressCh := make(chan int)
 	memoryChan := make(chan models.FileHash, 100)
 
@@ -25,7 +26,7 @@ func main() {
 		common.ArgFilename_sourceDir,
 		common.ArgFilename_targetDir}
 
-	log := common.GetLogger()
+	log := common.Logger
 
 	visuals.PrintIntro()
 
@@ -35,15 +36,13 @@ func main() {
 	//override file args with cli
 	loadedArgs = handlers.GetCLIArgs(loadedArgs)
 
-	process.CreateMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
-	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
+	db, err := db.NewDatabase(loadedArgs[common.ArgFilename_cacheDir], loadedArgs[common.DbgFlagName] == common.DbgFlagActiveValue)
 	common.PanicAndLog(err)
+	hashMemory := process.LoadMemory(db)
 
 	// #region parallel
 	sourceFiles := make([]models.DuDeFile, 0)
 	targetFiles := make([]models.DuDeFile, 0)
-
-	start := time.Now()
 
 	err = filepath.WalkDir(loadedArgs[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceFiles))
 
@@ -52,7 +51,7 @@ func main() {
 		return
 	}
 
-	err = filepath.WalkDir(loadedArgs[common.ArgFilename_targetDir], process.StoreFilePaths(&targetFiles))
+	// err = filepath.WalkDir(loadedArgs[common.ArgFilename_targetDir], process.StoreFilePaths(&targetFiles))
 
 	if err != nil {
 		log.Errorf("Error walking directory: %v", err)
@@ -62,16 +61,14 @@ func main() {
 	go visuals.MonitorProgress(len(sourceFiles)+len(targetFiles), progressCh)
 
 	availableCPUs := runtime.NumCPU()
-
-	process.StartMemoryUpdateBackgroundProcess(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
+	// process.StartMemoryUpdateBackgroundProcess(loadedArgs[common.ArgFilename_cacheDir], memoryChan)
 
 	process.CreateHashes(&sourceFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
-	process.CreateHashes(&targetFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
-	// close(progressCh)
+	// process.CreateHashes(&targetFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
 
-	elapsed := time.Since(start)
+	close(memoryChan)
+	process.Updatewitwg(db, memoryChan)
 
-	log.Debugf("parallel took: %s for %v files", &elapsed, len(sourceFiles)+len(targetFiles))
 	// #endregion parallel
 
 	process.FindDuplicates(&sourceFiles, &targetFiles)
@@ -84,4 +81,5 @@ func main() {
 		common.PanicAndLog(err1)
 	}
 	// visuals.PrintDuplicates(sourceFiles)
+
 }

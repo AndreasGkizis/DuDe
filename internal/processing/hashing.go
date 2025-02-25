@@ -77,8 +77,6 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 	wg.Wait()
 
 	close(sem)
-	// close(memoryChan)
-	// close(progressCh)
 
 	return nil
 }

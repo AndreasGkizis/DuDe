@@ -2,12 +2,14 @@ package processing
 
 import (
 	logger "DuDe/common"
+	database "DuDe/internal/db"
 	"DuDe/models"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
 )
 
 var (
@@ -42,7 +44,7 @@ func StartMemoryUpdateBackgroundProcess(path string, memoryChan <-chan models.Fi
 				mutex.Unlock()
 			case t := <-ticker.C:
 				mutex.Lock()
-				logger.GetLogger().Log(zapcore.DebugLevel, t)
+				logger.Logger.Log(zapcore.DebugLevel, t)
 				// only adds to buffer if there is something in this batch
 				if len(currentBatch.Entries) > 0 { // Write even if batch is not full
 					memory_buffer = append(memory_buffer, currentBatch)
@@ -64,23 +66,44 @@ func StartMemoryUpdateBackgroundProcess(path string, memoryChan <-chan models.Fi
 	}()
 }
 
+func UpdateMemory(db *gorm.DB, memoryChan <-chan models.FileHash) {
+	logger.Logger.Info("started memory.UpdateMemory()")
+	repo := database.FileHashRepository{Db: db}
+
+	for fh := range memoryChan {
+		logger.Logger.Debugf("Go one from %s. path: %s, hash: %s", memoryChan, fh.FilePath, fh.Hash)
+		db_obj := MapToDomainDTO(fh)
+		err := repo.Upsert(&db_obj)
+		logger.PanicAndLog(err)
+	}
+}
+
+func Updatewitwg(db *gorm.DB, memoryChan <-chan models.FileHash) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		UpdateMemory(db, memoryChan)
+	}()
+	wg.Wait()
+}
 func scheduleWriter(memoryPath string) {
 	fmt.Print("scheduleWriter")
 
 	runningSchedulers <- struct{}{} // attempting to get semaphore
 	var mutex sync.Mutex
 
-	logger.GetLogger().Debugf("got semaphore!")
+	logger.Logger.Debugf("got semaphore!")
 	defer func() {
 		<-runningSchedulers
-		logger.GetLogger().Debugf("semaphore released!")
+		logger.Logger.Debugf("semaphore released!")
 	}()
 
 	// time.Sleep(3 * time.Second) // start writing in 3 second intervals
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	logger.GetLogger().Debugf("Writing to %s", memoryPath)
+	logger.Logger.Debugf("Writing to %s", memoryPath)
 	for _, batch := range memory_buffer {
 		err := WriteAllToMemoryCSV(memoryPath, batch.Entries)
 		if err != nil {
@@ -90,4 +113,17 @@ func scheduleWriter(memoryPath string) {
 	}
 	// memory_buffer = nil // Clear the buffer after processing
 
+}
+
+func LoadMemory(db *gorm.DB) []models.FileHash {
+	result := []models.FileHash{}
+	repo := database.FileHashRepository{Db: db}
+
+	records, err := repo.GetAll()
+	logger.PanicAndLog(err)
+	for _, val := range records {
+		result = append(result, MapToServiceDTO(val))
+	}
+
+	return result
 }
