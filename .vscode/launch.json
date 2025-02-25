@@ -12,10 +12,10 @@
             "program": "cmd/main.go",
             "args": [
                 "-m=sf",
-                "-s=/home/andreas/Code/GoLang/Dude/testfiles/WorkingCopies/Test",
-                "-t=/home/andreas/Code/GoLang/Dude/testfiles/WorkingCopies/Test_target",
-                "-c=/home/andreas/Code/GoLang/Dude/cmd/memory.csv",
-                "-r=/home/andreas/Code/GoLang/Dude/cmd/results.csv"
+                "-s=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test",
+                "-t=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test_target",
+                "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
+                "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
             ]
         },
         {
@@ -28,7 +28,7 @@
                 "-m=sf",
                 "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
                 "-t=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test_target",
-                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.csv",
+                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
                 "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
             ]
         }

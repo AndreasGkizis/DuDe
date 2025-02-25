@@ -2,10 +2,12 @@ package main
 
 import (
 	common "DuDe/common"
+	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
 	process "DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"DuDe/models"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -35,7 +37,8 @@ func main() {
 	//override file args with cli
 	loadedArgs = handlers.GetCLIArgs(loadedArgs)
 
-	process.CreateMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
+	a, err := db.NewDatabase(loadedArgs[common.ArgFilename_cacheDir])
+	fmt.Print(a)
 	hashMemory, err := process.LoadMemoryCSV(loadedArgs[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
 
