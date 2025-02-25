@@ -13,12 +13,16 @@ const def = "default"
 // get CLI arguments and overwrites the previous arguments
 func GetCLIArgs(result map[string]string) map[string]string {
 	var curMode string
+	var debugMode string
 	var sourceDir string
 	var targetDir string
 	var cacheDir string
 	var resultDir string
 
 	flagsMap := make(map[string]string)
+
+	flag.StringVar(&debugMode, common.DbgFlagName_long, def, "activate debugger to get all kinds of logs and traces")
+	flag.StringVar(&debugMode, common.DbgFlagName, def, "activate debugger to get all kinds of logs and traces")
 
 	flag.StringVar(&curMode, "mode", def, "use sf for single-folder or df for dual-folder.")
 	flag.StringVar(&curMode, "m", def, "use sf for single-folder or df for dual-folder.")
@@ -44,6 +48,10 @@ func GetCLIArgs(result map[string]string) map[string]string {
 	for key, flag := range flagsMap {
 		if flag != def {
 			switch key {
+			case "debug", "dbg":
+				if flag == common.DbgFlagActiveValue {
+					result[key] = flag
+				}
 			case "mode", "m":
 				result[key] = flag
 			case "source", "s":

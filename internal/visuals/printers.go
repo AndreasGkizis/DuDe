@@ -49,7 +49,7 @@ func waitAndExit() {
 
 func PrintDuplicates(input []models.DuDeFile) {
 
-	logger := common.GetLogger()
+	logger := common.Logger
 	for _, file := range input {
 		if len(file.DuplicatesFound) > 0 {
 			logger.Infof("File: %s, Duplicates: %d", file.Filename, len(file.DuplicatesFound))
