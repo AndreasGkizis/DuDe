@@ -46,17 +46,15 @@ func createLogFile() (*os.File, error) {
 
 	// Check if the logs directory exists
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
-		// Create logs directory if it doesn't exist
 		err = os.Mkdir(basedir, 0755)
 		if err != nil {
-			return nil, err // Return error if unable to create directory
+			return nil, err
 		}
 	}
 
-	// Now try to create or open the log file
 	logFile, err := os.OpenFile(logFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		return nil, err // Return error if unable to open/create log file
+		return nil, err
 	}
 
 	return logFile, nil

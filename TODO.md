@@ -12,8 +12,8 @@
     - [ ] create help menu
     - [ ] include descriptions in user files
   - [ ] improve ssd bottleneck if possible (probably not possible)
-  - [ ] add 2nd folder comparison.
-  - [ ] logs to file per execution
+  - [x] add 2nd folder comparison.
+  - [x] logs to file per execution
     - [ ] rolling log files with size limit. probably useless...
-  - [ ] add sqlite? 
+  - [x] add sqlite? 
   - [ ] add clear cache option

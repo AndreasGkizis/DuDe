@@ -8,10 +8,23 @@ import (
 	"strings"
 )
 
-const def = "default"
+// Loads both File and CLI Arguments.
+// CLI arguments Override the file arguments.
+func LoadArgs() map[string]string {
 
-// get CLI arguments and overwrites the previous arguments
-func GetCLIArgs(result map[string]string) map[string]string {
+	fileArguments := []string{
+		common.ArgFilename_cacheDir,
+		common.ArgFilename_resDir,
+		common.ArgFilename_sourceDir,
+		common.ArgFilename_targetDir,
+	}
+
+	loadedFileArgs := getFileArguments(fileArguments)
+	result := getCLIArgs(loadedFileArgs)
+	return result
+}
+
+func getCLIArgs(result map[string]string) map[string]string {
 	var curMode string
 	var debugMode string
 	var sourceDir string
@@ -21,23 +34,23 @@ func GetCLIArgs(result map[string]string) map[string]string {
 
 	flagsMap := make(map[string]string)
 
-	flag.StringVar(&debugMode, common.DbgFlagName_long, def, "activate debugger to get all kinds of logs and traces")
-	flag.StringVar(&debugMode, common.DbgFlagName, def, "activate debugger to get all kinds of logs and traces")
+	flag.StringVar(&debugMode, common.DbgFlagName_long, common.Def, "activate debugger to get all kinds of logs and traces")
+	flag.StringVar(&debugMode, common.DbgFlagName, common.Def, "activate debugger to get all kinds of logs and traces")
 
-	flag.StringVar(&curMode, "mode", def, "use sf for single-folder or df for dual-folder.")
-	flag.StringVar(&curMode, "m", def, "use sf for single-folder or df for dual-folder.")
+	flag.StringVar(&curMode, common.ModeFlag_long, common.Def, "use sf for single-folder or df for dual-folder.")
+	flag.StringVar(&curMode, common.ModeFlag, common.Def, "use sf for single-folder or df for dual-folder.")
 
-	flag.StringVar(&sourceDir, "source", def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
-	flag.StringVar(&sourceDir, "s", def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
+	flag.StringVar(&sourceDir, common.SourceFlag_long, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
+	flag.StringVar(&sourceDir, common.SourceFlag, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
 
-	flag.StringVar(&targetDir, "target", def, "The directory of the source folder [absolute path].")
-	flag.StringVar(&targetDir, "t", def, "The directory of the source folder [absolute path].")
+	flag.StringVar(&targetDir, common.TargetFlag_long, common.Def, "The directory of the source folder [absolute path].")
+	flag.StringVar(&targetDir, common.TargetFlag, common.Def, "The directory of the source folder [absolute path].")
 
-	flag.StringVar(&cacheDir, "cache-dir", def, "The directory where the `memory.csv` file will be kept and created [relative path].")
-	flag.StringVar(&cacheDir, "c", def, "The directory where the `memory.csv` file will be kept and created [relative path].")
+	flag.StringVar(&cacheDir, common.CacheDirFlag_long, common.Def, "The directory where the `memory.db` file will be kept and created [relative path].")
+	flag.StringVar(&cacheDir, common.CacheDirFlag, common.Def, "The directory where the `memory.db` file will be kept and created [relative path].")
 
-	flag.StringVar(&resultDir, "results", def, "The directory where the `results.csv` file will be kept and created [relative path].")
-	flag.StringVar(&resultDir, "r", def, "The directory where the `results.csv` file will be kept and created [relative path].")
+	flag.StringVar(&resultDir, common.ResultDirFlag_long, common.Def, "The directory where the `results.csv` file will be kept and created [relative path].")
+	flag.StringVar(&resultDir, common.ResultDirFlag, common.Def, "The directory where the `results.csv` file will be kept and created [relative path].")
 
 	flag.Parse()
 
@@ -46,7 +59,7 @@ func GetCLIArgs(result map[string]string) map[string]string {
 	})
 
 	for key, flag := range flagsMap {
-		if flag != def {
+		if flag != common.Def {
 			switch key {
 			case "debug", "dbg":
 				if flag == common.DbgFlagActiveValue {
@@ -68,16 +81,16 @@ func GetCLIArgs(result map[string]string) map[string]string {
 	return result
 }
 
-func GetFileArguments(args []string) map[string]string {
+func getFileArguments(args []string) map[string]string {
 
 	result := make(map[string]string, 0)
 	basedir := "."
 
-	targetsPath, _ := process.FindFullFilePath(basedir, common.ArgFilename)
-	dat, err := os.ReadFile(targetsPath)
+	argumentsPath, _ := process.FindFullFilePath(basedir, common.ArgFilename)
+	data, err := os.ReadFile(argumentsPath)
 	common.PanicAndLog(err)
 
-	lines := strings.Split(string(dat), "\n")
+	lines := strings.Split(string(data), "\n")
 
 	for _, line := range lines {
 
@@ -91,8 +104,14 @@ func GetFileArguments(args []string) map[string]string {
 
 		for _, arg := range args {
 			if key == arg {
-				result[arg] = value
-				break
+				if strings.HasPrefix(value, "<") {
+					result[arg] = common.Def
+					break
+				}
+				if value != common.Def {
+					result[arg] = value
+					break
+				}
 			}
 		}
 	}
