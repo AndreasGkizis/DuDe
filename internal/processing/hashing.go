@@ -64,7 +64,6 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 					ModTime:  fileStats.ModTime().Unix(),
 				}
 
-				// *memory = append(*memory, newMem)
 				memoryChan <- newMem
 			}
 

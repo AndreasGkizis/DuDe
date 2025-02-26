@@ -5,7 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "LinuxHome",
+            "name": "LinuxHome-df",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/main.go",
+            "args": [
+                "-dbg=true",
+                "-m=df",
+                "-s=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test",
+                "-t=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test_target",
+                "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
+                "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
+            ]
+        },
+        {
+            "name": "LinuxHome-sf",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -14,13 +29,12 @@
                 "-dbg=true",
                 "-m=sf",
                 "-s=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test",
-                "-t=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test_target",
                 "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
                 "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
             ]
         },
         {
-            "name": "Windows",
+            "name": "Windows-sf",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -28,6 +42,20 @@
             "args": [
                 "-dbg=true",
                 "-m=sf",
+                "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
+                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
+                "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
+            ]
+        },
+        {
+            "name": "Windows-df",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/main.go",
+            "args": [
+                "-dbg=true",
+                "-m=df",
                 "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
                 "-t=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test_target",
                 "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",

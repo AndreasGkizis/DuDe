@@ -3,13 +3,31 @@ package common
 import "sync"
 
 const (
+	Def = "default"
+
 	ArgFilename = "arguments.txt"
-	MemFilename = "memory.csv"
 	ResFilename = "results.csv"
 
-	DbgFlagName_long      = "debug"
-	DbgFlagName           = "dbg"
-	DbgFlagActiveValue    = "enable"
+	// cli flags
+	DbgFlagName_long   = "debug"
+	DbgFlagName        = "dbg"
+	DbgFlagActiveValue = "enable"
+
+	ModeFlag      = "m"
+	ModeFlag_long = "mode"
+
+	SourceFlag      = "s"
+	SourceFlag_long = "source"
+
+	TargetFlag      = "t"
+	TargetFlag_long = "target"
+
+	CacheDirFlag      = "c"
+	CacheDirFlag_long = "cache-dir"
+
+	ResultDirFlag      = "r"
+	ResultDirFlag_long = "results"
+
 	ArgFilename_cacheDir  = "CACHE_FILE"
 	ArgFilename_resDir    = "RESULT_FILE"
 	ArgFilename_sourceDir = "SOURCE_DIR"
@@ -22,15 +40,8 @@ CACHE_FILE=<... your desired memory file full path...>`
 
 var (
 	mu            sync.Mutex
-	memoryHeader  = []string{"File Path", "Hash", "Modification Time", "File Size"}
 	resultsHeader = []string{"File Name", "Path", "Duplicate File Name", "Duplicate Path"}
 )
-
-func GetMemHeader() []string {
-	mu.Lock()
-	defer mu.Unlock()
-	return memoryHeader
-}
 
 func GetResultsHeader() []string {
 	mu.Lock()

@@ -136,32 +136,6 @@ func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
 	return nil
 }
 
-func CreateMemoryCSV(filename string) error {
-
-	_, err := os.Stat(filename)
-	if err == nil {
-		// File exists, no need to create it again
-		common.Logger.Debug("File already exists. Skipping creation.")
-		return nil
-	}
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header
-	header := common.GetMemHeader()
-	err = writer.Write(header)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func WriteAllToMemoryCSV(memoryPath string, info models.FileHashSlice) error {
 	fmt.Print("das")
 	common.Logger.Info("writing memory file")

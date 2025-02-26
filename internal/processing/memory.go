@@ -1,7 +1,7 @@
 package processing
 
 import (
-	logger "DuDe/common"
+	common "DuDe/common"
 	database "DuDe/internal/db"
 	"DuDe/models"
 	"fmt"
@@ -44,7 +44,7 @@ func StartMemoryUpdateBackgroundProcess(path string, memoryChan <-chan models.Fi
 				mutex.Unlock()
 			case t := <-ticker.C:
 				mutex.Lock()
-				logger.Logger.Log(zapcore.DebugLevel, t)
+				common.Logger.Log(zapcore.DebugLevel, t)
 				// only adds to buffer if there is something in this batch
 				if len(currentBatch.Entries) > 0 { // Write even if batch is not full
 					memory_buffer = append(memory_buffer, currentBatch)
@@ -67,14 +67,14 @@ func StartMemoryUpdateBackgroundProcess(path string, memoryChan <-chan models.Fi
 }
 
 func UpdateMemory(db *gorm.DB, memoryChan <-chan models.FileHash) {
-	logger.Logger.Info("started memory.UpdateMemory()")
+	common.Logger.Info("started memory.UpdateMemory()")
 	repo := database.FileHashRepository{Db: db}
 
 	for fh := range memoryChan {
-		logger.Logger.Debugf("Go one from %s. path: %s, hash: %s", memoryChan, fh.FilePath, fh.Hash)
+		common.Logger.Debugf("Go one from %s. path: %s, hash: %s", memoryChan, fh.FilePath, fh.Hash)
 		db_obj := MapToDomainDTO(fh)
 		err := repo.Upsert(&db_obj)
-		logger.PanicAndLog(err)
+		common.PanicAndLog(err)
 	}
 }
 
@@ -93,21 +93,21 @@ func scheduleWriter(memoryPath string) {
 	runningSchedulers <- struct{}{} // attempting to get semaphore
 	var mutex sync.Mutex
 
-	logger.Logger.Debugf("got semaphore!")
+	common.Logger.Debugf("got semaphore!")
 	defer func() {
 		<-runningSchedulers
-		logger.Logger.Debugf("semaphore released!")
+		common.Logger.Debugf("semaphore released!")
 	}()
 
 	// time.Sleep(3 * time.Second) // start writing in 3 second intervals
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	logger.Logger.Debugf("Writing to %s", memoryPath)
+	common.Logger.Debugf("Writing to %s", memoryPath)
 	for _, batch := range memory_buffer {
 		err := WriteAllToMemoryCSV(memoryPath, batch.Entries)
 		if err != nil {
-			logger.PanicAndLog(err)
+			common.PanicAndLog(err)
 		}
 		batch.Saved = true
 	}
@@ -120,7 +120,7 @@ func LoadMemory(db *gorm.DB) []models.FileHash {
 	repo := database.FileHashRepository{Db: db}
 
 	records, err := repo.GetAll()
-	logger.PanicAndLog(err)
+	common.PanicAndLog(err)
 	for _, val := range records {
 		result = append(result, MapToServiceDTO(val))
 	}
