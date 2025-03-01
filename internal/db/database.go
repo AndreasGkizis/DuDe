@@ -1,51 +1,21 @@
-// db/database.go
 package db
 
 import (
-	"DuDe/models/db_models"
-	"log"
+	"database/sql"
 	"os"
-	"time"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	_ "modernc.org/sqlite"
 )
 
-type DatabaseConfig struct {
-	DSN string
-}
-
 // NewDatabase returns a new database connection
-func NewDatabase(path string, debugEnabled bool) (*gorm.DB, error) {
-
-	var db *gorm.DB
-	var err error
-
-	if debugEnabled {
-		newLogger := logger.New(
-			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-			logger.Config{
-				SlowThreshold:             time.Second, // Slow SQL threshold
-				LogLevel:                  logger.Info, // Log level
-				IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
-				ParameterizedQueries:      false,       // Don't include params in the SQL log
-				Colorful:                  true,        // Disable color
-
-			},
-		)
-
-		db, err = gorm.Open(sqlite.Open(path), &gorm.Config{Logger: newLogger})
-
-	} else {
-		db, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
-
-	}
+func NewDatabase(path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = AutoMigrate(db); err != nil { //Move AutoMigrate into the function and handle the error.
+	if err = AutoMigrate(db); err != nil {
+		db.Close() // Close the db if automigration fails.
 		return nil, err
 	}
 
@@ -53,11 +23,20 @@ func NewDatabase(path string, debugEnabled bool) (*gorm.DB, error) {
 }
 
 // AutoMigrate creates the database schema based on models
-func AutoMigrate(db *gorm.DB) error {
-	err := db.AutoMigrate(
-		&db_models.FileHash{},
-		// Add other models here as needed
-	)
+func AutoMigrate(db *sql.DB) error {
+	_, err := db.Exec(`
+                CREATE TABLE IF NOT EXISTS file_hashes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        path TEXT UNIQUE,
+                        hash TEXT,
+                        size INTEGER,
+                        modified_time TEXT,
+						updated_at TEXT,
+						created_at TEXT
+                )
+        `)
+
+	// NOTE: add more tables as you go
 	if err != nil {
 		return err
 	}

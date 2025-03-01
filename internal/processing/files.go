@@ -5,11 +5,9 @@ import (
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"encoding/csv"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -39,7 +37,7 @@ func FindFullFilePath(dir string, filename string) (string, error) {
 	return foundPath, nil
 }
 
-func StoreFilePaths(result *[]models.DuDeFile) func(path string, d fs.DirEntry, err error) error {
+func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, err error) error {
 	return func(path string, d fs.DirEntry, err error) error {
 
 		if err != nil {
@@ -50,8 +48,8 @@ func StoreFilePaths(result *[]models.DuDeFile) func(path string, d fs.DirEntry, 
 		}
 
 		if !d.IsDir() {
-			newFile := models.DuDeFile{
-				FullPath: path,
+			newFile := models.FileHash{
+				FilePath: path,
 			}
 			*result = append(*result, newFile)
 		}
@@ -128,38 +126,6 @@ func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
 		})
 		if err != nil {
 			return err
-		}
-	}
-
-	return nil
-}
-
-func WriteAllToMemoryCSV(memoryPath string, info models.FileHashSlice) error {
-	fmt.Print("das")
-	common.Logger.Info("writing memory file")
-	if _, err := os.Stat(memoryPath); os.IsNotExist(err) {
-		return err
-	}
-
-	f, err := os.OpenFile(memoryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("error opening file %s: %w", memoryPath, err)
-	}
-	defer f.Close()
-
-	writer := csv.NewWriter(f)
-	defer writer.Flush()
-
-	for _, v := range info {
-		record := []string{
-			v.FilePath,
-			v.Hash,
-			strconv.FormatInt(v.ModTime, 10),
-			strconv.FormatInt(v.FileSize, 10),
-		}
-		err = writer.Write(record)
-		if err != nil {
-			return fmt.Errorf("error writing record to file %s: %w", memoryPath, err)
 		}
 	}
 

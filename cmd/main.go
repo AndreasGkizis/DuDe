@@ -31,13 +31,13 @@ func main() {
 
 	dualFolderMode := Args[common.ArgFilename_targetDir] != common.Def
 
-	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir], Args[common.DbgFlagName] == common.DbgFlagActiveValue)
+	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
 
 	hashMemory := process.LoadMemory(db)
 
-	sourceDirFiles := make([]models.DuDeFile, 0)
-	targetDirFiles := make([]models.DuDeFile, 0)
+	sourceDirFiles := make([]models.FileHash, 0)
+	targetDirFiles := make([]models.FileHash, 0)
 
 	if dualFolderMode {
 		err = filepath.WalkDir(Args[common.ArgFilename_targetDir], process.StoreFilePaths(&targetDirFiles))
@@ -46,7 +46,7 @@ func main() {
 			log.Fatalf("Error walking directory: %v", err)
 		}
 
-		process.CreateHashes(&targetDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory, true)
+		process.CreateHashes(&targetDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory)
 	}
 
 	err = filepath.WalkDir(Args[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceDirFiles))
@@ -55,7 +55,7 @@ func main() {
 		log.Fatalf("Error walking directory: %v", err)
 	}
 
-	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory, true)
+	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory)
 
 	close(memoryChan)
 	process.Remember(db, memoryChan)
