@@ -16,13 +16,18 @@ func init() {
 }
 
 func main() {
+	log := common.Logger
+
+	availableCPUs := runtime.NumCPU()
+	Args := handlers.LoadArgs()
+
+	visuals.PrintIntro()
 
 	progressCh := make(chan int, 100)
 	memoryChan := make(chan models.FileHash, 100) // in theory the files get hashed much slower than they get saved, so this would remain empty for a most time. needs investigating
 
-	log := common.Logger
-	availableCPUs := runtime.NumCPU()
-	Args := handlers.LoadArgs()
+	pt := visuals.NewProgressTracker()
+	pt.Start(50, progressCh)
 
 	dualFolderMode := Args[common.ArgFilename_targetDir] != common.Def
 
@@ -41,7 +46,7 @@ func main() {
 			log.Fatalf("Error walking directory: %v", err)
 		}
 
-		process.CreateHashes(&targetDirFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
+		process.CreateHashes(&targetDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory, true)
 	}
 
 	err = filepath.WalkDir(Args[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceDirFiles))
@@ -50,12 +55,10 @@ func main() {
 		log.Fatalf("Error walking directory: %v", err)
 	}
 
-	go visuals.MonitorProgress(len(sourceDirFiles)+len(targetDirFiles), progressCh)
-
-	process.CreateHashes(&sourceDirFiles, availableCPUs, progressCh, memoryChan, &hashMemory, true)
+	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory, true)
 
 	close(memoryChan)
-	process.Updatewitwg(db, memoryChan)
+	process.Remember(db, memoryChan)
 
 	if dualFolderMode {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)

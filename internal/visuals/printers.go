@@ -2,18 +2,19 @@ package visuals
 
 import (
 	common "DuDe/common"
-	"DuDe/models"
 	"bufio"
 	"fmt"
-	"log"
 	"os"
-	"runtime"
 	"strings"
-	"time"
+	"sync"
+	"sync/atomic"
 )
 
 func DirDoesNotExistMessage(path string) {
-	fmt.Printf("ERROR !... The path \"%s\" does not exist... ! ERROR\n", path)
+	fmt.Println("!~~ ERROR ~~!")
+	fmt.Printf("The path:\"%s\" does not exist\n", path)
+	fmt.Println("!~~ ERROR ~~!")
+	fmt.Println()
 	fmt.Println("!~~ How to solve this issue ~~!")
 	fmt.Println()
 	fmt.Println()
@@ -47,19 +48,6 @@ func waitAndExit() {
 	os.Exit(0)
 }
 
-func PrintDuplicates(input []models.DuDeFile) {
-
-	logger := common.Logger
-	for _, file := range input {
-		if len(file.DuplicatesFound) > 0 {
-			logger.Infof("File: %s, Duplicates: %d", file.Filename, len(file.DuplicatesFound))
-			for _, dup := range file.DuplicatesFound {
-				logger.Infof("\tDuplicate: %s", dup.Filename)
-			}
-		}
-	}
-}
-
 func PrintIntro() {
 	intro := `
  ██████╗  ██╗   ██╗        ██████╗  ███████╗ 
@@ -77,42 +65,44 @@ func PrintIntro() {
 	fmt.Print(intro + "\n")
 }
 
-func MonitorGoroutines(stopChan chan struct{}) {
-	ticker := time.NewTicker(100 * time.Millisecond) // Adjust interval as needed
-	defer ticker.Stop()
+func (pt *ProgressTracker) updateProgressBar(barLength int, progressCh <-chan int) {
 
-	for {
-		select {
-		case <-stopChan:
-			log.Println("Stopping goroutine.")
-		case <-ticker.C:
-			// Print the current number of goroutines
-			log.Printf("Active goroutines: %d\n", runtime.NumGoroutine())
+	var percentage float64
+	for range progressCh {
+		percentage = float64(pt.currentProgress) / float64(pt.totalFiles) * 100
+
+		progress := int(float64(barLength) * percentage / 100)
+		progressBar := strings.Repeat("█", progress) + strings.Repeat("░", barLength-progress)
+
+		fmt.Printf("\r\033[KProgress: %s %.1f %%", progressBar, percentage)
+
+		if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
+			fmt.Println("\nAll files processed!")
+			pt.wg.Done()
+			return
 		}
 	}
 }
 
-func MonitorProgress(totalFiles int, progressCh <-chan int) {
+type ProgressTracker struct {
+	totalFiles      int64
+	currentProgress int64
+	wg              sync.WaitGroup
+}
 
-	var currentProgress int
-	var percentage float64
+func NewProgressTracker() *ProgressTracker {
+	return &ProgressTracker{}
+}
 
-	for {
-		select {
-		case currentProgress = <-progressCh:
+func (pt *ProgressTracker) AddTotal(count int64) {
+	atomic.AddInt64(&pt.totalFiles, count)
+}
 
-			percentage = float64(currentProgress) / float64(totalFiles) * 100
+func (pt *ProgressTracker) Increment() {
+	atomic.AddInt64(&pt.currentProgress, 1)
+}
 
-			barLength := 50 // Length of the progress bar in characters
-			progress := int(float64(barLength) * percentage / 100)
-			progressBar := strings.Repeat("█", progress) + strings.Repeat("░", barLength-progress)
-
-			fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
-
-			if currentProgress == totalFiles {
-				fmt.Println("\nAll files processed!")
-				return
-			}
-		}
-	}
+func (pt *ProgressTracker) Start(barLength int, progressCh <-chan int) {
+	pt.wg.Add(1)
+	go pt.updateProgressBar(barLength, progressCh)
 }
