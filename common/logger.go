@@ -1,8 +1,10 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"go.uber.org/zap"
@@ -38,12 +40,32 @@ func PanicAndLog(e error) {
 	}
 }
 
-func createLogFile() (*os.File, error) {
-	logFilename := time.Now().Format("2006-01-02_15-04-05") + ".log"
-	basedir := "./logs"
-	var logFile *os.File
-	logFilepath := filepath.Join(basedir, logFilename)
+func DebugWithFuncName(message string) {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Debug(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
 
+	Logger.Debug(fmt.Sprintf("%s() -> %s", funcName, message))
+}
+
+func createLogFile() (*os.File, error) {
+	var logFile *os.File
+	logFilename := time.Now().Format("2006-01-02_15-04-05") + ".log"
+
+	executablePath, err := os.Executable()
+
+	fmt.Println("Executable Path:", executablePath) // Add this line
+	if err != nil {
+		return nil, err
+	}
+	executableDir := filepath.Dir(executablePath)
+
+	basedir := filepath.Join(executableDir, "logs")
+	logFilepath := filepath.Join(basedir, logFilename)
+	fmt.Print(logFilepath)
 	// Check if the logs directory exists
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
 		err = os.Mkdir(basedir, 0755)
@@ -52,7 +74,7 @@ func createLogFile() (*os.File, error) {
 		}
 	}
 
-	logFile, err := os.OpenFile(logFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err = os.OpenFile(logFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}

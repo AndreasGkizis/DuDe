@@ -2,18 +2,18 @@ package processing
 
 import (
 	logger "DuDe/common"
+	"DuDe/internal/visuals"
 	models "DuDe/models"
 	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
 	"sync"
-	"sync/atomic"
 )
 
-func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash, enableMemory bool) error {
+func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, pt *visuals.ProgressTracker, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash, enableMemory bool) error {
 
-	var doneFiles int32 // Atomic counter for progress tracking
+	pt.AddTotal(int64(len(*sourceFiles)))
 
 	var wg sync.WaitGroup
 	mutex := sync.Mutex{}
@@ -22,7 +22,7 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 	for i := range *sourceFiles {
 		wg.Add(1)
 		go func(index int) error {
-			// wg.Done()
+
 			var hash string
 			var err error
 			// using struct{}{} since it allocates nothing , it is a pure signal
@@ -67,8 +67,8 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, progressCh cha
 				memoryChan <- newMem
 			}
 
-			atomic.AddInt32(&doneFiles, 1)
-			progressCh <- int(doneFiles)
+			progressCh <- 1
+			pt.Increment()
 			wg.Done()
 			return nil
 		}(i)
