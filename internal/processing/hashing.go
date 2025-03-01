@@ -121,7 +121,7 @@ func FindDuplicates(inputs ...*[]models.DuDeFile) {
 			// occurrenceCounter := 0
 			for j := range *second {
 				if (*first)[i].Hash == (*second)[j].Hash {
-					(*first)[i].DuplicatesFound = append((*first)[i].DuplicatesFound, (*second)[i])
+					(*first)[i].DuplicatesFound = append((*first)[i].DuplicatesFound, (*second)[j])
 				}
 			}
 		}

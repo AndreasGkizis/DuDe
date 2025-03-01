@@ -39,6 +39,12 @@ create_sample_files(){
     cp "$dir/audio_files/"$prefix"-has_duplicate.mp3" "$dir/audio_files/"$prefix"-has_duplicate1.mp3" # Duplicate
     openssl rand -out "$dir/audio_files/"$prefix"-has_no_duplicate.wav" 1024
 
+
+    # Create UNIQUE FILES
+    openssl rand -out "$dir/"$prefix"-unique1.pdf" 512
+    openssl rand -out "$dir/"$prefix"-unique2.png" 1024
+    openssl rand -out "$dir/"$prefix"-unique3.zip" 2048
+
     echo "Sample files created in $dir"
 }
 
