@@ -13,8 +13,8 @@
             "args": [
                 "-dbg=true",
                 "-m=df",
-                "-s=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test",
-                "-t=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test_target",
+                "-s=/home/andreas/Code/golang/DuDe/testfiles/source",
+                "-t=/home/andreas/Code/golang/DuDe/testfiles/target",
                 "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
                 "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
             ]
@@ -28,7 +28,7 @@
             "args": [
                 "-dbg=true",
                 "-m=sf",
-                "-s=/home/andreas/Code/golang/DuDe/testfiles/WorkingCopies/Test",
+                "-s=/home/andreas/Code/golang/DuDe/testfiles/source",
                 "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
                 "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
             ]

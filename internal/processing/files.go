@@ -5,9 +5,7 @@ import (
 	"DuDe/internal/visuals"
 	"DuDe/models"
 	"encoding/csv"
-	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -166,45 +164,6 @@ func WriteAllToMemoryCSV(memoryPath string, info models.FileHashSlice) error {
 	}
 
 	return nil
-}
-
-func LoadMemoryCSV(filepath string) ([]models.FileHash, error) {
-	result := make([]models.FileHash, 0)
-	f, err := os.Open(filepath)
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			visuals.DirDoesNotExistMessage(filepath)
-		}
-		return nil, err
-	}
-
-	defer f.Close()
-
-	reader := csv.NewReader(f)
-
-	_, err = reader.Read() // Read and discard the first row (header)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		record, err := reader.Read()
-		if err == nil {
-			modTime, _ := strconv.ParseInt(record[2], 10, 64)
-			fileSize, _ := strconv.ParseInt(record[3], 10, 64)
-			fileHash := models.FileHash{
-				FilePath: record[0],
-				Hash:     record[1],
-				ModTime:  modTime,
-				FileSize: fileSize,
-			}
-
-			result = append(result, fileHash)
-		} else if errors.Is(err, io.EOF) {
-			return result, nil
-		}
-	}
 }
 
 func DeleteFile(path string) error {

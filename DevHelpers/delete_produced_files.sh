@@ -27,7 +27,6 @@ remove_dir() {
     fi
 }
 
-    echo "$LOGS_DIR"
-    remove_dir "$LOGS_DIR"
-    remove_file "$CMD_DIR/memory.db" 
-    remove_file "$CMD_DIR/results.csv" 
+remove_dir "$LOGS_DIR"
+remove_file "$CMD_DIR/memory.db" 
+remove_file "$CMD_DIR/results.csv" 
