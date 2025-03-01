@@ -9,63 +9,53 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
 
-func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, pt *visuals.ProgressTracker, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash, enableMemory bool) error {
+func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash) error {
 
 	pt.AddTotal(int64(len(*sourceFiles)))
 
 	var wg sync.WaitGroup
-	mutex := sync.Mutex{}
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
 
 	for i := range *sourceFiles {
 		wg.Add(1)
 		go func(index int) error {
-
+			fmt.Println(index)
 			var hash string
-			var err error
 			// using struct{}{} since it allocates nothing , it is a pure signal
 			sem <- struct{}{}        // Acquire a slot
 			defer func() { <-sem }() // Release the slot
 
-			if enableMemory {
+			path := (*sourceFiles)[index].FilePath
+			stats, _ := os.Stat(path)
 
-				path := (*sourceFiles)[index].FullPath
-				memoryOfFile := models.FindByPath(*memory, path)
-				stats, _ := os.Stat(path)
+			memoryOfFile := models.FindByPath(memory, path)
 
-				if memoryOfFile == nil ||
-					memoryOfFile.FileSize != stats.Size() ||
-					memoryOfFile.ModTime != stats.ModTime().Unix() {
-					hash, err = calculateMD5Hash((*sourceFiles)[index])
-					if err != nil {
-						return err
-					}
+			curSize := stats.Size()
+			curModTime := stats.ModTime().Format(time.RFC3339) //TODO: ncap[sulate into model
 
-				} else {
-					hash = memoryOfFile.Hash
-				}
+			fileMemoryMissing := memoryOfFile == nil
+			fileChanged := memoryOfFile != nil && (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
+
+			if fileMemoryMissing {
+				hash = calculateMD5Hash((*sourceFiles)[index])
+			} else if fileChanged {
+				hash = calculateMD5Hash((*sourceFiles)[index])
+			} else {
+				hash = memoryOfFile.Hash
 			}
 
-			name := GetFileName((*sourceFiles)[index].FullPath)
-			mutex.Lock()
-			(*sourceFiles)[index].Hash = hash
-			(*sourceFiles)[index].Filename = name
-			mutex.Unlock()
-
-			if enableMemory {
-
-				fileStats, _ := os.Stat((*sourceFiles)[index].FullPath)
-				newMem := models.FileHash{
-					FilePath: (*sourceFiles)[index].FullPath,
-					Hash:     (*sourceFiles)[index].Hash,
-					FileSize: fileStats.Size(),
-					ModTime:  fileStats.ModTime().Unix(),
-				}
-
-				memoryChan <- newMem
+			newMem := models.FileHash{
+				FileName: GetFileName(path),
+				FilePath: path,
+				Hash:     hash,
+				FileSize: curSize,
+				ModTime:  curModTime,
 			}
+
+			memoryChan <- newMem
 
 			progressCh <- 1
 			pt.Increment()
@@ -80,10 +70,14 @@ func CreateHashes(sourceFiles *[]models.DuDeFile, maxWorkers int, pt *visuals.Pr
 	return nil
 }
 
-func calculateMD5Hash(file models.DuDeFile) (string, error) {
+func calculateMD5Hash(file models.FileHash) string {
 	hasherMD5 := md5.New()
 
-	f, err := os.Open(file.FullPath)
+	f, err := os.Open(file.FilePath)
+	if err != nil {
+		logger.PanicAndLog(err)
+	}
+
 	defer func() {
 		err := f.Close()
 		if err != nil {
@@ -92,10 +86,10 @@ func calculateMD5Hash(file models.DuDeFile) (string, error) {
 	}()
 
 	io.Copy(hasherMD5, f)
-	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), err
+	return fmt.Sprintf("%x", hasherMD5.Sum(nil))
 }
 
-func FindDuplicates(inputs ...*[]models.DuDeFile) {
+func FindDuplicates(inputs ...*[]models.FileHash) {
 
 	if len(inputs) == 1 {
 		input := inputs[0]
@@ -129,9 +123,9 @@ func FindDuplicates(inputs ...*[]models.DuDeFile) {
 
 }
 
-func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
+func GetDuplicates(input *[]models.FileHash) []models.FileHash {
 	seen := make(map[string]bool)
-	result := make([]models.DuDeFile, 0)
+	result := make([]models.FileHash, 0)
 	for _, val := range *input {
 		if len(val.DuplicatesFound) > 0 {
 			if !seen[val.Hash] {
@@ -143,16 +137,16 @@ func GetDuplicates(input *[]models.DuDeFile) []models.DuDeFile {
 	return result
 }
 
-func GetFlattened(input *[]models.DuDeFile) []models.ResultEntry {
+func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
 	separatorEntry := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
 	for _, val := range *input {
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
-				Filename:          val.Filename,
-				FullPath:          val.FullPath,
-				DuplicateFilename: dup.Filename,
-				DuplicateFullPath: dup.FullPath,
+				Filename:          val.FileName,
+				FullPath:          val.FilePath,
+				DuplicateFilename: dup.FileName,
+				DuplicateFullPath: dup.FilePath,
 			}
 			result = append(result, a)
 		}
