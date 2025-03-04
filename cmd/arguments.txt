@@ -2,3 +2,5 @@ SOURCE_DIR=<... your desired source full path...>
 TARGET_DIR=<... your desired target full path...>
 RESULT_FILE=<... your desired result file full path...>
 CACHE_FILE=<... your desired memory file full path...>
+EXECUTION_MODE=<... your desired execution mode here use "sf" for single-folder or "df" for dual-folder ...>
+DEBUG_MODE=<... to enable Debug mode add "enable" here ...>

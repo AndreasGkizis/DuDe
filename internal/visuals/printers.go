@@ -39,7 +39,7 @@ func ArgsFileNotFound() {
 func waitAndExit() {
 	fmt.Println()
 	fmt.Println()
-	fmt.Println("--------> Press Enter key to exit <--------")
+	fmt.Println("--------> Press ENTER key to exit <--------")
 	fmt.Println()
 	fmt.Println()
 
