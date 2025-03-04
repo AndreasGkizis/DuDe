@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -47,7 +48,7 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			}
 
 			newMem := models.FileHash{
-				FileName: GetFileName(path),
+				FileName: filepath.Base(path),
 				FilePath: path,
 				Hash:     hash,
 				FileSize: curSize,
@@ -55,7 +56,6 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			}
 
 			sendWithRetry(memoryChan, newMem, 1, 150*time.Millisecond)
-			// memoryChan <- newMem
 
 			progressCh <- 1
 			pt.Increment()

@@ -8,34 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 )
-
-func FindFullFilePath(dir string, filename string) (string, error) {
-	var foundPath string
-
-	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		if info.Name() == filename {
-			foundPath = path
-			return filepath.SkipDir // Stop walking after finding the first occurrence
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return "", err
-	}
-	return foundPath, nil
-}
 
 func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, err error) error {
 	return func(path string, d fs.DirEntry, err error) error {
@@ -58,28 +31,18 @@ func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, 
 	}
 }
 
-func GetFileName(input string) string {
-	if input == "" {
-		return ""
-	}
-
-	parts := strings.Split(input, "/")
-	if len(parts) == 0 {
-		return ""
-	}
-
-	return parts[len(parts)-1]
-}
-
 func CreateArgsFile() error {
-	filename := common.ArgFilename
-	basedir := "."
+	executablePath, err := os.Executable()
+	baseDir := filepath.Dir(executablePath)
+	fullfilepath := filepath.Join(baseDir, common.ArgFilename)
 
-	targetsPath, _ := FindFullFilePath(basedir, filename)
-	_, err := os.Stat(targetsPath)
+	if err != nil {
+		common.PanicAndLog(err)
+	}
+	_, err = os.Stat(fullfilepath)
 
 	if os.IsNotExist(err) {
-		file, err := os.Create(filename)
+		file, err := os.Create(fullfilepath)
 		if err != nil {
 			common.PanicAndLog(err)
 		}

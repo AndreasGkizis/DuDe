@@ -20,21 +20,21 @@ func init() {
 }
 
 func main() {
-	var maxAlloc uint64
+	// var maxAlloc uint64
 
-	// Function to update maxAlloc
-	updateMaxAlloc := func() {
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		if m.Alloc > maxAlloc {
-			maxAlloc = m.Alloc
-		}
-	}
+	// // Function to update maxAlloc
+	// updateMaxAlloc := func() {
+	// 	var m runtime.MemStats
+	// 	runtime.ReadMemStats(&m)
+	// 	if m.Alloc > maxAlloc {
+	// 		maxAlloc = m.Alloc
+	// 	}
+	// }
 
-	// Defer a function to print the maxAlloc at the end
-	defer func() {
-		fmt.Printf("\nMaximum memory allocated: %d bytes (%.2f MB)\n", maxAlloc, float64(maxAlloc)/(1024*1024))
-	}()
+	// // Defer a function to print the maxAlloc at the end
+	// defer func() {
+	// 	fmt.Printf("\nMaximum memory allocated: %d bytes (%.2f MB)\n", maxAlloc, float64(maxAlloc)/(1024*1024))
+	// }()
 
 	// http.ListenAndServe("localhost:8080", nil) // for profiling
 	start := time.Now()
@@ -50,7 +50,7 @@ func main() {
 
 	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
-	updateMaxAlloc()
+	// updateMaxAlloc()
 	pt := visuals.NewProgressTracker()
 	pt.Start(50, progressCh)
 
@@ -80,7 +80,7 @@ func main() {
 	}
 
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory)
-	updateMaxAlloc()
+	// updateMaxAlloc()
 
 	if dualFolderMode {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
@@ -90,7 +90,7 @@ func main() {
 
 	duplicates := process.GetDuplicates(&sourceDirFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
-	updateMaxAlloc()
+	// updateMaxAlloc()
 	err = process.SaveResultsAsCSV(flattenedDuplicates, Args[common.ArgFilename_resDir])
 	fmt.Printf("execution took : %s", time.Since(start))
 	if err != nil {

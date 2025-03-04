@@ -57,7 +57,6 @@ func createLogFile() (*os.File, error) {
 
 	executablePath, err := os.Executable()
 
-	fmt.Println("Executable Path:", executablePath) // Add this line
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +64,7 @@ func createLogFile() (*os.File, error) {
 
 	basedir := filepath.Join(executableDir, "logs")
 	logFilepath := filepath.Join(basedir, logFilename)
-	fmt.Print(logFilepath)
+
 	// Check if the logs directory exists
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
 		err = os.Mkdir(basedir, 0755)

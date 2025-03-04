@@ -2,26 +2,63 @@ package handlers
 
 import (
 	common "DuDe/common"
-	process "DuDe/internal/processing"
 	"flag"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-// Loads both File and CLI Arguments.
-// CLI arguments Override the file arguments.
 func LoadArgs() map[string]string {
 
-	fileArguments := []string{
-		common.ArgFilename_cacheDir,
-		common.ArgFilename_resDir,
-		common.ArgFilename_sourceDir,
-		common.ArgFilename_targetDir,
+	args := make(map[string]string)
+	args[common.ArgFilename_cacheDir] = common.Def
+	args[common.ArgFilename_resDir] = common.Def
+	args[common.ArgFilename_sourceDir] = common.Def
+	args[common.ArgFilename_targetDir] = common.Def
+	args[common.ArgFilename_Dbg] = common.Def
+	args[common.ArgFilename_Mode] = common.Def
+
+	loadedFileArgs := getFileArguments(args)
+	result := getCLIArgs(loadedFileArgs)
+	applyDefaults(result)
+	return result
+}
+
+func applyDefaults(result map[string]string) {
+
+	executablePath, err := os.Executable()
+
+	if err != nil {
+		common.PanicAndLog(err)
+	}
+	executableDir := filepath.Dir(executablePath)
+
+	if result[common.ArgFilename_cacheDir] == common.Def {
+		result[common.ArgFilename_cacheDir] = filepath.Join(executableDir, common.MemFilename)
 	}
 
-	loadedFileArgs := getFileArguments(fileArguments)
-	result := getCLIArgs(loadedFileArgs)
-	return result
+	if result[common.ArgFilename_Dbg] == common.Def {
+		result[common.ArgFilename_Dbg] = common.DbgFlagNotActiveValue
+	}
+
+	if result[common.ArgFilename_Mode] == common.Def {
+		result[common.ArgFilename_Mode] = common.ModeSingleFolder
+	}
+
+	if result[common.ArgFilename_resDir] == common.Def {
+		result[common.ArgFilename_resDir] = filepath.Join(executableDir, common.ResFilename)
+	}
+
+	if result[common.ArgFilename_sourceDir] == common.Def {
+		common.Logger.Fatalf("Source Path can not be left empty, please update your %s with the correct path", common.ArgFilename)
+	}
+
+	if result[common.ArgFilename_targetDir] == common.Def {
+		if result[common.ModeFlag] == common.ModeDualFolder {
+			common.Logger.Fatalf("Target path can not be left empty when in Dual folder mode, please update your %s with the correct path", common.ArgFilename)
+		}
+	}
+
 }
 
 func getCLIArgs(result map[string]string) map[string]string {
@@ -37,7 +74,7 @@ func getCLIArgs(result map[string]string) map[string]string {
 	flag.StringVar(&debugMode, common.DbgFlagName_long, common.Def, "activate debugger to get all kinds of logs and traces")
 	flag.StringVar(&debugMode, common.DbgFlagName, common.Def, "activate debugger to get all kinds of logs and traces")
 
-	flag.StringVar(&curMode, common.ModeFlag_long, common.Def, "use sf for single-folder or df for dual-folder.")
+	flag.StringVar(&curMode, common.ModeFlag_long, common.Def, "use "+common.ModeSingleFolder+" for single-folder or "+common.ModeDualFolder+" for dual-folder.")
 	flag.StringVar(&curMode, common.ModeFlag, common.Def, "use sf for single-folder or df for dual-folder.")
 
 	flag.StringVar(&sourceDir, common.SourceFlag_long, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
@@ -46,11 +83,11 @@ func getCLIArgs(result map[string]string) map[string]string {
 	flag.StringVar(&targetDir, common.TargetFlag_long, common.Def, "The directory of the source folder [absolute path].")
 	flag.StringVar(&targetDir, common.TargetFlag, common.Def, "The directory of the source folder [absolute path].")
 
-	flag.StringVar(&cacheDir, common.CacheDirFlag_long, common.Def, "The directory where the `memory.db` file will be kept and created [relative path].")
-	flag.StringVar(&cacheDir, common.CacheDirFlag, common.Def, "The directory where the `memory.db` file will be kept and created [relative path].")
+	flag.StringVar(&cacheDir, common.MemDirFlag_long, common.Def, "The directory where the "+common.MemFilename+" file will be kept and created [relative path].")
+	flag.StringVar(&cacheDir, common.MemDirFlag, common.Def, "The directory where the "+common.MemFilename+" file will be kept and created [relative path].")
 
-	flag.StringVar(&resultDir, common.ResultDirFlag_long, common.Def, "The directory where the `results.csv` file will be kept and created [relative path].")
-	flag.StringVar(&resultDir, common.ResultDirFlag, common.Def, "The directory where the `results.csv` file will be kept and created [relative path].")
+	flag.StringVar(&resultDir, common.ResultDirFlag_long, common.Def, "The directory where the "+common.ResFilename+" file will be created [relative path].")
+	flag.StringVar(&resultDir, common.ResultDirFlag, common.Def, "The directory where the "+common.ResFilename+" file will be created [relative path].")
 
 	flag.Parse()
 
@@ -61,19 +98,19 @@ func getCLIArgs(result map[string]string) map[string]string {
 	for key, flag := range flagsMap {
 		if flag != common.Def {
 			switch key {
-			case "debug", "dbg":
+			case common.DbgFlagName_long, common.DbgFlagName:
 				if flag == common.DbgFlagActiveValue {
 					result[key] = flag
 				}
-			case "mode", "m":
+			case common.ModeFlag_long, common.ModeFlag:
 				result[key] = flag
-			case "source", "s":
+			case common.SourceFlag_long, common.SourceFlag:
 				result[common.ArgFilename_sourceDir] = flag
-			case "target", "t":
+			case common.TargetFlag_long, common.TargetFlag:
 				result[common.ArgFilename_targetDir] = flag
-			case "cache-dir", "c":
+			case common.MemDirFlag_long, common.MemDirFlag:
 				result[common.ArgFilename_cacheDir] = flag
-			case "results", "r":
+			case common.ResultDirFlag_long, common.ResultDirFlag:
 				result[common.ArgFilename_resDir] = flag
 			}
 		}
@@ -81,13 +118,17 @@ func getCLIArgs(result map[string]string) map[string]string {
 	return result
 }
 
-func getFileArguments(args []string) map[string]string {
+func getFileArguments(args map[string]string) map[string]string {
 
-	result := make(map[string]string, 0)
-	basedir := "."
+	executablePath, err := os.Executable()
 
-	argumentsPath, _ := process.FindFullFilePath(basedir, common.ArgFilename)
+	if err != nil {
+		common.Logger.Fatal(err)
+	}
+
+	argumentsPath := filepath.Join(filepath.Dir(executablePath), common.ArgFilename)
 	data, err := os.ReadFile(argumentsPath)
+
 	common.PanicAndLog(err)
 
 	lines := strings.Split(string(data), "\n")
@@ -105,16 +146,16 @@ func getFileArguments(args []string) map[string]string {
 		for _, arg := range args {
 			if key == arg {
 				if strings.HasPrefix(value, "<") {
-					result[arg] = common.Def
+					args[arg] = common.Def
 					break
 				}
 				if value != common.Def {
-					result[arg] = value
+					args[arg] = value
 					break
 				}
 			}
 		}
 	}
 
-	return result
+	return args
 }
