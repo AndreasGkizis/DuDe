@@ -23,13 +23,21 @@ func init() {
 
 	// Create a new encoder configuration
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoder := zapcore.NewJSONEncoder(encoderConfig)
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	fileEncoder := zapcore.NewJSONEncoder(encoderConfig)
 
-	// Create a core that writes logs to the file
-	core := zapcore.NewCore(encoder, zapcore.AddSync(logFile), zapcore.DebugLevel)
+	// Create a fileCore that writes logs to the file
+	fileCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(logFile), zapcore.DebugLevel)
+
+	// Create a core that writes logs to the console
+	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()) // Use console encoder for human-readable output
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel)
+
+	// Create a tee that writes to both the file and console
+	teeCore := zapcore.NewTee(fileCore, consoleCore)
 
 	// Create the logger with the core
-	Logger = zap.New(core).Sugar()
+	Logger = zap.New(teeCore).Sugar()
 
 	// Create a new logger with development configuration or configure anything custom we like.
 }

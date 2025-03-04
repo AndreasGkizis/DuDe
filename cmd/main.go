@@ -7,12 +7,8 @@ import (
 	process "DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"DuDe/models"
-	"fmt"
-	_ "net/http"       //for profiling
-	_ "net/http/pprof" //for profiling
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
 func init() {
@@ -20,24 +16,6 @@ func init() {
 }
 
 func main() {
-	// var maxAlloc uint64
-
-	// // Function to update maxAlloc
-	// updateMaxAlloc := func() {
-	// 	var m runtime.MemStats
-	// 	runtime.ReadMemStats(&m)
-	// 	if m.Alloc > maxAlloc {
-	// 		maxAlloc = m.Alloc
-	// 	}
-	// }
-
-	// // Defer a function to print the maxAlloc at the end
-	// defer func() {
-	// 	fmt.Printf("\nMaximum memory allocated: %d bytes (%.2f MB)\n", maxAlloc, float64(maxAlloc)/(1024*1024))
-	// }()
-
-	// http.ListenAndServe("localhost:8080", nil) // for profiling
-	start := time.Now()
 	log := common.Logger
 
 	availableCPUs := runtime.NumCPU()
@@ -46,11 +24,11 @@ func main() {
 	visuals.PrintIntro()
 
 	progressCh := make(chan int, 100)
-	memoryChan := make(chan models.FileHash, 1000) // in theory the files get hashed much slower than they get saved, so this would remain empty for a most time. needs investigating
+	memoryChan := make(chan models.FileHash, 1000)
 
 	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
 	common.PanicAndLog(err)
-	// updateMaxAlloc()
+
 	pt := visuals.NewProgressTracker()
 	pt.Start(50, progressCh)
 
@@ -80,7 +58,6 @@ func main() {
 	}
 
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, progressCh, memoryChan, &hashMemory)
-	// updateMaxAlloc()
 
 	if dualFolderMode {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
@@ -90,9 +67,8 @@ func main() {
 
 	duplicates := process.GetDuplicates(&sourceDirFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
-	// updateMaxAlloc()
 	err = process.SaveResultsAsCSV(flattenedDuplicates, Args[common.ArgFilename_resDir])
-	fmt.Printf("execution took : %s", time.Since(start))
+
 	if err != nil {
 		log.Fatalf("Error saving result: %v", err)
 	}
