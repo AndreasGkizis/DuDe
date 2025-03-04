@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -22,8 +23,8 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 	for i := range *sourceFiles {
 		wg.Add(1)
 		go func(index int) error {
-			fmt.Println(index)
 			var hash string
+
 			// using struct{}{} since it allocates nothing , it is a pure signal
 			sem <- struct{}{}        // Acquire a slot
 			defer func() { <-sem }() // Release the slot
@@ -34,14 +35,12 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			memoryOfFile := models.FindByPath(memory, path)
 
 			curSize := stats.Size()
-			curModTime := stats.ModTime().Format(time.RFC3339) //TODO: ncap[sulate into model
+			curModTime := stats.ModTime().Format(time.RFC3339) //TODO: encapsulate into model
 
 			fileMemoryMissing := memoryOfFile == nil
 			fileChanged := memoryOfFile != nil && (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
 
-			if fileMemoryMissing {
-				hash = calculateMD5Hash((*sourceFiles)[index])
-			} else if fileChanged {
+			if fileMemoryMissing || fileChanged {
 				hash = calculateMD5Hash((*sourceFiles)[index])
 			} else {
 				hash = memoryOfFile.Hash
@@ -55,7 +54,8 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				ModTime:  curModTime,
 			}
 
-			memoryChan <- newMem
+			sendWithRetry(memoryChan, newMem, 1, 150*time.Millisecond)
+			// memoryChan <- newMem
 
 			progressCh <- 1
 			pt.Increment()
@@ -153,4 +153,32 @@ func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
 		result = append(result, separatorEntry)
 	}
 	return result
+}
+
+func sendWithRetry(ch chan models.FileHash, value models.FileHash, maxRetries int, baseDelay time.Duration) error {
+	// if maxRetries < 0 {
+	for {
+		select {
+		case ch <- value:
+			// fmt.Printf("Sent! %s \n", value.Hash)
+			return nil // Success
+		case <-time.After(time.Duration(rand.Int63n(int64(baseDelay / 2)))):
+			fmt.Printf("Channel full, retrying send %s\n", value.Hash)
+		}
+	}
+	// } else {
+	// 	for attempt := 0; attempt < maxRetries; attempt++ {
+	// 		select {
+	// 		case ch <- value:
+	// 			fmt.Printf("Sent! %s \n", value.Hash)
+	// 			return nil // Success
+	// 		case <-time.After(baseDelay*time.Duration(1<<uint(attempt)) + time.Duration(rand.Int63n(int64(baseDelay/2)))):
+	// 			if attempt == maxRetries-1 {
+	// 				return fmt.Errorf("failed to send %d after %d retries", value, maxRetries)
+	// 			}
+	// 			fmt.Printf("Channel full, retrying send %d (attempt %d)\n", value, attempt+1)
+	// 		}
+	// 	}
+	// }
+	// return nil
 }

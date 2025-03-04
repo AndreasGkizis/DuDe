@@ -70,6 +70,14 @@
                 "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
                 "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
             ]
+        },
+        {
+            "name": "Windows-plain",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/main.go",
+            "args": []
         }
     ]
 }
