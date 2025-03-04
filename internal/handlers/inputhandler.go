@@ -127,6 +127,7 @@ func getFileArguments(args map[string]string) map[string]string {
 	}
 
 	argumentsPath := filepath.Join(filepath.Dir(executablePath), common.ArgFilename)
+	common.Logger.Info(argumentsPath)
 	data, err := os.ReadFile(argumentsPath)
 
 	common.PanicAndLog(err)

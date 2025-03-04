@@ -7,14 +7,13 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
 
-func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, progressCh chan int, memoryChan chan models.FileHash, memory *[]models.FileHash) error {
+func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, memoryChan chan models.FileHash, memory *[]models.FileHash) error {
 
 	pt.AddTotal(int64(len(*sourceFiles)))
 
@@ -55,9 +54,8 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				ModTime:  curModTime,
 			}
 
-			sendWithRetry(memoryChan, newMem, 1, 150*time.Millisecond)
+			sendWithRetry(memoryChan, newMem, 150*time.Millisecond)
 
-			progressCh <- 1
 			pt.Increment()
 			wg.Done()
 			return nil
@@ -155,30 +153,14 @@ func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
 	return result
 }
 
-func sendWithRetry(ch chan models.FileHash, value models.FileHash, maxRetries int, baseDelay time.Duration) error {
-	// if maxRetries < 0 {
+func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay time.Duration) error {
 	for {
 		select {
 		case ch <- value:
 			// fmt.Printf("Sent! %s \n", value.Hash)
 			return nil // Success
-		case <-time.After(time.Duration(rand.Int63n(int64(baseDelay / 2)))):
+		case <-time.After(time.Duration(baseDelay.Seconds())):
 			fmt.Printf("Channel full, retrying send %s\n", value.Hash)
 		}
 	}
-	// } else {
-	// 	for attempt := 0; attempt < maxRetries; attempt++ {
-	// 		select {
-	// 		case ch <- value:
-	// 			fmt.Printf("Sent! %s \n", value.Hash)
-	// 			return nil // Success
-	// 		case <-time.After(baseDelay*time.Duration(1<<uint(attempt)) + time.Duration(rand.Int63n(int64(baseDelay/2)))):
-	// 			if attempt == maxRetries-1 {
-	// 				return fmt.Errorf("failed to send %d after %d retries", value, maxRetries)
-	// 			}
-	// 			fmt.Printf("Channel full, retrying send %d (attempt %d)\n", value, attempt+1)
-	// 		}
-	// 	}
-	// }
-	// return nil
 }

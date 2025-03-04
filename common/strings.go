@@ -1,7 +1,5 @@
 package common
 
-import "sync"
-
 const (
 	Def = "default"
 
@@ -47,12 +45,5 @@ const (
 )
 
 var (
-	mu            sync.Mutex
-	resultsHeader = []string{"File Name", "Path", "Duplicate File Name", "Duplicate Path"}
+	ResultsHeader = []string{"File Name", "Path", "Duplicate File Name", "Duplicate Path"}
 )
-
-func GetResultsHeader() []string {
-	mu.Lock()
-	defer mu.Unlock()
-	return resultsHeader
-}

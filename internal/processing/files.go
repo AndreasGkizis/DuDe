@@ -72,14 +72,11 @@ func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	// Write header
-	header := common.GetResultsHeader()
-	err = writer.Write(header)
+	err = writer.Write(common.ResultsHeader)
 	if err != nil {
 		return err
 	}
 
-	// Write data
 	for _, entry := range data {
 		err = writer.Write([]string{
 			entry.Filename,
