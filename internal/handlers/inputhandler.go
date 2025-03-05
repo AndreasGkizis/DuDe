@@ -2,6 +2,7 @@ package handlers
 
 import (
 	common "DuDe/common"
+	"DuDe/internal/processing"
 	"flag"
 	"fmt"
 	"os"
@@ -19,15 +20,19 @@ func LoadArgs() map[string]string {
 	args[common.ArgFilename_Dbg] = common.Def
 	args[common.ArgFilename_Mode] = common.Def
 
-	loadedFileArgs := getFileArguments(args)
+	argspath := processing.CreateArgsFile()
+	loadedFileArgs := getFileArguments(argspath, args)
 	result := getCLIArgs(loadedFileArgs)
 	applyDefaults(result)
+
+	common.LogArgs(result)
+
 	return result
 }
 
 func applyDefaults(result map[string]string) {
 
-	executableDir := common.GetEntryPointDir()
+	executableDir := common.GetExecutableDir()
 
 	if result[common.ArgFilename_cacheDir] == common.Def {
 		result[common.ArgFilename_cacheDir] = filepath.Join(executableDir, common.MemFilename)
@@ -46,7 +51,9 @@ func applyDefaults(result map[string]string) {
 	}
 
 	if result[common.ArgFilename_sourceDir] == common.Def {
-		common.Logger.Fatalf("Source Path can not be left empty, please update your %s with the correct path", common.ArgFilename)
+		path := common.GetExecutableDir()
+		result[common.ArgFilename_sourceDir] = path
+		common.WarnWithFuncName(fmt.Sprintf("Source Path automatically set to: %s", path))
 	}
 
 	if result[common.ArgFilename_targetDir] == common.Def {
@@ -114,20 +121,13 @@ func getCLIArgs(result map[string]string) map[string]string {
 	return result
 }
 
-func getFileArguments(args map[string]string) map[string]string {
+func getFileArguments(path string, args map[string]string) map[string]string {
 
-	executablePath, err := os.Executable()
+	data, err := os.ReadFile(path)
 
 	if err != nil {
-		common.Logger.Fatal(err)
+		common.Logger.DPanic(err)
 	}
-
-	argumentsPath := filepath.Join(filepath.Dir(executablePath), common.ArgFilename)
-	fmt.Print(argumentsPath)
-	common.Logger.Info(argumentsPath)
-	data, err := os.ReadFile(argumentsPath)
-
-	common.PanicAndLog(err)
 
 	lines := strings.Split(string(data), "\n")
 

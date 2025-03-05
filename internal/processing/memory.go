@@ -3,20 +3,42 @@ package processing
 import (
 	common "DuDe/common"
 	database "DuDe/internal/db"
-	"DuDe/models"
+	models "DuDe/models"
 	"database/sql"
-	"fmt"
 	"sync"
-	"time"
+	"sync/atomic"
 )
 
-func LoadMemory(db *sql.DB) []models.FileHash {
+type MemoryManager struct {
+	Channel     chan models.FileHash
+	senderCount int32
+	repo        database.FileHashRepository
+	db          *sql.DB
+	wg          sync.WaitGroup
+	senderwg    sync.WaitGroup
+}
+
+func NewMemoryManager(db *sql.DB, bufferSize int) *MemoryManager {
+	return &MemoryManager{
+		Channel: make(chan models.FileHash, bufferSize),
+		repo:    *database.NewFileHashRepository(db),
+		db:      db}
+}
+
+func (mt *MemoryManager) Start() {
+	mt.wg.Add(1)
+	go mt.updateMemory()
+}
+
+func (mt *MemoryManager) LoadMemory() []models.FileHash {
 	result := []models.FileHash{}
-	repo := database.FileHashRepository{Db: db}
 
-	records, err := repo.GetAll()
+	records, err := mt.repo.GetAll()
 
-	common.PanicAndLog(err)
+	if err != nil {
+		common.Logger.DPanic(err)
+	}
+
 	for _, val := range records {
 		result = append(result, MapToServiceDTO(val))
 	}
@@ -24,31 +46,34 @@ func LoadMemory(db *sql.DB) []models.FileHash {
 	return result
 }
 
-type MemoryTracker struct {
-	repo database.FileHashRepository
-	db   *sql.DB
-	wg   sync.WaitGroup
+func (mt *MemoryManager) Wait() {
+	mt.wg.Wait()
+	mt.senderwg.Wait()
 }
 
-func NewMemoryTracker(db *sql.DB) *MemoryTracker {
-	return &MemoryTracker{
-		repo: *database.NewFileHashRepository(db),
-		db:   db}
+func (mt *MemoryManager) SenderStarted() {
+	atomic.AddInt32(&mt.senderCount, 1)
+	mt.senderwg.Add(1)
 }
 
-func (mt *MemoryTracker) Start(ch <-chan models.FileHash) {
-	mt.wg.Add(1)
-	go mt.updateMemory(ch)
+func (mt *MemoryManager) SenderFinished() {
+	if atomic.AddInt32(&mt.senderCount, -1) == 0 {
+		close(mt.Channel)
+	}
+	mt.senderwg.Done()
 }
 
-func (mt *MemoryTracker) updateMemory(memoryChan <-chan models.FileHash) {
-	common.DebugWithFuncName(fmt.Sprintf("started at %s", time.Now()))
+func (mt *MemoryManager) updateMemory() {
+	common.DebugWithFuncName("started")
+	defer mt.wg.Done()
 
-	for fh := range memoryChan {
+	for fh := range mt.Channel {
 		db_fh := MapToDomainDTO(fh)
 		err := mt.repo.Upsert(&db_fh)
-		common.PanicAndLog(err)
+		if err != nil {
+			common.Logger.Fatalf(err.Error())
+		}
 	}
 
-	common.DebugWithFuncName(fmt.Sprintf("finished at %s", time.Now())) // NOTE: currently unreachable
+	common.DebugWithFuncName("finished") // NOTE: currently unreachable
 }

@@ -12,10 +12,6 @@ import (
 	"runtime"
 )
 
-func init() {
-	process.CreateArgsFile()
-}
-
 func main() {
 	log := common.Logger
 
@@ -24,19 +20,21 @@ func main() {
 
 	visuals.PrintIntro()
 
-	// progressCh := make(chan int, 100)
-	memoryChan := make(chan models.FileHash, 1000)
-
 	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
-	common.PanicAndLog(err)
+
+	if err != nil {
+		common.Logger.Panicf(err.Error())
+	}
 
 	pt := visuals.NewProgressTracker()
 	pt.Start(50)
 
-	mt := process.NewMemoryTracker(db)
-	mt.Start(memoryChan)
+	// memoryChan := make(chan models.FileHash, 1000)
 
-	hashMemory := process.LoadMemory(db)
+	mm := process.NewMemoryManager(db, 1000)
+	mm.Start()
+
+	hashMemory := mm.LoadMemory()
 
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
@@ -48,7 +46,7 @@ func main() {
 			log.Fatalf("Error walking directory: %v", err)
 		}
 
-		process.CreateHashes(&targetDirFiles, availableCPUs, pt, memoryChan, &hashMemory)
+		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory)
 	}
 
 	err = filepath.WalkDir(Args[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceDirFiles))
@@ -57,7 +55,8 @@ func main() {
 		log.Fatalf("Error walking directory: %v", err)
 	}
 
-	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, memoryChan, &hashMemory)
+	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory)
+	mm.Wait()
 
 	if Args[common.ArgFilename_Mode] == common.ModeDualFolder {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)

@@ -5,7 +5,6 @@ import (
 	visuals "DuDe/internal/visuals"
 	models "DuDe/models"
 	"encoding/csv"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,31 +31,27 @@ func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, 
 	}
 }
 
-func CreateArgsFile() error {
-	entrypoint := common.GetEntryPointDir()
-	fmt.Print(entrypoint)
+func CreateArgsFile() string {
+
+	entrypoint := common.GetExecutableDir()
 	fullfilepath := filepath.Join(entrypoint, common.ArgFilename)
 	_, err := os.Stat(fullfilepath)
 
 	if os.IsNotExist(err) {
 		file, err := os.Create(fullfilepath)
 		if err != nil {
-			common.PanicAndLog(err)
+			common.Logger.DPanic(err)
 		}
 		defer file.Close()
 
-		// Write default argument file
 		_, err = file.WriteString(common.ArgFileContent)
 
 		if err != nil {
-			common.PanicAndLog(err)
-			return err
+			common.Logger.DPanic(err)
 		}
-
-		visuals.ArgsFileNotFound()
-
 	}
-	return nil
+
+	return fullfilepath
 }
 
 func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
