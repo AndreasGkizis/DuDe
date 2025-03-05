@@ -21,7 +21,7 @@ remove_dir() {
     directory=$1
     if [ -d "$directory" ]; then
         rm -r "$directory"
-        echo "DELETED  ===> $directory"
+        echo "DELETED ===> $directory"
     else
         echo "$directory - Doesn't exist or is not a Directory"
     fi
@@ -29,4 +29,5 @@ remove_dir() {
 
 remove_dir "$LOGS_DIR"
 remove_file "$CMD_DIR/memory.db" 
+remove_file "$CMD_DIR/memory.db-journal" 
 remove_file "$CMD_DIR/results.csv" 

@@ -4,12 +4,12 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 # Create a base directory for the sample files
-BASE_DIR="../testfiles/source"
-BASE_TARGET_DIR="../testfiles/target"
+BASE_DIR="../test_files/source"
+BASE_TARGET_DIR="../test_files/target"
 
 # Create a base directory for the sample files relative to the script's location
-BASE_DIR="$SCRIPT_DIR/../testfiles/source"
-BASE_TARGET_DIR="$SCRIPT_DIR/../testfiles/target"
+BASE_DIR="$SCRIPT_DIR/../test_files/source"
+BASE_TARGET_DIR="$SCRIPT_DIR/../test_files/target"
 
 # Create subdirectories for different file types
 mkdir -p "$BASE_DIR/text_files"
