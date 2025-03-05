@@ -10,8 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "cmd/main.go",
-            "args": [
-                    ]
+            "args": []
         },   
         {
             "name": "LinuxHome-df",
@@ -20,12 +19,8 @@
             "mode": "auto",
             "program": "cmd/main.go",
             "args": [
-                // "-dbg=true",
-                // "-m=df",
-                "-s=/home/andreas/Code/golang/DuDe/testfiles/source",
-                // "-t=/home/andreas/Code/golang/DuDe/testfiles/target",
+                "-s=/home/andreas/Code/golang/DuDe/test_files/source",
                 "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
-                "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
             ]
         },
         {
@@ -36,10 +31,7 @@
             "program": "cmd/main.go",
             "args": [
                 "-dbg=true",
-                "-m=sf",
-                "-s=/home/andreas/Code/golang/DuDe/testfiles/source",
-                "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
-                "-r=/home/andreas/Code/golang/DuDe/cmd/results.csv"
+                "-s=/home/andreas/Code/golang/DuDe/test_files/source",
             ]
         },
         {
@@ -51,7 +43,7 @@
             "args": [
                 "-dbg=true",
                 "-m=sf",
-                "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
+                "-s=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test",
                 "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
                 "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
             ]
@@ -65,8 +57,8 @@
             "args": [
                 "-dbg=true",
                 "-m=df",
-                "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
-                "-t=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test_target",
+                "-s=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test",
+                "-t=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test_target",
                 "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
                 "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
             ]
@@ -78,7 +70,7 @@
             "mode": "auto",
             "program": "cmd/main.go",
             "args": [
-                "-s=C:\\Code\\Personal\\DuDe\\testfiles\\WorkingCopies\\Test",
+                "-s=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test",
             ]
         }
     ]
