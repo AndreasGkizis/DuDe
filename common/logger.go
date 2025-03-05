@@ -63,12 +63,7 @@ func createLogFile() (*os.File, error) {
 	var logFile *os.File
 	logFilename := time.Now().Format("2006-01-02_15-04-05") + ".log"
 
-	executablePath, err := os.Executable()
-
-	if err != nil {
-		return nil, err
-	}
-	executableDir := filepath.Dir(executablePath)
+	executableDir := GetEntryPointDir()
 
 	basedir := filepath.Join(executableDir, "logs")
 	logFilepath := filepath.Join(basedir, logFilename)
@@ -81,7 +76,7 @@ func createLogFile() (*os.File, error) {
 		}
 	}
 
-	logFile, err = os.OpenFile(logFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(logFilepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}

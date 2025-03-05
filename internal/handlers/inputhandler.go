@@ -3,6 +3,7 @@ package handlers
 import (
 	common "DuDe/common"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,12 +27,7 @@ func LoadArgs() map[string]string {
 
 func applyDefaults(result map[string]string) {
 
-	executablePath, err := os.Executable()
-
-	if err != nil {
-		common.PanicAndLog(err)
-	}
-	executableDir := filepath.Dir(executablePath)
+	executableDir := common.GetEntryPointDir()
 
 	if result[common.ArgFilename_cacheDir] == common.Def {
 		result[common.ArgFilename_cacheDir] = filepath.Join(executableDir, common.MemFilename)
@@ -127,6 +123,7 @@ func getFileArguments(args map[string]string) map[string]string {
 	}
 
 	argumentsPath := filepath.Join(filepath.Dir(executablePath), common.ArgFilename)
+	fmt.Print(argumentsPath)
 	common.Logger.Info(argumentsPath)
 	data, err := os.ReadFile(argumentsPath)
 

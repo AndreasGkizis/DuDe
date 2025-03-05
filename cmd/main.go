@@ -3,10 +3,11 @@ package main
 import (
 	common "DuDe/common"
 	db "DuDe/internal/db"
-	"DuDe/internal/handlers"
+	handlers "DuDe/internal/handlers"
 	process "DuDe/internal/processing"
-	"DuDe/internal/visuals"
-	"DuDe/models"
+	visuals "DuDe/internal/visuals"
+	models "DuDe/models"
+
 	"path/filepath"
 	"runtime"
 )

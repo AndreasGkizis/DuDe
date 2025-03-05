@@ -2,7 +2,7 @@ package processing
 
 import (
 	logger "DuDe/common"
-	"DuDe/internal/visuals"
+	visuals "DuDe/internal/visuals"
 	models "DuDe/models"
 	"crypto/md5"
 	"fmt"
@@ -110,7 +110,6 @@ func FindDuplicates(inputs ...*[]models.FileHash) {
 		second := inputs[1]
 
 		for i := range *first {
-			// occurrenceCounter := 0
 			for j := range *second {
 				if (*first)[i].Hash == (*second)[j].Hash {
 					(*first)[i].DuplicatesFound = append((*first)[i].DuplicatesFound, (*second)[j])
@@ -157,7 +156,6 @@ func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay tim
 	for {
 		select {
 		case ch <- value:
-			// fmt.Printf("Sent! %s \n", value.Hash)
 			return nil // Success
 		case <-time.After(time.Duration(baseDelay.Seconds())):
 			fmt.Printf("Channel full, retrying send %s\n", value.Hash)

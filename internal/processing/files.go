@@ -2,9 +2,10 @@ package processing
 
 import (
 	common "DuDe/common"
-	"DuDe/internal/visuals"
-	"DuDe/models"
+	visuals "DuDe/internal/visuals"
+	models "DuDe/models"
 	"encoding/csv"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,14 +33,10 @@ func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, 
 }
 
 func CreateArgsFile() error {
-	executablePath, err := os.Executable()
-	baseDir := filepath.Dir(executablePath)
-	fullfilepath := filepath.Join(baseDir, common.ArgFilename)
-
-	if err != nil {
-		common.PanicAndLog(err)
-	}
-	_, err = os.Stat(fullfilepath)
+	entrypoint := common.GetEntryPointDir()
+	fmt.Print(entrypoint)
+	fullfilepath := filepath.Join(entrypoint, common.ArgFilename)
+	_, err := os.Stat(fullfilepath)
 
 	if os.IsNotExist(err) {
 		file, err := os.Create(fullfilepath)
