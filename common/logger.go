@@ -23,7 +23,12 @@ func init() {
 
 	// Create a new encoder configuration
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	// Example 3: Use a custom time format (e.g., "2006-01-02 15:04:05")
+	encoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
+	}
+
 	fileEncoder := zapcore.NewJSONEncoder(encoderConfig)
 
 	// Create a fileCore that writes logs to the file
@@ -38,14 +43,7 @@ func init() {
 
 	// Create the logger with the core
 	Logger = zap.New(teeCore).Sugar()
-
-	// Create a new logger with development configuration or configure anything custom we like.
-}
-
-func PanicAndLog(e error) {
-	if e != nil {
-		Logger.DPanic(e)
-	}
+	Logger.Info("Program started!")
 }
 
 func DebugWithFuncName(message string) {
@@ -59,17 +57,37 @@ func DebugWithFuncName(message string) {
 	Logger.Debug(fmt.Sprintf("%s() -> %s", funcName, message))
 }
 
+func WarnWithFuncName(message string) {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+
+	Logger.Warn(fmt.Sprintf("%s() -> %s", funcName, message))
+}
+
+func LogArgs(args map[string]string) {
+	for key, value := range args {
+		Logger.Info(fmt.Sprintf("Key: %s, Value: %s", key, value))
+	}
+}
+
 func createLogFile() (*os.File, error) {
 	var logFile *os.File
 	logFilename := time.Now().Format("2006-01-02_15-04-05") + ".log"
 
-	executableDir := GetEntryPointDir()
+	executableDir := GetExecutableDir()
 
 	basedir := filepath.Join(executableDir, "logs")
 	logFilepath := filepath.Join(basedir, logFilename)
 
 	// Check if the logs directory exists
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
+		fmt.Println("BELOW!!")
+		fmt.Println(basedir)
+		fmt.Println("ABOVE!!")
 		err = os.Mkdir(basedir, 0755)
 		if err != nil {
 			return nil, err

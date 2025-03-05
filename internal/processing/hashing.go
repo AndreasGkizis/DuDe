@@ -13,9 +13,10 @@ import (
 	"time"
 )
 
-func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, memoryChan chan models.FileHash, memory *[]models.FileHash) error {
+func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *[]models.FileHash) error {
 
 	pt.AddTotal(int64(len(*sourceFiles)))
+	mm.SenderStarted()
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
@@ -23,6 +24,7 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 	for i := range *sourceFiles {
 		wg.Add(1)
 		go func(index int) error {
+			defer wg.Done()
 			var hash string
 
 			// using struct{}{} since it allocates nothing , it is a pure signal
@@ -46,6 +48,11 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				hash = memoryOfFile.Hash
 			}
 
+			(*sourceFiles)[index].Hash = hash
+			(*sourceFiles)[index].FileSize = curSize
+			(*sourceFiles)[index].ModTime = curModTime
+			(*sourceFiles)[index].FileName = filepath.Base(path)
+
 			newMem := models.FileHash{
 				FileName: filepath.Base(path),
 				FilePath: path,
@@ -54,14 +61,15 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				ModTime:  curModTime,
 			}
 
-			sendWithRetry(memoryChan, newMem, 150*time.Millisecond)
+			mm.Channel <- newMem
 
 			pt.Increment()
-			wg.Done()
 			return nil
 		}(i)
 	}
+
 	wg.Wait()
+	mm.SenderFinished()
 
 	close(sem)
 
@@ -73,13 +81,13 @@ func calculateMD5Hash(file models.FileHash) string {
 
 	f, err := os.Open(file.FilePath)
 	if err != nil {
-		logger.PanicAndLog(err)
+		logger.Logger.DPanic(err)
 	}
 
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			logger.PanicAndLog(err)
+			logger.Logger.DPanic(err)
 		}
 	}()
 
