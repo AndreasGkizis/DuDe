@@ -25,51 +25,51 @@ func NewMemoryManager(db *sql.DB, bufferSize int) *MemoryManager {
 		db:      db}
 }
 
-func (mt *MemoryManager) Start() {
-	mt.wg.Add(1)
-	go mt.updateMemory()
+func (mm *MemoryManager) Start() {
+	mm.wg.Add(1)
+	go mm.updateMemory()
 }
 
-func (mt *MemoryManager) LoadMemory() []models.FileHash {
-	result := []models.FileHash{}
+func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
+	result := make(map[string]models.FileHash)
 
-	records, err := mt.repo.GetAll()
+	records, err := mm.repo.GetAll()
 
 	if err != nil {
 		common.Logger.DPanic(err)
 	}
 
 	for _, val := range records {
-		result = append(result, MapToServiceDTO(val))
+		result[val.FilePath] = MapToServiceDTO(val)
 	}
 
 	return result
 }
 
-func (mt *MemoryManager) Wait() {
-	mt.wg.Wait()
-	mt.senderwg.Wait()
+func (mm *MemoryManager) Wait() {
+	mm.wg.Wait()
+	mm.senderwg.Wait()
 }
 
-func (mt *MemoryManager) SenderStarted() {
-	atomic.AddInt32(&mt.senderCount, 1)
-	mt.senderwg.Add(1)
+func (mm *MemoryManager) SenderStarted() {
+	atomic.AddInt32(&mm.senderCount, 1)
+	mm.senderwg.Add(1)
 }
 
-func (mt *MemoryManager) SenderFinished() {
-	if atomic.AddInt32(&mt.senderCount, -1) == 0 {
-		close(mt.Channel)
+func (mm *MemoryManager) SenderFinished() {
+	if atomic.AddInt32(&mm.senderCount, -1) == 0 {
+		close(mm.Channel)
 	}
-	mt.senderwg.Done()
+	mm.senderwg.Done()
 }
 
-func (mt *MemoryManager) updateMemory() {
+func (mm *MemoryManager) updateMemory() {
 	common.DebugWithFuncName("started")
-	defer mt.wg.Done()
+	defer mm.wg.Done()
 
-	for fh := range mt.Channel {
+	for fh := range mm.Channel {
 		db_fh := MapToDomainDTO(fh)
-		err := mt.repo.Upsert(&db_fh)
+		err := mm.repo.Upsert(&db_fh)
 		if err != nil {
 			common.Logger.Fatalf(err.Error())
 		}
