@@ -29,9 +29,7 @@ func main() {
 	pt := visuals.NewProgressTracker()
 	pt.Start(50)
 
-	// memoryChan := make(chan models.FileHash, 1000)
-
-	mm := process.NewMemoryManager(db, 1000)
+	mm := process.NewMemoryManager(db, 1)
 	mm.Start()
 
 	hashMemory := mm.LoadMemory()

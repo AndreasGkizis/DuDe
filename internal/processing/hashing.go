@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"DuDe/common"
 	logger "DuDe/common"
 	visuals "DuDe/internal/visuals"
 	models "DuDe/models"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *[]models.FileHash) error {
+func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash) error {
 
 	pt.AddTotal(int64(len(*sourceFiles)))
 	mm.SenderStarted()
@@ -34,15 +35,13 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			path := (*sourceFiles)[index].FilePath
 			stats, _ := os.Stat(path)
 
-			memoryOfFile := models.FindByPath(memory, path)
-
 			curSize := stats.Size()
 			curModTime := stats.ModTime().Format(time.RFC3339) //TODO: encapsulate into model
 
-			fileMemoryMissing := memoryOfFile == nil
-			fileChanged := memoryOfFile != nil && (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
+			memoryOfFile, exists := (*memory)[path]
+			needsRehasing := !exists || (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
 
-			if fileMemoryMissing || fileChanged {
+			if needsRehasing {
 				hash = calculateMD5Hash((*sourceFiles)[index])
 			} else {
 				hash = memoryOfFile.Hash
@@ -61,7 +60,8 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				ModTime:  curModTime,
 			}
 
-			mm.Channel <- newMem
+			safeResend(mm.Channel, newMem, 2, 12*time.Microsecond)
+			// mm.Channel <- newMem
 
 			pt.Increment()
 			return nil
@@ -158,6 +158,24 @@ func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
 		result = append(result, separatorEntry)
 	}
 	return result
+}
+
+// safeResend attempts to send data to a buffered channel, retrying on failure.
+func safeResend(ch chan<- models.FileHash, data models.FileHash, maxRetries int, retryDelay time.Duration) {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		select {
+		case ch <- data:
+			return // Successfully sent.
+		default:
+			if attempt < maxRetries {
+				common.Logger.Warnf("Failed to send data (attempt %d/%d), retrying in %v: %v", attempt+1, maxRetries+1, retryDelay, data)
+				time.Sleep(retryDelay)
+			} else {
+				common.Logger.Warnf("Failed to send data after %d attempts: %v", maxRetries+1, data)
+				return // Give up after max retries.
+			}
+		}
+	}
 }
 
 func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay time.Duration) error {
