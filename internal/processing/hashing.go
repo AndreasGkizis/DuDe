@@ -1,7 +1,6 @@
 package processing
 
 import (
-	"DuDe/common"
 	logger "DuDe/common"
 	visuals "DuDe/internal/visuals"
 	models "DuDe/models"
@@ -14,7 +13,7 @@ import (
 	"time"
 )
 
-func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash) error {
+func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int) error {
 
 	pt.AddTotal(int64(len(*sourceFiles)))
 	mm.SenderStarted()
@@ -60,7 +59,8 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 				ModTime:  curModTime,
 			}
 
-			safeResend(mm.Channel, newMem, 2, 12*time.Microsecond)
+			// safeResend(mm.Channel, newMem, 500*time.Microsecond)
+			sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
 			// mm.Channel <- newMem
 
 			pt.Increment()
@@ -160,31 +160,21 @@ func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
 	return result
 }
 
-// safeResend attempts to send data to a buffered channel, retrying on failure.
-func safeResend(ch chan<- models.FileHash, data models.FileHash, maxRetries int, retryDelay time.Duration) {
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		select {
-		case ch <- data:
-			return // Successfully sent.
-		default:
-			if attempt < maxRetries {
-				common.Logger.Warnf("Failed to send data (attempt %d/%d), retrying in %v: %v", attempt+1, maxRetries+1, retryDelay, data)
-				time.Sleep(retryDelay)
-			} else {
-				common.Logger.Warnf("Failed to send data after %d attempts: %v", maxRetries+1, data)
-				return // Give up after max retries.
-			}
-		}
-	}
-}
-
-func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay time.Duration) error {
+func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay, maxRetryDelay time.Duration, failedCount *int) error {
+	retryDelay := baseDelay
 	for {
 		select {
 		case ch <- value:
-			return nil // Success
-		case <-time.After(time.Duration(baseDelay.Seconds())):
-			fmt.Printf("Channel full, retrying send %s\n", value.Hash)
+			// common.Logger.Warnf("\nData Sent! : %v", value.FileName)
+			return nil
+		default:
+			(*failedCount)++
+			// common.Logger.Warnf("\nFailed to send data, retrying in %v: %v", retryDelay, value.FileName)
+			time.Sleep(retryDelay)
+			retryDelay *= 2
+			if retryDelay > maxRetryDelay {
+				retryDelay = maxRetryDelay
+			}
 		}
 	}
 }

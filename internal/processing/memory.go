@@ -64,7 +64,7 @@ func (mm *MemoryManager) SenderFinished() {
 }
 
 func (mm *MemoryManager) updateMemory() {
-	common.DebugWithFuncName("started")
+	// common.DebugWithFuncName("started")
 	defer mm.wg.Done()
 
 	for fh := range mm.Channel {

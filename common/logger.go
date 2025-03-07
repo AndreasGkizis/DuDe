@@ -32,11 +32,11 @@ func init() {
 	fileEncoder := zapcore.NewJSONEncoder(encoderConfig)
 
 	// Create a fileCore that writes logs to the file
-	fileCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(logFile), zapcore.DebugLevel)
+	fileCore := zapcore.NewCore(fileEncoder, zapcore.Lock(logFile), zapcore.DebugLevel)
 
 	// Create a core that writes logs to the console
 	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()) // Use console encoder for human-readable output
-	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel)
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel)
 
 	// Create a tee that writes to both the file and console
 	teeCore := zapcore.NewTee(fileCore, consoleCore)
