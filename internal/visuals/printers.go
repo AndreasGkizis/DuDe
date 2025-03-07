@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func DirDoesNotExistMessage(path string) {
@@ -66,16 +67,18 @@ func PrintIntro() {
 }
 
 func (pt *ProgressTracker) printProgressBar() {
-	var percentage float64
-	percentage = float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
+	percentage := float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
 
 	progress := int(float64(pt.BarLength) * percentage / 100)
 	progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
 
+	// pt.mu.Lock()
 	fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
+	// pt.mu.Unlock()
 
 	if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
 		fmt.Println("\nAll files processed!")
+		// close(pt.done)
 		return
 	}
 }
@@ -95,27 +98,38 @@ func (pt *ProgressTracker) updateProgressBar() {
 
 		if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
 			fmt.Println("\nAll files processed!")
-			pt.wg.Done()
+			// pt.wg.Done()
 			return
 		}
 	}
 }
 
-func (pt *ProgressTracker) updateProgressBar2() {
+func (pt *ProgressTracker) updateProgressBarloop() {
+	var percentage float64
+	pt.wg.Add(1)
+	for {
+		bol := float64(atomic.LoadInt64(&pt.currentProgress)) == 0
+		if float64(atomic.LoadInt64(&pt.currentProgress)) == 0 {
+			percentage = 0
+		} else {
+			percentage = float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
+			bol = false
+		}
 
-	percentage := float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
+		progress := int(float64(pt.BarLength) * percentage / 100)
+		progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
 
-	progress := int(float64(pt.BarLength) * percentage / 100)
-	progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
+		// pt.mu.Lock()
+		fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
+		// pt.mu.Unlock()
 
-	pt.mu.Lock()
-	fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
-	pt.mu.Unlock()
+		if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) && !bol {
+			fmt.Println("\nAll files processed!")
+			pt.wg.Done()
+			return
+		}
 
-	if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
-		fmt.Println("\nAll files processed!")
-		pt.wg.Done()
-		return
+		time.Sleep(100 * time.Millisecond) // Check every 100 milliseconds
 	}
 }
 
@@ -138,11 +152,11 @@ func (pt *ProgressTracker) AddTotal(count int64) {
 
 func (pt *ProgressTracker) Increment() {
 	atomic.AddInt64(&pt.currentProgress, 1)
-	pt.printProgressBar()
+	// pt.printProgressBar()
 }
 
 func (pt *ProgressTracker) Start(barLength int) {
 	pt.wg.Add(1)
 	pt.BarLength = barLength
-	// go pt.updateProgressBar()
+	go pt.updateProgressBarloop()
 }

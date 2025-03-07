@@ -7,12 +7,14 @@ import (
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
 	models "DuDe/models"
+	"time"
 
 	"path/filepath"
 	"runtime"
 )
 
 func main() {
+	timer := time.Now()
 	log := common.Logger
 
 	availableCPUs := runtime.NumCPU()
@@ -28,8 +30,9 @@ func main() {
 
 	pt := visuals.NewProgressTracker()
 	pt.Start(50)
-
-	mm := process.NewMemoryManager(db, 1)
+	bufsize := 100
+	failedCounter := 0
+	mm := process.NewMemoryManager(db, bufsize)
 	mm.Start()
 
 	hashMemory := mm.LoadMemory()
@@ -44,7 +47,7 @@ func main() {
 			log.Fatalf("Error walking directory: %v", err)
 		}
 
-		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory)
+		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	}
 
 	err = filepath.WalkDir(Args[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceDirFiles))
@@ -52,8 +55,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error walking directory: %v", err)
 	}
+	// log.Infof("Number of files: %d ", len(sourceDirFiles))
 
-	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory)
+	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
 
 	if Args[common.ArgFilename_Mode] == common.ModeDualFolder {
@@ -66,6 +70,9 @@ func main() {
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 
 	err = process.SaveResultsAsCSV(flattenedDuplicates, Args[common.ArgFilename_resDir])
+
+	log.Infof("Took: %s for buffer size %d", time.Since(timer), bufsize)
+	log.Infof("Failed %d times to send to memorychan", failedCounter)
 
 	if err != nil {
 		log.Fatalf("Error saving result: %v", err)
