@@ -43,16 +43,17 @@ create_sample_files(){
 
 
     # Create UNIQUE FILES
-    openssl rand -out "$dir/"$prefix"-"$i"-unique1.pdf" 512
-    openssl rand -out "$dir/"$prefix"-"$i"-unique2.png" 1024
-    openssl rand -out "$dir/"$prefix"-"$i"-unique3.zip" 2048
+    openssl rand -out "$dir/"$prefix"-"$i"-unique1.doc" 201011048
+    openssl rand -out "$dir/"$prefix"-"$i"-unique1.pdf" 20011048
+    openssl rand -out "$dir/"$prefix"-"$i"-unique2.png" 2001048
+    openssl rand -out "$dir/"$prefix"-"$i"-unique3.zip" 200048
     done
 
     echo "Sample files created in $dir"
 }
 
-create_sample_files "$BASE_DIR" "source" 1000
-# create_sample_files "$BASE_TARGET_DIR" "target"
+create_sample_files "$BASE_DIR" "source" 100
+create_sample_files "$BASE_TARGET_DIR" "target" 100
 
 copy_files_from_to(){
     local source="$1"

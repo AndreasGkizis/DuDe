@@ -1,9 +1,9 @@
 package processing
 
 import (
-	logger "DuDe/common"
+	logger "DuDe/internal/common"
+	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
-	models "DuDe/models"
 	"crypto/md5"
 	"fmt"
 	"io"

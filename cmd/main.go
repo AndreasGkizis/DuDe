@@ -1,17 +1,20 @@
 package main
 
 import (
-	common "DuDe/common"
+	common "DuDe/internal/common"
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
+	models "DuDe/internal/models"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
-	models "DuDe/models"
 	"time"
 
 	"path/filepath"
 	"runtime"
 )
+
+// //go:embed ../build/assets/metadata.json
+// var metadataFile embed.FS
 
 func main() {
 	timer := time.Now()
@@ -55,7 +58,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error walking directory: %v", err)
 	}
-	// log.Infof("Number of files: %d ", len(sourceDirFiles))
+	log.Infof("Number of files: %d ", len(sourceDirFiles))
 
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()

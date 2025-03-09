@@ -1,9 +1,9 @@
 package processing
 
 import (
-	common "DuDe/common"
+	common "DuDe/internal/common"
 	database "DuDe/internal/db"
-	models "DuDe/models"
+	models "DuDe/internal/models"
 	"database/sql"
 	"sync"
 	"sync/atomic"

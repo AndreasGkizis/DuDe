@@ -1,8 +1,8 @@
 package processing
 
 import (
-	"DuDe/models"
-	"DuDe/models/db_models"
+	"DuDe/internal/models"
+	"DuDe/internal/models/db_models"
 )
 
 func MapToServiceDTO(db_fh *db_models.FileHash) models.FileHash {

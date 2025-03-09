@@ -1,0 +1,25 @@
+#include <winver.h>
+
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0" // Language & Code Page (U.S. English)
+        BEGIN
+            VALUE "CompanyName", "Your Company"
+            VALUE "FileDescription", "Your Go Application"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "MyApp"
+            VALUE "LegalCopyright", "© 2025 Your Name"
+            VALUE "OriginalFilename", "myapp.exe"
+            VALUE "ProductName", "MyApp"
+            VALUE "ProductVersion", "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

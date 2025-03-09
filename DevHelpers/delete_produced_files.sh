@@ -27,7 +27,7 @@ remove_dir() {
     fi
 }
 
-# remove_dir "$LOGS_DIR"
+remove_dir "$LOGS_DIR"
 remove_file "$CMD_DIR/memory.db" 
 remove_file "$CMD_DIR/memory.db-journal" 
 remove_file "$CMD_DIR/results.csv" 
