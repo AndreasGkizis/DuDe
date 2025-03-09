@@ -1,7 +1,7 @@
 package visuals
 
 import (
-	common "DuDe/common"
+	common "DuDe/internal/common"
 	"bufio"
 	"fmt"
 	"os"
@@ -66,64 +66,27 @@ func PrintIntro() {
 	fmt.Print(intro + "\n")
 }
 
-func (pt *ProgressTracker) printProgressBar() {
-	percentage := float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
-
-	progress := int(float64(pt.BarLength) * percentage / 100)
-	progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
-
-	// pt.mu.Lock()
-	fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
-	// pt.mu.Unlock()
-
-	if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
-		fmt.Println("\nAll files processed!")
-		// close(pt.done)
-		return
-	}
-}
-
-func (pt *ProgressTracker) updateProgressBar() {
-
-	var percentage float64
-	for range pt.ProgressChan {
-		percentage = float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
-
-		progress := int(float64(pt.BarLength) * percentage / 100)
-		progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
-
-		pt.mu.Lock()
-		fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
-		pt.mu.Unlock()
-
-		if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) {
-			fmt.Println("\nAll files processed!")
-			// pt.wg.Done()
-			return
-		}
-	}
-}
-
 func (pt *ProgressTracker) updateProgressBarloop() {
 	var percentage float64
 	pt.wg.Add(1)
 	for {
-		bol := float64(atomic.LoadInt64(&pt.currentProgress)) == 0
-		if float64(atomic.LoadInt64(&pt.currentProgress)) == 0 {
+		curr := float64(atomic.LoadInt64(&pt.currentProgress))
+		tot := float64(atomic.LoadInt64(&pt.totalFiles))
+
+		isItTheStart := curr == 0
+		if curr == 0 {
 			percentage = 0
 		} else {
-			percentage = float64(atomic.LoadInt64(&pt.currentProgress)) / float64(atomic.LoadInt64(&pt.totalFiles)) * 100
-			bol = false
+			percentage = curr / tot * 100
+			isItTheStart = false
 		}
 
 		progress := int(float64(pt.BarLength) * percentage / 100)
 		progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
 
-		// pt.mu.Lock()
-		fmt.Printf("\rProgress: %s %.1f %%", progressBar, percentage)
-		// pt.mu.Unlock()
+		fmt.Printf("\rProgress: %s %.2f %% (...%d of %d Files)", progressBar, percentage, int(curr), int(tot))
 
-		if atomic.LoadInt64(&pt.currentProgress) == atomic.LoadInt64(&pt.totalFiles) && !bol {
+		if curr == tot && !isItTheStart {
 			fmt.Println("\nAll files processed!")
 			pt.wg.Done()
 			return
@@ -138,7 +101,6 @@ type ProgressTracker struct {
 	BarLength       int
 	totalFiles      int64
 	currentProgress int64
-	mu              sync.Mutex
 	wg              sync.WaitGroup
 }
 
@@ -152,7 +114,6 @@ func (pt *ProgressTracker) AddTotal(count int64) {
 
 func (pt *ProgressTracker) Increment() {
 	atomic.AddInt64(&pt.currentProgress, 1)
-	// pt.printProgressBar()
 }
 
 func (pt *ProgressTracker) Start(barLength int) {

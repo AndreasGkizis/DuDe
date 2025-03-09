@@ -1,9 +1,9 @@
 package processing
 
 import (
-	common "DuDe/common"
+	common "DuDe/internal/common"
+	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
-	models "DuDe/models"
 	"encoding/csv"
 	"io/fs"
 	"os"

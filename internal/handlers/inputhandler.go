@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	common "DuDe/common"
+	common "DuDe/internal/common"
 	"DuDe/internal/processing"
 	"flag"
 	"fmt"
