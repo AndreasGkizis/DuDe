@@ -21,7 +21,7 @@ func LoadArgs() map[string]string {
 	args[common.ArgFilename_Mode] = common.Def
 
 	argspath := processing.CreateArgsFile()
-	loadedFileArgs := getFileArguments(argspath, args)
+	loadedFileArgs, _ := getFileArguments(argspath, args)
 	result := getCLIArgs(loadedFileArgs)
 	applyDefaults(result)
 
@@ -51,9 +51,7 @@ func applyDefaults(result map[string]string) {
 	}
 
 	if result[common.ArgFilename_sourceDir] == common.Def {
-		path := common.GetExecutableDir()
-		result[common.ArgFilename_sourceDir] = path
-		common.WarnWithFuncName(fmt.Sprintf("Source Path automatically set to: %s", path))
+		common.Logger.Fatalf("You need to enter at least a Source folder! please edit %s with a valid path, save it and run again", common.ArgFilename)
 	}
 
 	if result[common.ArgFilename_targetDir] == common.Def {
@@ -121,12 +119,13 @@ func getCLIArgs(result map[string]string) map[string]string {
 	return result
 }
 
-func getFileArguments(path string, args map[string]string) map[string]string {
+func getFileArguments(path string, args map[string]string) (map[string]string, error) {
 
 	data, err := os.ReadFile(path)
 
 	if err != nil {
 		common.Logger.DPanic(err)
+		return nil, err
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -139,21 +138,46 @@ func getFileArguments(path string, args map[string]string) map[string]string {
 
 		parts := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
+		// value := strings.TrimSpace(parts[1])
+		// key := parts[0]
+		value := parts[1]
 
-		for _, arg := range args {
-			if key == arg {
-				if strings.HasPrefix(value, "<") {
-					args[arg] = common.Def
+		for argkey := range args {
+			if key == argkey {
+				updated, err := validateAndUpdatePath(value, argkey, args)
+				if updated && err == nil {
 					break
-				}
-				if value != common.Def {
-					args[arg] = value
-					break
+				} else if err != nil {
+					common.Logger.Fatal(err)
+					return nil, err
 				}
 			}
+
 		}
 	}
 
-	return args
+	return args, nil
+}
+
+func validateAndUpdatePath(value string, argkey string, args map[string]string) (bool, error) {
+	value = sanitizeInput(value)
+	// Check if the path is valid
+	if _, err := os.Stat(value); err == nil {
+		args[argkey] = value
+		return true, nil
+	} else if (argkey == common.ArgFilename_targetDir && value == common.Def) ||
+		(argkey == common.ArgFilename_resDir && value == common.Def) {
+		return true, nil
+	} else {
+		// common.Logger.Panicf("The selected Path: %s is invalid! Please edit to a valid path and rerun", value)
+		return false, fmt.Errorf("The selected Path: %s is invalid! Please edit to a valid path and rerun", value)
+	}
+}
+
+func sanitizeInput(input string) string {
+	return strings.TrimSpace(
+		strings.TrimPrefix(
+			strings.TrimSuffix(input, common.Path_suffix),
+			common.Path_prefix),
+	)
 }

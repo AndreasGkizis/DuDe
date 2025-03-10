@@ -27,6 +27,7 @@ func DirDoesNotExistMessage(path string) {
 }
 
 func ArgsFileNotFound() {
+	fmt.Printf("\nSeems like this is the first time you run DuDe, welcome!")
 	fmt.Printf("\nThe '%s' file was not found! So a NEW one has been created for you =].\n", common.ArgFilename)
 	fmt.Print("Follow these steps:\n")
 	fmt.Printf("1. Open the newly created '%s' file.\n", common.ArgFilename)
@@ -49,21 +50,29 @@ func waitAndExit() {
 	os.Exit(0)
 }
 
-func PrintIntro() {
-	intro := `
- ██████╗  ██╗   ██╗        ██████╗  ███████╗ 
- ██╔══██╗ ██║   ██║        ██╔══██╗ ██╔════╝ 
- ██║  ██║ ██║   ██║ █████╗ ██║  ██║ █████╗   
- ██║  ██║ ██║   ██║ ╚════╝ ██║  ██║ ██╔══╝   
- ██████╔╝ ╚██████╔╝        ██████╔╝ ███████╗ 
- ╚═════╝   ╚═════╝         ╚═════╝  ╚══════╝ 
- --------------------------------------------
- Welcome to Duplicate Detection CLI         
- --------------------------------------------
- 
- 🔍 Let's find those duplicates...  
- 💀 ..and....KILL 'EM!`
-	fmt.Print(intro + "\n")
+func Intro() {
+	fmt.Print(common.CLI_Intro)
+}
+
+func FirstRun(args map[string]string) {
+	if args[common.ArgFilename_sourceDir] == common.Def {
+		ArgsFileNotFound()
+	} else {
+		ComparingFolders(args)
+	}
+}
+
+func ComparingFolders(args map[string]string) {
+	sourceDir := args[common.ArgFilename_sourceDir]
+	targetDir := args[common.ArgFilename_targetDir]
+
+	fmt.Printf("Looking for duplicates in: %s\n", sourceDir)
+
+	if targetDir != common.Def && targetDir != "" {
+		fmt.Printf("Comparing with target folder: %s\n", targetDir)
+	} else {
+		fmt.Println("Checking for duplicates within the same folder.")
+	}
 }
 
 func (pt *ProgressTracker) updateProgressBarloop() {

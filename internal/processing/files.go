@@ -43,11 +43,17 @@ func CreateArgsFile() string {
 			common.Logger.DPanic(err)
 		}
 		defer file.Close()
+		content := []string{
+			common.FileIntro,
+			common.Exmaple_FileArg_Usage,
+			common.FileOutro,
+			common.ArgFileSettigns,
+		}
 
-		_, err = file.WriteString(common.ArgFileContent)
-
-		if err != nil {
-			common.Logger.DPanic(err)
+		for _, text := range content {
+			if _, err := file.WriteString(text); err != nil {
+				common.Logger.Fatal(err)
+			}
 		}
 	}
 

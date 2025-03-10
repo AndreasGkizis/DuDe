@@ -36,7 +36,7 @@ func init() {
 
 	// Create a core that writes logs to the console
 	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()) // Use console encoder for human-readable output
-	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel)
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.ErrorLevel)
 
 	// Create a tee that writes to both the file and console
 	teeCore := zapcore.NewTee(fileCore, consoleCore)
@@ -85,9 +85,6 @@ func createLogFile() (*os.File, error) {
 
 	// Check if the logs directory exists
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
-		fmt.Println("BELOW!!")
-		fmt.Println(basedir)
-		fmt.Println("ABOVE!!")
 		err = os.Mkdir(basedir, 0755)
 		if err != nil {
 			return nil, err

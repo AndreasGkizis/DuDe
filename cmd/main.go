@@ -13,9 +13,6 @@ import (
 	"runtime"
 )
 
-// //go:embed ../build/assets/metadata.json
-// var metadataFile embed.FS
-
 func main() {
 	timer := time.Now()
 	log := common.Logger
@@ -23,7 +20,8 @@ func main() {
 	availableCPUs := runtime.NumCPU()
 	Args := handlers.LoadArgs()
 
-	visuals.PrintIntro()
+	visuals.Intro()
+	visuals.FirstRun(Args)
 
 	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
 
