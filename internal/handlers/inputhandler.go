@@ -101,10 +101,10 @@ func getCLIArgs(result map[string]string) map[string]string {
 			switch key {
 			case common.DbgFlagName_long, common.DbgFlagName:
 				if flag == common.DbgFlagActiveValue {
-					result[key] = flag
+					result[common.ArgFilename_Dbg] = flag
 				}
 			case common.ModeFlag_long, common.ModeFlag:
-				result[key] = flag
+				result[common.ArgFilename_Mode] = flag
 			case common.SourceFlag_long, common.SourceFlag:
 				result[common.ArgFilename_sourceDir] = flag
 			case common.TargetFlag_long, common.TargetFlag:
@@ -138,8 +138,7 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 
 		parts := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(parts[0])
-		// value := strings.TrimSpace(parts[1])
-		// key := parts[0]
+
 		value := parts[1]
 
 		for argkey := range args {
@@ -169,8 +168,7 @@ func validateAndUpdatePath(value string, argkey string, args map[string]string) 
 		(argkey == common.ArgFilename_resDir && value == common.Def) {
 		return true, nil
 	} else {
-		// common.Logger.Panicf("The selected Path: %s is invalid! Please edit to a valid path and rerun", value)
-		return false, fmt.Errorf("The selected Path: %s is invalid! Please edit to a valid path and rerun", value)
+		return false, fmt.Errorf("the selected Path: %s is invalid! Please edit to a valid path and rerun", value)
 	}
 }
 
