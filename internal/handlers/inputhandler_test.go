@@ -24,15 +24,29 @@ func TestGetFileArguments(t *testing.T) {
 		{
 			name: "Basic Test",
 			inputArgs: common.ArgFilename_sourceDir + `=[ ` + filepath.Join(tempDir, "source") + `]
-		` + common.ArgFilename_targetDir + ` = ` + filepath.Join(tempDir, "target") + `]
-		` + common.ArgFilename_resDir + ` = ` + filepath.Join(tempDir, "results"),
+					` + common.ArgFilename_targetDir + ` = ` + filepath.Join(tempDir, "target") + `]
+					` + common.ArgFilename_resDir + ` = ` + filepath.Join(tempDir, "results"),
 			expectedArgs: map[string]string{
 				common.ArgFilename_sourceDir: filepath.Join(tempDir, "source"),
 				common.ArgFilename_targetDir: filepath.Join(tempDir, "target"),
 				common.ArgFilename_resDir:    filepath.Join(tempDir, "results"),
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
+			},
+			setupDirs: []string{"source", "target", "results"},
+			Err:       false,
+		},
+		{
+			name: "defaults untouched Test",
+			inputArgs: common.ArgFilename_sourceDir + `=` + common.Path_prefix + common.ArgFilename_sourceDir_example + common.Path_suffix + "\n" +
+				common.ArgFilename_targetDir + `=` + common.Path_prefix + common.ArgFilename_targetDir_example + common.Path_suffix + "\n" +
+				common.ArgFilename_resDir + `=` + common.Path_prefix + common.ArgFilename_resDir_example + common.Path_suffix,
+			expectedArgs: map[string]string{
+				common.ArgFilename_sourceDir: common.Def,
+				common.ArgFilename_targetDir: common.Def,
+				common.ArgFilename_resDir:    common.Def,
+				common.ArgFilename_cacheDir:  common.Def,
+				common.ArgFilename_Dbg:       common.Def,
 			},
 			setupDirs: []string{"source", "target", "results"},
 			Err:       false,
@@ -60,7 +74,6 @@ func TestGetFileArguments(t *testing.T) {
 			args[common.ArgFilename_resDir] = common.Def
 			args[common.ArgFilename_cacheDir] = common.Def
 			args[common.ArgFilename_Dbg] = common.Def
-			args[common.ArgFilename_Mode] = common.Def
 
 			// Call the getFileArguments function
 			result, err := getFileArguments(argsFilePath, args)
@@ -94,7 +107,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 			expected: map[string]string{
 				common.ArgFilename_sourceDir: common.Def,
@@ -102,7 +114,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 		},
 		{
@@ -114,7 +125,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 			expected: map[string]string{
 				common.ArgFilename_sourceDir: filepath.Join(tempDir, "source_cli"),
@@ -122,7 +132,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 		},
 		{
@@ -132,7 +141,6 @@ func TestGetCLIArguments(t *testing.T) {
 				"-" + common.SourceFlag, filepath.Join(tempDir, "source_cli"),
 				"-" + common.ResultDirFlag, filepath.Join(tempDir, "results_cli"),
 				"-" + common.TargetFlag, filepath.Join(tempDir, "target_cli"),
-				"-" + common.ModeFlag, "df",
 				"-" + common.DbgFlagName, common.DbgFlagActiveValue,
 				"-" + common.MemDirFlag, filepath.Join(tempDir, "cache_cli"),
 			},
@@ -142,7 +150,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 			expected: map[string]string{
 				common.ArgFilename_sourceDir: filepath.Join(tempDir, "source_cli"),
@@ -150,7 +157,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    filepath.Join(tempDir, "results_cli"),
 				common.ArgFilename_cacheDir:  filepath.Join(tempDir, "cache_cli"),
 				common.ArgFilename_Dbg:       common.DbgFlagActiveValue,
-				common.ArgFilename_Mode:      "df",
 			},
 		},
 		{
@@ -160,7 +166,6 @@ func TestGetCLIArguments(t *testing.T) {
 				"--" + common.SourceFlag_long, filepath.Join(tempDir, "long_source"),
 				"--" + common.TargetFlag_long, filepath.Join(tempDir, "long_target"),
 				"--" + common.ResultDirFlag_long, filepath.Join(tempDir, "long_res"),
-				"--" + common.ModeFlag_long, "sf",
 				"--" + common.DbgFlagName_long, common.DbgFlagActiveValue,
 				"--" + common.MemDirFlag_long, filepath.Join(tempDir, "long_cache"),
 			},
@@ -170,7 +175,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    common.Def,
 				common.ArgFilename_cacheDir:  common.Def,
 				common.ArgFilename_Dbg:       common.Def,
-				common.ArgFilename_Mode:      common.Def,
 			},
 			expected: map[string]string{
 				common.ArgFilename_sourceDir: filepath.Join(tempDir, "long_source"),
@@ -178,7 +182,6 @@ func TestGetCLIArguments(t *testing.T) {
 				common.ArgFilename_resDir:    filepath.Join(tempDir, "long_res"),
 				common.ArgFilename_cacheDir:  filepath.Join(tempDir, "long_cache"),
 				common.ArgFilename_Dbg:       common.DbgFlagActiveValue,
-				common.ArgFilename_Mode:      "sf",
 			},
 		},
 	}

@@ -19,6 +19,7 @@ func main() {
 
 	availableCPUs := runtime.NumCPU()
 	Args := handlers.LoadArgs()
+	dualFolderModeEnabled := Args[common.ArgFilename_targetDir] != common.Def // if not default value then user has choosen dual folder mode
 
 	visuals.Intro()
 	visuals.FirstRun(Args)
@@ -41,7 +42,7 @@ func main() {
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
 
-	if Args[common.ArgFilename_Mode] == common.ModeDualFolder {
+	if dualFolderModeEnabled {
 		err = filepath.WalkDir(Args[common.ArgFilename_targetDir], process.StoreFilePaths(&targetDirFiles))
 
 		if err != nil {
@@ -61,7 +62,7 @@ func main() {
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
 
-	if Args[common.ArgFilename_Mode] == common.ModeDualFolder {
+	if dualFolderModeEnabled {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
 	} else {
 		process.FindDuplicates(&sourceDirFiles)

@@ -18,7 +18,6 @@ func LoadArgs() map[string]string {
 	args[common.ArgFilename_sourceDir] = common.Def
 	args[common.ArgFilename_targetDir] = common.Def
 	args[common.ArgFilename_Dbg] = common.Def
-	args[common.ArgFilename_Mode] = common.Def
 
 	argspath := processing.CreateArgsFile()
 	loadedFileArgs, _ := getFileArguments(argspath, args)
@@ -42,10 +41,6 @@ func applyDefaults(result map[string]string) {
 		result[common.ArgFilename_Dbg] = common.DbgFlagNotActiveValue
 	}
 
-	if result[common.ArgFilename_Mode] == common.Def {
-		result[common.ArgFilename_Mode] = common.ModeSingleFolder
-	}
-
 	if result[common.ArgFilename_resDir] == common.Def {
 		result[common.ArgFilename_resDir] = filepath.Join(executableDir, common.ResFilename)
 	}
@@ -53,17 +48,9 @@ func applyDefaults(result map[string]string) {
 	if result[common.ArgFilename_sourceDir] == common.Def {
 		common.Logger.Fatalf("You need to enter at least a Source folder! please edit %s with a valid path, save it and run again", common.ArgFilename)
 	}
-
-	if result[common.ArgFilename_targetDir] == common.Def {
-		if result[common.ModeFlag] == common.ModeDualFolder {
-			common.Logger.Fatalf("Target path can not be left empty when in Dual folder mode, please update your %s with the correct path", common.ArgFilename)
-		}
-	}
-
 }
 
 func getCLIArgs(result map[string]string) map[string]string {
-	var curMode string
 	var debugMode string
 	var sourceDir string
 	var targetDir string
@@ -74,9 +61,6 @@ func getCLIArgs(result map[string]string) map[string]string {
 
 	flag.StringVar(&debugMode, common.DbgFlagName_long, common.Def, "activate debugger to get all kinds of logs and traces")
 	flag.StringVar(&debugMode, common.DbgFlagName, common.Def, "activate debugger to get all kinds of logs and traces")
-
-	flag.StringVar(&curMode, common.ModeFlag_long, common.Def, "use "+common.ModeSingleFolder+" for single-folder or "+common.ModeDualFolder+" for dual-folder.")
-	flag.StringVar(&curMode, common.ModeFlag, common.Def, "use sf for single-folder or df for dual-folder.")
 
 	flag.StringVar(&sourceDir, common.SourceFlag_long, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
 	flag.StringVar(&sourceDir, common.SourceFlag, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
@@ -103,8 +87,6 @@ func getCLIArgs(result map[string]string) map[string]string {
 				if flag == common.DbgFlagActiveValue {
 					result[common.ArgFilename_Dbg] = flag
 				}
-			case common.ModeFlag_long, common.ModeFlag:
-				result[common.ArgFilename_Mode] = flag
 			case common.SourceFlag_long, common.SourceFlag:
 				result[common.ArgFilename_sourceDir] = flag
 			case common.TargetFlag_long, common.TargetFlag:
@@ -151,7 +133,6 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 					return nil, err
 				}
 			}
-
 		}
 	}
 
@@ -163,6 +144,9 @@ func validateAndUpdatePath(value string, argkey string, args map[string]string) 
 	// Check if the path is valid
 	if _, err := os.Stat(value); err == nil {
 		args[argkey] = value
+		return true, nil
+	} else if value == common.ArgFilename_sourceDir_example || value == common.ArgFilename_targetDir_example || value == common.ArgFilename_resDir_example {
+		args[argkey] = common.Def
 		return true, nil
 	} else if (argkey == common.ArgFilename_targetDir && value == common.Def) ||
 		(argkey == common.ArgFilename_resDir && value == common.Def) {
