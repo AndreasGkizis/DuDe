@@ -17,7 +17,6 @@ func LoadArgs() map[string]string {
 	args[common.ArgFilename_resDir] = common.Def
 	args[common.ArgFilename_sourceDir] = common.Def
 	args[common.ArgFilename_targetDir] = common.Def
-	args[common.ArgFilename_Dbg] = common.Def
 
 	argspath := processing.CreateArgsFile()
 	loadedFileArgs, _ := getFileArguments(argspath, args)
@@ -37,10 +36,6 @@ func applyDefaults(result map[string]string) {
 		result[common.ArgFilename_cacheDir] = filepath.Join(executableDir, common.MemFilename)
 	}
 
-	if result[common.ArgFilename_Dbg] == common.Def {
-		result[common.ArgFilename_Dbg] = common.DbgFlagNotActiveValue
-	}
-
 	if result[common.ArgFilename_resDir] == common.Def {
 		result[common.ArgFilename_resDir] = filepath.Join(executableDir, common.ResFilename)
 	}
@@ -51,16 +46,12 @@ func applyDefaults(result map[string]string) {
 }
 
 func getCLIArgs(result map[string]string) map[string]string {
-	var debugMode string
 	var sourceDir string
 	var targetDir string
 	var cacheDir string
 	var resultDir string
 
 	flagsMap := make(map[string]string)
-
-	flag.StringVar(&debugMode, common.DbgFlagName_long, common.Def, "activate debugger to get all kinds of logs and traces")
-	flag.StringVar(&debugMode, common.DbgFlagName, common.Def, "activate debugger to get all kinds of logs and traces")
 
 	flag.StringVar(&sourceDir, common.SourceFlag_long, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
 	flag.StringVar(&sourceDir, common.SourceFlag, common.Def, "The directory of the source folder [absolute path](also the only folder in single folder mode).")
@@ -83,10 +74,6 @@ func getCLIArgs(result map[string]string) map[string]string {
 	for key, flag := range flagsMap {
 		if flag != common.Def {
 			switch key {
-			case common.DbgFlagName_long, common.DbgFlagName:
-				if flag == common.DbgFlagActiveValue {
-					result[common.ArgFilename_Dbg] = flag
-				}
 			case common.SourceFlag_long, common.SourceFlag:
 				result[common.ArgFilename_sourceDir] = flag
 			case common.TargetFlag_long, common.TargetFlag:

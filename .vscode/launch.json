@@ -42,10 +42,7 @@
             "program": "cmd/main.go",
             "args": [
                 "-dbg=true",
-                "-m=sf",
-                "-s=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test",
-                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
-                "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
+                "-s=C:\\Code\\Personal\\DuDe\\test_files\\source",
             ]
         },
         {
@@ -56,11 +53,8 @@
             "program": "cmd/main.go",
             "args": [
                 "-dbg=true",
-                "-m=df",
-                "-s=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test",
-                "-t=C:\\Code\\Personal\\DuDe\\test_files\\WorkingCopies\\Test_target",
-                "-c=C:\\Code\\Personal\\DuDe\\cmd\\memory.db",
-                "-r=C:\\Code\\Personal\\DuDe\\cmd\\results.csv"
+                "-s=C:\\Code\\Personal\\DuDe\\test_files\\source",
+                "-t=C:\\Code\\Personal\\DuDe\\test_files\\target",
             ]
         },
         {

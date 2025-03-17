@@ -66,13 +66,24 @@ func ComparingFolders(args map[string]string) {
 	sourceDir := args[common.ArgFilename_sourceDir]
 	targetDir := args[common.ArgFilename_targetDir]
 
-	fmt.Printf("Looking for duplicates in: %s\n", sourceDir)
-
 	if targetDir != common.Def && targetDir != "" {
-		fmt.Printf("Comparing with target folder: %s\n", targetDir)
+		fmt.Printf("Comparing files in: %s\n", sourceDir)
+		fmt.Printf("With files in: %s\n", targetDir)
 	} else {
-		fmt.Println("Checking for duplicates within the same folder.")
+		fmt.Printf("Looking for duplicates in: %s\n", sourceDir)
 	}
+}
+
+type ProgressTracker struct {
+	ProgressChan    chan int
+	BarLength       int
+	totalFiles      int64
+	currentProgress int64
+	wg              sync.WaitGroup
+}
+
+func NewProgressTracker() *ProgressTracker {
+	return &ProgressTracker{ProgressChan: make(chan int, 100)}
 }
 
 func (pt *ProgressTracker) updateProgressBarloop() {
@@ -103,18 +114,6 @@ func (pt *ProgressTracker) updateProgressBarloop() {
 
 		time.Sleep(100 * time.Millisecond) // Check every 100 milliseconds
 	}
-}
-
-type ProgressTracker struct {
-	ProgressChan    chan int
-	BarLength       int
-	totalFiles      int64
-	currentProgress int64
-	wg              sync.WaitGroup
-}
-
-func NewProgressTracker() *ProgressTracker {
-	return &ProgressTracker{ProgressChan: make(chan int, 100)}
 }
 
 func (pt *ProgressTracker) AddTotal(count int64) {

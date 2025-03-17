@@ -36,7 +36,7 @@ func init() {
 
 	// Create a core that writes logs to the console
 	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()) // Use console encoder for human-readable output
-	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.ErrorLevel)
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.WarnLevel)
 
 	// Create a tee that writes to both the file and console
 	teeCore := zapcore.NewTee(fileCore, consoleCore)
@@ -46,18 +46,18 @@ func init() {
 	Logger.Info("Program started!")
 }
 
-func DebugWithFuncName(message string) {
+func WarnWithFuncName(message string) {
 	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Debug(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		Logger.Warn(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Debug(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Warn(fmt.Sprintf("%s() -> %s", funcName, message))
 }
 
-func WarnWithFuncName(message string) {
+func ErrorWithFuncName(message string) {
 	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
@@ -65,7 +65,18 @@ func WarnWithFuncName(message string) {
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Warn(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Error(fmt.Sprintf("%s() -> %s", funcName, message))
+}
+
+func InfoWithFuncName(message string) {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Info(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+
+	Logger.Info(fmt.Sprintf("%s() -> %s", funcName, message))
 }
 
 func LogArgs(args map[string]string) {

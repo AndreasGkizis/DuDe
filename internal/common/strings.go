@@ -8,16 +8,6 @@ const (
 	MemFilename = "memory.db"
 
 	// cli flags
-	DbgFlagName_long      = "debug"
-	DbgFlagName           = "dbg"
-	DbgFlagActiveValue    = "enable"
-	DbgFlagNotActiveValue = "disable"
-
-	ModeFlag         = "m"
-	ModeFlag_long    = "mode"
-	ModeSingleFolder = "sf"
-	ModeDualFolder   = "df"
-
 	SourceFlag      = "s"
 	SourceFlag_long = "source"
 
@@ -29,19 +19,20 @@ const (
 
 	ResultDirFlag      = "r"
 	ResultDirFlag_long = "results"
-	Path_prefix        = "["
-	Path_suffix        = "]"
 
-	ArgFilename_Mode              = "EXECUTION_MODE"
-	ArgFilename_Dbg               = "DEBUG_MODE"
-	ArgFilename_cacheDir          = "CACHE_FILE"
-	ArgFilename_resDir            = "RESULT_FILE"
-	ArgFilename_sourceDir         = "SOURCE_DIR"
-	ArgFilename_targetDir         = "TARGET_DIR"
+	Path_prefix = "["
+	Path_suffix = "]"
+
+	ArgFilename_cacheDir  = "CACHE_FILE"
+	ArgFilename_resDir    = "RESULT_FILE"
+	ArgFilename_sourceDir = "SOURCE_DIR"
+	ArgFilename_targetDir = "TARGET_DIR"
+
 	ArgFilename_sourceDir_example = "replace this text with your source path"
 	ArgFilename_targetDir_example = "replace this text with your target path (optional)"
 	ArgFilename_resDir_example    = "replace this text with the path where the results file will be created (optional)"
-	ArgFileSettigns               = `
+
+	ArgFileSettigns = `
 ` + ArgFilename_sourceDir + `=` + Path_prefix + ArgFilename_sourceDir_example + Path_suffix + "\n" +
 		ArgFilename_targetDir + `=` + Path_prefix + ArgFilename_targetDir_example + Path_suffix + "\n" +
 		ArgFilename_resDir + `=` + Path_prefix + ArgFilename_resDir_example + Path_suffix

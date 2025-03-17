@@ -7,9 +7,5 @@
   - [ ] add clear cache option
 
 
-- trim whitespaces on user input
-- add brackes ( await user deletes brackets )
--  automatic mode selection
-
 comaprig : ... with ...
 single/dual folder mode 
