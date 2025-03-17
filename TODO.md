@@ -5,6 +5,7 @@
     - [ ] create help menu
     - [ ] include descriptions in user files
   - [ ] add clear cache option
+  - [ ] Create a model for input Args
 
 
 comaprig : ... with ...

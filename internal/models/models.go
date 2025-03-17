@@ -16,6 +16,15 @@ type FileHash struct {
 	DuplicatesFound []FileHash
 }
 
+type ExecutionParams struct {
+	SourceDir  string
+	TargetDir  string
+	CacheDir   string
+	ResultsDir string
+	Cpus       int
+	BufSize    int
+}
+
 // #region helper methods
 
 func FindByPath(fhs *[]FileHash, filePath string) *FileHash {

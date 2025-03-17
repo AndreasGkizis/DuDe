@@ -35,7 +35,7 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			stats, _ := os.Stat(path)
 
 			curSize := stats.Size()
-			curModTime := stats.ModTime().Format(time.RFC3339) //TODO: encapsulate into model
+			curModTime := stats.ModTime().Format(time.RFC3339)
 
 			memoryOfFile, exists := (*memory)[path]
 			needsRehasing := !exists || (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
@@ -61,7 +61,6 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 
 			// safeResend(mm.Channel, newMem, 500*time.Microsecond)
 			sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
-			// mm.Channel <- newMem
 
 			pt.Increment()
 			return nil
