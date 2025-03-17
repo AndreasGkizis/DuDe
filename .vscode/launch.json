@@ -30,7 +30,6 @@
             "mode": "auto",
             "program": "cmd/main.go",
             "args": [
-                "-dbg=true",
                 "-s=/home/andreas/Code/golang/DuDe/test_files/source",
             ]
         },
@@ -41,7 +40,6 @@
             "mode": "auto",
             "program": "cmd/main.go",
             "args": [
-                "-dbg=true",
                 "-s=C:\\Code\\Personal\\DuDe\\test_files\\source",
             ]
         },
@@ -52,7 +50,6 @@
             "mode": "auto",
             "program": "cmd/main.go",
             "args": [
-                "-dbg=true",
                 "-s=C:\\Code\\Personal\\DuDe\\test_files\\source",
                 "-t=C:\\Code\\Personal\\DuDe\\test_files\\target",
             ]
