@@ -1,6 +1,7 @@
-package common
+package logger
 
 import (
+	"DuDe/internal/common"
 	"DuDe/internal/models"
 	"fmt"
 	"os"
@@ -102,7 +103,7 @@ func createLogFile() (*os.File, error) {
 	var logFile *os.File
 	logFilename := time.Now().Format("2006-01-02_15-04-05") + ".log"
 
-	executableDir := GetExecutableDir()
+	executableDir := common.GetExecutableDir()
 
 	basedir := filepath.Join(executableDir, "logs")
 	logFilepath := filepath.Join(basedir, logFilename)

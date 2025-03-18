@@ -1,5 +1,7 @@
 package models
 
+import "DuDe/internal/common"
+
 type ResultEntry struct {
 	Filename          string
 	FullPath          string
@@ -26,7 +28,7 @@ type ExecutionParams struct {
 }
 
 func (e *ExecutionParams) IsDualFolderMode() bool {
-	return (e.TargetDir != "" && e.SourceDir != "")
+	return ((e.TargetDir != "" && e.TargetDir != common.Def) && (e.SourceDir != "" && e.SourceDir != common.Def))
 }
 
 // #region helper methods

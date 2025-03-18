@@ -1,7 +1,7 @@
 package processing
 
 import (
-	logger "DuDe/internal/common"
+	logger "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"crypto/md5"

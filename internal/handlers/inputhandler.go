@@ -2,6 +2,7 @@ package handlers
 
 import (
 	common "DuDe/internal/common"
+	"DuDe/internal/common/logger"
 	"DuDe/internal/models"
 	"DuDe/internal/processing"
 	"flag"
@@ -26,7 +27,7 @@ func LoadArgs() models.ExecutionParams {
 
 	results := convertToObject(args)
 
-	common.LogModelArgs(results)
+	logger.LogModelArgs(results)
 
 	return results
 }
@@ -56,7 +57,7 @@ func applyDefaults(result map[string]string) {
 	}
 
 	if result[common.ArgFilename_sourceDir] == common.Def {
-		common.Logger.Fatalf("You need to enter at least a Source folder! please edit %s with a valid path, save it and run again", common.ArgFilename)
+		logger.Logger.Fatalf("You need to enter at least a Source folder! please edit %s with a valid path, save it and run again", common.ArgFilename)
 	}
 }
 
@@ -108,7 +109,7 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 	data, err := os.ReadFile(path)
 
 	if err != nil {
-		common.Logger.DPanic(err)
+		logger.Logger.DPanic(err)
 		return nil, err
 	}
 
@@ -131,7 +132,7 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 				if updated && err == nil {
 					break
 				} else if err != nil {
-					common.Logger.Fatal(err)
+					logger.Logger.Fatal(err)
 					return nil, err
 				}
 			}

@@ -13,6 +13,7 @@ import (
 )
 
 func DirDoesNotExistMessage(path string) {
+
 	fmt.Println("!~~ ERROR ~~!")
 	fmt.Printf("The path:\"%s\" does not exist\n", path)
 	fmt.Println("!~~ ERROR ~~!")
@@ -76,7 +77,6 @@ func ComparingFolders(args models.ExecutionParams) {
 }
 
 type ProgressTracker struct {
-	ProgressChan    chan int
 	BarLength       int
 	totalFiles      int64
 	currentProgress int64
@@ -84,7 +84,7 @@ type ProgressTracker struct {
 }
 
 func NewProgressTracker() *ProgressTracker {
-	return &ProgressTracker{ProgressChan: make(chan int, 100)}
+	return &ProgressTracker{}
 }
 
 func (pt *ProgressTracker) updateProgressBarloop() {

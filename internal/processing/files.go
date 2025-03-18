@@ -2,6 +2,7 @@ package processing
 
 import (
 	common "DuDe/internal/common"
+	"DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"encoding/csv"
@@ -40,7 +41,7 @@ func CreateArgsFile() string {
 	if os.IsNotExist(err) {
 		file, err := os.Create(fullfilepath)
 		if err != nil {
-			common.Logger.DPanic(err)
+			logger.Logger.DPanic(err)
 		}
 		defer file.Close()
 		content := []string{
@@ -52,7 +53,7 @@ func CreateArgsFile() string {
 
 		for _, text := range content {
 			if _, err := file.WriteString(text); err != nil {
-				common.Logger.Fatal(err)
+				logger.Logger.Fatal(err)
 			}
 		}
 	}

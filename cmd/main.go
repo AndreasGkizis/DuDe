@@ -1,7 +1,7 @@
 package main
 
 import (
-	common "DuDe/internal/common"
+	"DuDe/internal/common/logger"
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
 	models "DuDe/internal/models"
@@ -15,7 +15,7 @@ import (
 
 func main() {
 	timer := time.Now()
-	log := common.Logger
+	log := logger.Logger
 
 	availableCPUs := runtime.NumCPU()
 	Args := handlers.LoadArgs()
@@ -26,11 +26,12 @@ func main() {
 	db, err := db.NewDatabase(Args.CacheDir)
 
 	if err != nil {
-		common.Logger.Panicf(err.Error())
+		log.Panicf(err.Error())
 	}
 
 	pt := visuals.NewProgressTracker()
 	pt.Start(50)
+
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
 	mm.Start()

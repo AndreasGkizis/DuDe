@@ -1,7 +1,7 @@
 package processing
 
 import (
-	common "DuDe/internal/common"
+	logger "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
 	"database/sql"
@@ -36,7 +36,7 @@ func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 	records, err := mm.repo.GetAll()
 
 	if err != nil {
-		common.Logger.DPanic(err)
+		logger.Logger.DPanic(err)
 	}
 
 	for _, val := range records {
@@ -64,16 +64,16 @@ func (mm *MemoryManager) SenderFinished() {
 }
 
 func (mm *MemoryManager) updateMemory() {
-	common.InfoWithFuncName("started")
+	logger.InfoWithFuncName("started")
 	defer mm.wg.Done()
 
 	for fh := range mm.Channel {
 		db_fh := MapToDomainDTO(fh)
 		err := mm.repo.Upsert(&db_fh)
 		if err != nil {
-			common.Logger.Fatalf(err.Error())
+			logger.Logger.Fatalf(err.Error())
 		}
 	}
 
-	common.InfoWithFuncName("finished") // NOTE: currently unreachable
+	logger.InfoWithFuncName("finished") // NOTE: currently unreachable
 }
