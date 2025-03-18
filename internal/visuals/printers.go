@@ -40,7 +40,15 @@ func ArgsFileNotFound() {
 	waitAndExit()
 }
 
+func DefaultSource() {
+	fmt.Printf("\nThe source directory indicated seems to be the default one ... Duuuuuude...you can't do that man")
+}
+
 func waitAndExit() {
+	fmt.Println()
+	fmt.Println("Dude!")
+	fmt.Println()
+	fmt.Println("--------> The program will now stop <--------")
 	fmt.Println()
 	fmt.Println()
 	fmt.Println("--------> Press ENTER key to exit <--------")

@@ -5,6 +5,7 @@ import (
 	"DuDe/internal/common/logger"
 	"DuDe/internal/models"
 	"DuDe/internal/processing"
+	"DuDe/internal/visuals"
 	"flag"
 	"fmt"
 	"os"
@@ -57,7 +58,9 @@ func applyDefaults(result map[string]string) {
 	}
 
 	if result[common.ArgFilename_sourceDir] == common.Def {
-		logger.Logger.Fatalf("You need to enter at least a Source folder! please edit %s with a valid path, save it and run again", common.ArgFilename)
+		logger.Logger.Errorf(`The %s was set to the default value ("%s").`, common.ArgFilename_sourceDir, common.Def)
+		visuals.DefaultSource()
+		visuals.ArgsFileNotFound()
 	}
 }
 

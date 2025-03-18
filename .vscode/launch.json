@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "LinuxHome-plain",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/main.go",
+            "args": []
+        },
+        {
             "name": "LinuxHome-df",
             "type": "go",
             "request": "launch",
