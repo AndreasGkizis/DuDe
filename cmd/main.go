@@ -19,12 +19,11 @@ func main() {
 
 	availableCPUs := runtime.NumCPU()
 	Args := handlers.LoadArgs()
-	dualFolderModeEnabled := Args[common.ArgFilename_targetDir] != common.Def // if not default value then user has choosen dual folder mode
 
 	visuals.Intro()
 	visuals.FirstRun(Args)
 
-	db, err := db.NewDatabase(Args[common.ArgFilename_cacheDir])
+	db, err := db.NewDatabase(Args.CacheDir)
 
 	if err != nil {
 		common.Logger.Panicf(err.Error())
@@ -32,9 +31,8 @@ func main() {
 
 	pt := visuals.NewProgressTracker()
 	pt.Start(50)
-	bufsize := 100
 	failedCounter := 0
-	mm := process.NewMemoryManager(db, bufsize)
+	mm := process.NewMemoryManager(db, Args.BufSize)
 	mm.Start()
 
 	hashMemory := mm.LoadMemory()
@@ -42,8 +40,8 @@ func main() {
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
 
-	if dualFolderModeEnabled {
-		err = filepath.WalkDir(Args[common.ArgFilename_targetDir], process.StoreFilePaths(&targetDirFiles))
+	if Args.IsDualFolderMode() {
+		err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles))
 
 		if err != nil {
 			log.Fatalf("Error walking directory: %v", err)
@@ -52,7 +50,7 @@ func main() {
 		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	}
 
-	err = filepath.WalkDir(Args[common.ArgFilename_sourceDir], process.StoreFilePaths(&sourceDirFiles))
+	err = filepath.WalkDir(Args.SourceDir, process.StoreFilePaths(&sourceDirFiles))
 
 	if err != nil {
 		log.Fatalf("Error walking directory: %v", err)
@@ -62,7 +60,7 @@ func main() {
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
 
-	if dualFolderModeEnabled {
+	if Args.IsDualFolderMode() {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
 	} else {
 		process.FindDuplicates(&sourceDirFiles)
@@ -71,9 +69,9 @@ func main() {
 	duplicates := process.GetDuplicates(&sourceDirFiles)
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 
-	err = process.SaveResultsAsCSV(flattenedDuplicates, Args[common.ArgFilename_resDir])
+	err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
 
-	log.Infof("Took: %s for buffer size %d", time.Since(timer), bufsize)
+	log.Infof("Took: %s for buffer size %d", time.Since(timer), Args.BufSize)
 	log.Infof("Failed %d times to send to memorychan", failedCounter)
 
 	if err != nil {

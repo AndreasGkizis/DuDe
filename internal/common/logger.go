@@ -1,9 +1,11 @@
 package common
 
 import (
+	"DuDe/internal/models"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"time"
 
@@ -82,6 +84,17 @@ func InfoWithFuncName(message string) {
 func LogArgs(args map[string]string) {
 	for key, value := range args {
 		Logger.Info(fmt.Sprintf("Key: %s, Value: %s", key, value))
+	}
+}
+
+func LogModelArgs(args models.ExecutionParams) {
+	v := reflect.ValueOf(args)
+	t := v.Type()
+
+	for i := range v.NumField() {
+		field := v.Field(i)
+		fieldName := t.Field(i).Name
+		Logger.Info(fmt.Sprintf("Key: %s, Value: %v", fieldName, field.Interface()))
 	}
 }
 

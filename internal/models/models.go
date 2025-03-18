@@ -25,6 +25,10 @@ type ExecutionParams struct {
 	BufSize    int
 }
 
+func (e *ExecutionParams) IsDualFolderMode() bool {
+	return (e.TargetDir != "" && e.SourceDir != "")
+}
+
 // #region helper methods
 
 func FindByPath(fhs *[]FileHash, filePath string) *FileHash {

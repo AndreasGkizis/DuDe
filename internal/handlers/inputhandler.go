@@ -2,6 +2,7 @@ package handlers
 
 import (
 	common "DuDe/internal/common"
+	"DuDe/internal/models"
 	"DuDe/internal/processing"
 	"flag"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-func LoadArgs() map[string]string {
+func LoadArgs() models.ExecutionParams {
 
 	args := make(map[string]string)
 	args[common.ArgFilename_cacheDir] = common.Def
@@ -20,12 +21,26 @@ func LoadArgs() map[string]string {
 
 	argspath := processing.CreateArgsFile()
 	loadedFileArgs, _ := getFileArguments(argspath, args)
-	result := getCLIArgs(loadedFileArgs)
-	applyDefaults(result)
+	finalArgs := getCLIArgs(loadedFileArgs)
+	applyDefaults(finalArgs)
 
-	common.LogArgs(result)
+	results := convertToObject(args)
 
-	return result
+	common.LogModelArgs(results)
+
+	return results
+}
+
+func convertToObject(args map[string]string) models.ExecutionParams {
+	return models.ExecutionParams{
+
+		SourceDir:  args[common.ArgFilename_sourceDir],
+		TargetDir:  args[common.ArgFilename_targetDir],
+		CacheDir:   args[common.ArgFilename_cacheDir],
+		ResultsDir: args[common.ArgFilename_resDir],
+		Cpus:       100, // decide defaults here
+		BufSize:    100,
+	}
 }
 
 func applyDefaults(result map[string]string) {

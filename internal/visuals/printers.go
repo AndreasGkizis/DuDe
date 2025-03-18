@@ -2,6 +2,7 @@ package visuals
 
 import (
 	common "DuDe/internal/common"
+	"DuDe/internal/models"
 	"bufio"
 	"fmt"
 	"os"
@@ -54,17 +55,17 @@ func Intro() {
 	fmt.Print(common.CLI_Intro)
 }
 
-func FirstRun(args map[string]string) {
-	if args[common.ArgFilename_sourceDir] == common.Def {
+func FirstRun(args models.ExecutionParams) {
+	if args.SourceDir == common.Def {
 		ArgsFileNotFound()
 	} else {
 		ComparingFolders(args)
 	}
 }
 
-func ComparingFolders(args map[string]string) {
-	sourceDir := args[common.ArgFilename_sourceDir]
-	targetDir := args[common.ArgFilename_targetDir]
+func ComparingFolders(args models.ExecutionParams) {
+	sourceDir := args.SourceDir
+	targetDir := args.TargetDir
 
 	if targetDir != common.Def && targetDir != "" {
 		fmt.Printf("Comparing files in: %s\n", sourceDir)
