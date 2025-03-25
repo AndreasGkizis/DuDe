@@ -197,6 +197,7 @@ func TestGetCLIArguments(t *testing.T) {
 		})
 	}
 }
+
 func TestSanitizeInput(t *testing.T) {
 	testCases := []struct {
 		name     string

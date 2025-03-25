@@ -85,43 +85,54 @@ func ComparingFolders(args models.ExecutionParams) {
 }
 
 type ProgressTracker struct {
-	BarLength       int
-	totalFiles      int64
-	currentProgress int64
-	wg              sync.WaitGroup
+	Name                  string
+	BarLength             int
+	Spinner               ProgressSpinner
+	totalFiles            int64
+	currentProgress       int64
+	lastDisplayedProgress int
+	wg                    sync.WaitGroup
 }
 
-func NewProgressTracker() *ProgressTracker {
-	return &ProgressTracker{}
+func NewProgressTracker(name string) *ProgressTracker {
+	return &ProgressTracker{Spinner: *NewSpinner(), Name: name}
 }
 
-func (pt *ProgressTracker) updateProgressBarloop() {
+func (pt *ProgressTracker) updateProgressBarloop(name string) {
 	var percentage float64
-	pt.wg.Add(1)
+	// pt.wg.Add(1)
+	defer pt.wg.Done()
+	ticker := time.NewTicker(150 * time.Millisecond) // Adjust the interval as needed
+	defer ticker.Stop()
+
 	for {
-		curr := float64(atomic.LoadInt64(&pt.currentProgress))
-		tot := float64(atomic.LoadInt64(&pt.totalFiles))
+		select {
+		case <-ticker.C:
+			curr := float64(atomic.LoadInt64(&pt.currentProgress))
+			tot := float64(atomic.LoadInt64(&pt.totalFiles))
 
-		isItTheStart := curr == 0
-		if curr == 0 {
-			percentage = 0
-		} else {
-			percentage = curr / tot * 100
-			isItTheStart = false
+			isItTheStart := curr == 0
+			if curr == 0 {
+				percentage = 0
+			} else {
+				percentage = curr / tot * 100
+				isItTheStart = false
+			}
+
+			progress := int(float64(pt.BarLength) * percentage / 100)
+			progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
+
+			pt.Spinner.Spin()
+			fmt.Printf("\r%s: %s %.2f%% %s  ...%d of %d Files", name, progressBar, percentage, pt.Spinner.Print(), int(curr), int(tot))
+			pt.lastDisplayedProgress = progress
+
+			if curr == tot && !isItTheStart {
+				fmt.Printf("\r%s: %s %.2f%%  ...All files processed!\n", name, progressBar, percentage)
+				return
+			}
+
 		}
 
-		progress := int(float64(pt.BarLength) * percentage / 100)
-		progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
-
-		fmt.Printf("\rProgress: %s %.2f %% (...%d of %d Files)", progressBar, percentage, int(curr), int(tot))
-
-		if curr == tot && !isItTheStart {
-			fmt.Println("\nAll files processed!")
-			pt.wg.Done()
-			return
-		}
-
-		time.Sleep(100 * time.Millisecond) // Check every 100 milliseconds
 	}
 }
 
@@ -133,8 +144,40 @@ func (pt *ProgressTracker) Increment() {
 	atomic.AddInt64(&pt.currentProgress, 1)
 }
 
+func (pt *ProgressTracker) Wait() {
+	pt.wg.Wait()
+}
+
 func (pt *ProgressTracker) Start(barLength int) {
 	pt.wg.Add(1)
 	pt.BarLength = barLength
-	go pt.updateProgressBarloop()
+	pt.lastDisplayedProgress = 0
+
+	go pt.updateProgressBarloop(pt.Name)
+}
+
+type ProgressSpinner struct {
+	States       []string
+	CurrentState int
+}
+
+func NewSpinner() *ProgressSpinner {
+	return &ProgressSpinner{
+		States: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+	}
+}
+
+func (sp *ProgressSpinner) Spin() {
+	if sp.CurrentState+1 >= len(sp.States) {
+		sp.CurrentState = 0
+	} else {
+		sp.CurrentState++
+	}
+}
+
+func (sp *ProgressSpinner) Start() {
+	sp.CurrentState = 0
+}
+func (sp *ProgressSpinner) Print() string {
+	return sp.States[sp.CurrentState]
 }

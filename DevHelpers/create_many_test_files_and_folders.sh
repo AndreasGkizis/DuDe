@@ -52,8 +52,8 @@ create_sample_files(){
     echo "Sample files created in $dir"
 }
 
-create_sample_files "$BASE_DIR" "source" 100
-create_sample_files "$BASE_TARGET_DIR" "target" 100
+create_sample_files "$BASE_DIR" "source" 50
+create_sample_files "$BASE_TARGET_DIR" "target" 50
 
 copy_files_from_to(){
     local source="$1"

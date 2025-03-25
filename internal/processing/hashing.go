@@ -4,7 +4,9 @@ import (
 	logger "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
+	"bytes"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -73,6 +75,110 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 	close(sem)
 
 	return nil
+}
+
+func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxWorkers int) ([]models.FileHash, error) {
+	num := 0
+	for _, v := range input {
+		num += len(v.DuplicatesFound)
+	}
+	pt.AddTotal(int64(num))
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+	sem := make(chan struct{}, maxWorkers)
+	var mu sync.Mutex
+	var once sync.Once
+
+	for valueidx := range input {
+		wg.Add(1)
+		go func(valueIndex int) {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			filehash := &input[valueIndex]
+
+			if len(filehash.DuplicatesFound) == 0 {
+				return
+			}
+			mainfile, err := os.Open(filehash.FilePath)
+			if err != nil {
+				once.Do(func() { errChan <- fmt.Errorf("error opening main file: %w", err) })
+				return
+			}
+
+			defer mainfile.Close()
+
+			for dupindex := 0; dupindex < len(filehash.DuplicatesFound); {
+				dup := filehash.DuplicatesFound[dupindex]
+
+				eq, err := filesEqual(mainfile, dup.FilePath)
+
+				if err != nil {
+					once.Do(func() { errChan <- err })
+					return
+				}
+
+				if !eq {
+					mu.Lock()
+					filehash.DuplicatesFound = append(filehash.DuplicatesFound[:dupindex], filehash.DuplicatesFound[dupindex+1:]...)
+					if len(filehash.DuplicatesFound) == 0 {
+						input = append(input[:valueidx], input[valueidx+1:]...)
+					}
+					mu.Unlock()
+				} else {
+					dupindex++
+				}
+				// reset readers
+				_, _ = mainfile.Seek(0, io.SeekStart)
+				pt.Increment()
+			}
+		}(valueidx)
+	}
+
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+	if err := <-errChan; err != nil {
+		return nil, err
+	}
+	return input, nil
+}
+
+func filesEqual(file1 *os.File, path2 string) (bool, error) {
+	file2, err := os.Open(path2)
+	if err != nil {
+		return false, fmt.Errorf("error opening duplicate file: %w", err)
+	}
+	defer file2.Close()
+
+	const chunkSize = 4096
+	buf1 := make([]byte, chunkSize)
+	buf2 := make([]byte, chunkSize)
+
+	for {
+		n1, err1 := file1.Read(buf1)
+		n2, err2 := file2.Read(buf2)
+
+		if err1 != nil && err1 != io.EOF || err2 != nil && err2 != io.EOF {
+			return false, fmt.Errorf("read error: %w", errors.Join(err1, err2))
+		}
+
+		if n1 != n2 || !bytes.Equal(buf1[:n1], buf2[:n2]) {
+			return false, nil
+		}
+
+		if err1 == io.EOF && err2 == io.EOF {
+			break
+		}
+	}
+
+	// Reset both files for potential reuse
+	file1.Seek(0, io.SeekStart)
+	return true, nil
 }
 
 func calculateMD5Hash(file models.FileHash) string {

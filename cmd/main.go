@@ -7,6 +7,7 @@ import (
 	models "DuDe/internal/models"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
+	"sync"
 	"time"
 
 	"path/filepath"
@@ -29,8 +30,11 @@ func main() {
 		log.Panicf(err.Error())
 	}
 
-	pt := visuals.NewProgressTracker()
+	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
+
+	var taskWG sync.WaitGroup
+	taskWG.Wait()
 
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
@@ -67,7 +71,18 @@ func main() {
 		process.FindDuplicates(&sourceDirFiles)
 	}
 
+	compareTracker := visuals.NewProgressTracker("Comparing\t")
+	compareTracker.Start(50)
+
 	duplicates := process.GetDuplicates(&sourceDirFiles)
+	timer1 := time.Now()
+	duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.Cpus)
+	if err != nil {
+		log.Fatalf("Error Comparing results: %v", err)
+	}
+
+	log.Infof("Took: %s to look through bytes", time.Since(timer1))
+
 	flattenedDuplicates := process.GetFlattened(&duplicates)
 
 	err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
@@ -78,4 +93,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error saving result: %v", err)
 	}
+	pt.Wait()
+	compareTracker.Wait()
 }
