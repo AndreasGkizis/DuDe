@@ -8,5 +8,5 @@
   - [ ] Create a model for input Args
 
 
-comaprig : ... with ...
-single/dual folder mode 
+bugs 
+- 2 folder not working?
