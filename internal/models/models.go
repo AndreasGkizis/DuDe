@@ -19,12 +19,13 @@ type FileHash struct {
 }
 
 type ExecutionParams struct {
-	SourceDir  string
-	TargetDir  string
-	CacheDir   string
-	ResultsDir string
-	Cpus       int
-	BufSize    int
+	SourceDir             string
+	TargetDir             string
+	CacheDir              string
+	ResultsDir            string
+	Cpus                  int
+	BufSize               int
+	DualFolderModeEnabled bool
 }
 
 func (e *ExecutionParams) IsDualFolderMode() bool {

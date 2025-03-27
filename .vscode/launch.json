@@ -20,6 +20,7 @@
             "program": "cmd/main.go",
             "args": [
                 "-s=/home/andreas/Code/golang/DuDe/test_files/source",
+                "-t=/home/andreas/Code/golang/DuDe/test_files/target",
                 "-c=/home/andreas/Code/golang/DuDe/cmd/memory.db",
             ]
         },

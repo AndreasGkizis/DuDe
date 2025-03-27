@@ -34,7 +34,7 @@ func LoadArgs() models.ExecutionParams {
 }
 
 func convertToObject(args map[string]string) models.ExecutionParams {
-	return models.ExecutionParams{
+	params := models.ExecutionParams{
 
 		SourceDir:  args[common.ArgFilename_sourceDir],
 		TargetDir:  args[common.ArgFilename_targetDir],
@@ -43,6 +43,8 @@ func convertToObject(args map[string]string) models.ExecutionParams {
 		Cpus:       100, // decide defaults here
 		BufSize:    100,
 	}
+	params.DualFolderModeEnabled = params.IsDualFolderMode()
+	return params
 }
 
 func applyDefaults(result map[string]string) {

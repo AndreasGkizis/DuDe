@@ -44,8 +44,7 @@ func main() {
 
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
-
-	if Args.IsDualFolderMode() {
+	if Args.DualFolderModeEnabled {
 		err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles))
 
 		if err != nil {
@@ -65,7 +64,7 @@ func main() {
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
 
-	if Args.IsDualFolderMode() {
+	if Args.DualFolderModeEnabled {
 		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
 	} else {
 		process.FindDuplicates(&sourceDirFiles)
