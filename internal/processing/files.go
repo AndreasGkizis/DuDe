@@ -2,10 +2,11 @@ package processing
 
 import (
 	common "DuDe/internal/common"
-	"DuDe/internal/common/logger"
+	log "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"encoding/csv"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -41,7 +42,7 @@ func CreateArgsFile() string {
 	if os.IsNotExist(err) {
 		file, err := os.Create(fullfilepath)
 		if err != nil {
-			logger.Logger.DPanic(err)
+			log.Logger.DPanic(err)
 		}
 		defer file.Close()
 		content := []string{
@@ -53,7 +54,7 @@ func CreateArgsFile() string {
 
 		for _, text := range content {
 			if _, err := file.WriteString(text); err != nil {
-				logger.Logger.Fatal(err)
+				log.Logger.Fatal(err)
 			}
 		}
 	}
@@ -61,8 +62,10 @@ func CreateArgsFile() string {
 	return fullfilepath
 }
 
-func SaveResultsAsCSV(data []models.ResultEntry, filename string) error {
-	file, err := os.Create(filename)
+func SaveResultsAsCSV(data []models.ResultEntry, fullpath string) error {
+	log.InfoWithFuncName(fmt.Sprintf("%d reults found ", len(data)))
+	log.InfoWithFuncName(fmt.Sprintf("creating results file in path :%s", fullpath))
+	file, err := os.Create(fullpath)
 	if err != nil {
 		return err
 	}

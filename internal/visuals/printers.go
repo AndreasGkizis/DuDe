@@ -29,6 +29,7 @@ func DirDoesNotExistMessage(path string) {
 }
 
 func ArgsFileNotFound() {
+	fmt.Println()
 	fmt.Printf("\nSeems like this is the first time you run DuDe, welcome!")
 	fmt.Printf("\nThe '%s' file was not found! So a NEW one has been created for you =].\n", common.ArgFilename)
 	fmt.Print("Follow these steps:\n")
@@ -62,6 +63,20 @@ func waitAndExit() {
 
 func Intro() {
 	fmt.Print(common.CLI_Intro)
+}
+func Outro() {
+	fmt.Println()
+	fmt.Println("Duuuuuuuuuuude, all Done!")
+	fmt.Println()
+	fmt.Println("Thank you for using this program")
+	fmt.Println("...Made by A.G with <3...")
+	fmt.Println()
+	fmt.Println("--------> Press ENTER key to exit <--------")
+	fmt.Println()
+
+	reader := bufio.NewReader(os.Stdin)
+	_, _ = reader.ReadString('\n')
+	os.Exit(0)
 }
 
 func FirstRun(args models.ExecutionParams) {
@@ -100,7 +115,6 @@ func NewProgressTracker(name string) *ProgressTracker {
 
 func (pt *ProgressTracker) updateProgressBarloop(name string) {
 	var percentage float64
-	// pt.wg.Add(1)
 	defer pt.wg.Done()
 	ticker := time.NewTicker(150 * time.Millisecond) // Adjust the interval as needed
 	defer ticker.Stop()
@@ -123,11 +137,11 @@ func (pt *ProgressTracker) updateProgressBarloop(name string) {
 			progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
 
 			pt.Spinner.Spin()
-			fmt.Printf("\r%s: %s %.2f%% %s  ...%d of %d Files", name, progressBar, percentage, pt.Spinner.Print(), int(curr), int(tot))
+			fmt.Printf("\r\x1b[K%s: %s %.2f%% %s  ...%d of %d Files", name, progressBar, percentage, pt.Spinner.Print(), int(curr), int(tot))
 			pt.lastDisplayedProgress = progress
 
 			if curr == tot && !isItTheStart {
-				fmt.Printf("\r%s: %s %.2f%%  ...All files processed!\n", name, progressBar, percentage)
+				fmt.Printf("\r\x1b[K%s: ... %.2f%%  ...All files processed!\n", name, percentage)
 				return
 			}
 

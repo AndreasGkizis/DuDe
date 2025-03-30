@@ -13,7 +13,6 @@ type MemoryManager struct {
 	Channel     chan models.FileHash
 	senderCount int32
 	repo        database.FileHashRepository
-	db          *sql.DB
 	wg          sync.WaitGroup
 	senderwg    sync.WaitGroup
 }
@@ -21,8 +20,7 @@ type MemoryManager struct {
 func NewMemoryManager(db *sql.DB, bufferSize int) *MemoryManager {
 	return &MemoryManager{
 		Channel: make(chan models.FileHash, bufferSize),
-		repo:    *database.NewFileHashRepository(db),
-		db:      db}
+		repo:    *database.NewFileHashRepository(db)}
 }
 
 func (mm *MemoryManager) Start() {
@@ -54,6 +52,11 @@ func (mm *MemoryManager) Wait() {
 func (mm *MemoryManager) SenderStarted() {
 	atomic.AddInt32(&mm.senderCount, 1)
 	mm.senderwg.Add(1)
+}
+
+func (mm *MemoryManager) TotalSenders(total int32) {
+	atomic.AddInt32(&mm.senderCount, total)
+	mm.senderwg.Add(int(total))
 }
 
 func (mm *MemoryManager) SenderFinished() {

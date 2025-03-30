@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,9 +17,9 @@ import (
 )
 
 func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int) error {
-
+	groupID := rand.Uint32()
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, int64(len(*sourceFiles)), maxWorkers))
 	pt.AddTotal(int64(len(*sourceFiles)))
-	mm.SenderStarted()
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
@@ -71,6 +72,7 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 
 	wg.Wait()
 	mm.SenderFinished()
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(len(*sourceFiles)), maxWorkers))
 
 	close(sem)
 

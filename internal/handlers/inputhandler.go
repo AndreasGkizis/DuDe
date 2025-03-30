@@ -153,7 +153,10 @@ func validateAndUpdatePath(value string, argkey string, args map[string]string) 
 	if _, err := os.Stat(value); err == nil {
 		args[argkey] = value
 		return true, nil
-	} else if value == common.ArgFilename_sourceDir_example || value == common.ArgFilename_targetDir_example || value == common.ArgFilename_resDir_example {
+	} else if value == common.ArgFilename_sourceDir_example ||
+		value == common.ArgFilename_targetDir_example ||
+		value == common.ArgFilename_resDir_example ||
+		value == "" {
 		args[argkey] = common.Def
 		return true, nil
 	} else if (argkey == common.ArgFilename_targetDir && value == common.Def) ||

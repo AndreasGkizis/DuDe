@@ -1,13 +1,12 @@
 package main
 
 import (
-	"DuDe/internal/common/logger"
+	logger "DuDe/internal/common/logger"
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
 	models "DuDe/internal/models"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
-	"sync"
 	"time"
 
 	"path/filepath"
@@ -33,12 +32,17 @@ func main() {
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
-	var taskWG sync.WaitGroup
-	taskWG.Wait()
-
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
 	mm.Start()
+
+	if Args.DualFolderModeEnabled {
+		mm.TotalSenders(2)
+	} else {
+		mm.TotalSenders(1)
+	}
+
+	// ^^^ slightly hacky and dump but works for now.
 
 	hashMemory := mm.LoadMemory()
 
@@ -59,8 +63,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error walking directory: %v", err)
 	}
-	log.Infof("Number of files: %d ", len(sourceDirFiles))
-
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
 
@@ -94,4 +96,6 @@ func main() {
 	}
 	pt.Wait()
 	compareTracker.Wait()
+
+	visuals.Outro()
 }
