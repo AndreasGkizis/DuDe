@@ -72,30 +72,36 @@ func main() {
 		process.FindDuplicates(&sourceDirFiles)
 	}
 
-	compareTracker := visuals.NewProgressTracker("Comparing\t")
-	compareTracker.Start(50)
-
 	duplicates := process.GetDuplicates(&sourceDirFiles)
-	timer1 := time.Now()
-	duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.Cpus)
-	if err != nil {
-		log.Fatalf("Error Comparing results: %v", err)
+
+	dupsFound := len(duplicates) != 0
+	if dupsFound {
+		timer1 := time.Now()
+		compareTracker := visuals.NewProgressTracker("Comparing\t")
+		compareTracker.Start(50)
+
+		duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.Cpus)
+		if err != nil {
+			log.Fatalf("Error Comparing results: %v", err)
+		}
+		flattenedDuplicates := process.GetFlattened(&duplicates)
+		err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
+
+		if err != nil {
+			log.Fatalf("Error saving result: %v", err)
+		}
+
+		compareTracker.Wait()
+		log.Infof("Took: %s to look through bytes", time.Since(timer1))
+	} else {
+		visuals.NoDuplicatesFound()
+		log.Info("No duplicates were found")
 	}
-
-	log.Infof("Took: %s to look through bytes", time.Since(timer1))
-
-	flattenedDuplicates := process.GetFlattened(&duplicates)
-
-	err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
 
 	log.Infof("Took: %s for buffer size %d", time.Since(timer), Args.BufSize)
 	log.Infof("Failed %d times to send to memorychan", failedCounter)
 
-	if err != nil {
-		log.Fatalf("Error saving result: %v", err)
-	}
 	pt.Wait()
-	compareTracker.Wait()
 
 	visuals.Outro()
 }

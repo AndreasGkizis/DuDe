@@ -96,6 +96,10 @@ func ComparingFolders(args models.ExecutionParams) {
 	}
 }
 
+func NoDuplicatesFound() {
+	fmt.Println("No duplicates were found")
+}
+
 type ProgressTracker struct {
 	Name                  string
 	BarLength             int
@@ -141,9 +145,7 @@ func (pt *ProgressTracker) updateProgressBarloop(name string) {
 				fmt.Printf("\r\x1b[K%s: ... %.2f%%  ...All files processed!\n", name, percentage)
 				return
 			}
-
 		}
-
 	}
 }
 
@@ -174,7 +176,7 @@ type ProgressSpinner struct {
 
 func NewSpinner() *ProgressSpinner {
 	return &ProgressSpinner{
-		States: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		States: []string{"-", "\\", "|", "/"},
 	}
 }
 

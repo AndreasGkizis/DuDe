@@ -49,10 +49,32 @@ func init() {
 	Logger.Info("Program started!")
 }
 
+func DebugWithFuncName(message string) {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+
+	Logger.Debug(fmt.Sprintf("%s() -> %s", funcName, message))
+}
+
+func InfoWithFuncName(message string) {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+
+	Logger.Info(fmt.Sprintf("%s() -> %s", funcName, message))
+}
+
 func WarnWithFuncName(message string) {
 	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Warn(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
@@ -69,17 +91,6 @@ func ErrorWithFuncName(message string) {
 	funcName := runtime.FuncForPC(pc).Name()
 
 	Logger.Error(fmt.Sprintf("%s() -> %s", funcName, message))
-}
-
-func InfoWithFuncName(message string) {
-	pc, _, _, ok := runtime.Caller(1)
-	if !ok {
-		Logger.Info(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
-		return
-	}
-	funcName := runtime.FuncForPC(pc).Name()
-
-	Logger.Info(fmt.Sprintf("%s() -> %s", funcName, message))
 }
 
 func LogArgs(args map[string]string) {
