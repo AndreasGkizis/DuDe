@@ -49,6 +49,34 @@ func TestGetFileArguments(t *testing.T) {
 			setupDirs: []string{"source", "target", "results"},
 			Err:       false,
 		},
+		{
+			name: "removed examples Test",
+			inputArgs: common.ArgFilename_sourceDir + `=` + common.Path_prefix + common.ArgFilename_sourceDir_example + common.Path_suffix + "\n" +
+				common.ArgFilename_targetDir + `=` + common.Path_prefix + common.Path_suffix + "\n" +
+				common.ArgFilename_resDir + `=` + common.Path_prefix + common.Path_suffix,
+			expectedArgs: map[string]string{
+				common.ArgFilename_sourceDir: common.Def,
+				common.ArgFilename_targetDir: common.Def,
+				common.ArgFilename_resDir:    common.Def,
+				common.ArgFilename_cacheDir:  common.Def,
+			},
+			setupDirs: []string{"source", "target", "results"},
+			Err:       false,
+		},
+		{
+			name: "removed examples Test no braces",
+			inputArgs: common.ArgFilename_sourceDir + `=` + common.Path_prefix + common.ArgFilename_sourceDir_example + common.Path_suffix + "\n" +
+				common.ArgFilename_targetDir + `=` + "\n" +
+				common.ArgFilename_resDir + `=`,
+			expectedArgs: map[string]string{
+				common.ArgFilename_sourceDir: common.Def,
+				common.ArgFilename_targetDir: common.Def,
+				common.ArgFilename_resDir:    common.Def,
+				common.ArgFilename_cacheDir:  common.Def,
+			},
+			setupDirs: []string{"source", "target", "results"},
+			Err:       false,
+		},
 	}
 
 	for _, tc := range testCases {

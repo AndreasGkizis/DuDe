@@ -45,20 +45,23 @@ func DefaultSource() {
 	fmt.Printf("\nThe source directory indicated seems to be the default one ... Duuuuuude...you can't do that man")
 }
 
+func EnterToExit() {
+	fmt.Println()
+	fmt.Println("--------> Press ENTER key to exit <--------")
+	fmt.Println()
+
+	reader := bufio.NewReader(os.Stdin)
+	_, _ = reader.ReadString('\n')
+	os.Exit(0)
+}
+
 func waitAndExit() {
 	fmt.Println()
 	fmt.Println("Dude!")
 	fmt.Println()
 	fmt.Println("--------> The program will now stop <--------")
 	fmt.Println()
-	fmt.Println()
-	fmt.Println("--------> Press ENTER key to exit <--------")
-	fmt.Println()
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
-	os.Exit(0)
+	EnterToExit()
 }
 
 func Intro() {
@@ -70,13 +73,7 @@ func Outro() {
 	fmt.Println()
 	fmt.Println("Thank you for using this program")
 	fmt.Println("...Made by A.G with <3...")
-	fmt.Println()
-	fmt.Println("--------> Press ENTER key to exit <--------")
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
-	os.Exit(0)
+	EnterToExit()
 }
 
 func FirstRun(args models.ExecutionParams) {
