@@ -15,10 +15,12 @@ BASE_TARGET_DIR="$SCRIPT_DIR/../test_files/target"
 mkdir -p "$BASE_DIR/text_files"
 mkdir -p "$BASE_DIR/image_files"
 mkdir -p "$BASE_DIR/audio_files"
+mkdir -p "$BASE_DIR/greek_files"
 
 mkdir -p "$BASE_TARGET_DIR/text_files"
 mkdir -p "$BASE_TARGET_DIR/image_files"
 mkdir -p "$BASE_TARGET_DIR/audio_files"
+mkdir -p "$BASE_TARGET_DIR/greek_files"
 
 create_sample_files(){
     local dir="$1"
@@ -39,6 +41,10 @@ create_sample_files(){
     cp "$dir/audio_files/"$prefix"-has_duplicate.mp3" "$dir/audio_files/"$prefix"-has_duplicate1.mp3" # Duplicate
     openssl rand -out "$dir/audio_files/"$prefix"-has_no_duplicate.wav" 1024
 
+    # Create audio files with random bytes
+    openssl rand -out "$dir/greek_files/"$prefix"-έχει-αντίγραφο.txt" 512
+    cp "$dir/greek_files/"$prefix"-έχει-αντίγραφο.txt" "$dir/greek_files/"$prefix"-έχει-αντίγραφο1.txt" # Duplicate
+    openssl rand -out "$dir/greek_files/"$prefix"-δέν-έχει-αντίγραφο.txt" 1024
 
     # Create UNIQUE FILES
     openssl rand -out "$dir/"$prefix"-unique1.pdf" 512

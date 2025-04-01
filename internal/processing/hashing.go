@@ -44,7 +44,11 @@ func CreateHashes(sourceFiles *[]models.FileHash, maxWorkers int, pt *visuals.Pr
 			needsRehasing := !exists || (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
 
 			if needsRehasing {
-				hash = calculateMD5Hash((*sourceFiles)[index])
+				var err error
+				hash, err = calculateMD5Hash((*sourceFiles)[index])
+				if err != nil {
+					return nil
+				}
 			} else {
 				hash = memoryOfFile.Hash
 			}
@@ -187,23 +191,27 @@ func filesEqual(file1 *os.File, path2 string) (bool, error) {
 	return true, nil
 }
 
-func calculateMD5Hash(file models.FileHash) string {
+func calculateMD5Hash(file models.FileHash) (string, error) {
 	hasherMD5 := md5.New()
 
 	f, err := os.Open(file.FilePath)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			logger.WarnWithFuncName(fmt.Sprintf("Skipping file: %s, reason: %s", file.FilePath, err.Error()))
+			return "", err // TODO: this swallows erros at the moment, need to think a way to handle
+		}
 		logger.Logger.DPanic(err)
 	}
 
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			logger.Logger.DPanic(err)
+			logger.ErrorWithFuncName(err.Error())
 		}
 	}()
 
 	io.Copy(hasherMD5, f)
-	return fmt.Sprintf("%x", hasherMD5.Sum(nil))
+	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
 }
 
 func FindDuplicates(inputs ...*[]models.FileHash) {

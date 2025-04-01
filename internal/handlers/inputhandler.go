@@ -137,7 +137,7 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 				if updated && err == nil {
 					break
 				} else if err != nil {
-					logger.Logger.Fatal(err)
+					logger.ErrorWithFuncName(err.Error())
 					return nil, err
 				}
 			}

@@ -138,11 +138,11 @@ func (pt *ProgressTracker) updateProgressBarloop(name string) {
 			progressBar := strings.Repeat("█", progress) + strings.Repeat("░", pt.BarLength-progress)
 
 			pt.Spinner.Spin()
-			fmt.Printf("\r\x1b[K%s: %s %.2f%% %s  ...%d of %d Files", name, progressBar, percentage, pt.Spinner.Print(), int(curr), int(tot))
+			fmt.Printf("\r%s: %s %.2f%% %s  ...%d of %d Files", name, progressBar, percentage, pt.Spinner.Print(), int(curr), int(tot))
 			pt.lastDisplayedProgress = progress
 
 			if curr == tot && !isItTheStart {
-				fmt.Printf("\r\x1b[K%s: ... %.2f%%  ...All files processed!\n", name, percentage)
+				fmt.Printf("\r%s: %s %.2f%% ...done", name, progressBar, percentage)
 				return
 			}
 		}

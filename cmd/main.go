@@ -7,6 +7,7 @@ import (
 	models "DuDe/internal/models"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
+	"fmt"
 	"time"
 
 	"path/filepath"
@@ -26,7 +27,7 @@ func main() {
 	db, err := db.NewDatabase(Args.CacheDir)
 
 	if err != nil {
-		log.Panicf(err.Error())
+		logger.ErrorWithFuncName(err.Error())
 	}
 
 	pt := visuals.NewProgressTracker("Hashing\t\t")
@@ -48,20 +49,24 @@ func main() {
 
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
+	// var skipped []string
+
 	if Args.DualFolderModeEnabled {
+
 		err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles))
+		// err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles, &skipped))
 
 		if err != nil {
-			log.Fatalf("Error walking directory: %v", err)
+			logger.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
 		}
 
 		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	}
-
 	err = filepath.WalkDir(Args.SourceDir, process.StoreFilePaths(&sourceDirFiles))
+	//  err = filepath.WalkDir(Args.SourceDir, process.StoreFilePaths(&sourceDirFiles, &skipped))
 
 	if err != nil {
-		log.Fatalf("Error walking directory: %v", err)
+		logger.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
 	}
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
 	mm.Wait()
