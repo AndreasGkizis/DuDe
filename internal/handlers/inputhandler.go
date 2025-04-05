@@ -9,6 +9,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -39,8 +40,8 @@ func convertToObject(args map[string]string) models.ExecutionParams {
 		TargetDir:  args[common.ArgFilename_targetDir],
 		CacheDir:   args[common.ArgFilename_cacheDir],
 		ResultsDir: args[common.ArgFilename_resDir],
-		Cpus:       100, // decide defaults here
-		BufSize:    100,
+		Cpus:       runtime.NumCPU(), // decide defaults here
+		BufSize:    1000,
 	}
 	params.DualFolderModeEnabled = params.IsDualFolderMode()
 	return params

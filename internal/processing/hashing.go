@@ -89,7 +89,7 @@ func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxW
 		num += len(v.DuplicatesFound)
 	}
 	if num == 0 {
-		logger.InfoWithFuncName("No duplicates to ensure")
+		logger.WarnWithFuncName("No duplicates to ensure")
 		return input, nil
 	}
 	pt.AddTotal(int64(num))

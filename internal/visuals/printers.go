@@ -142,7 +142,8 @@ func (pt *ProgressTracker) updateProgressBarloop(name string) {
 			pt.lastDisplayedProgress = progress
 
 			if curr == tot && !isItTheStart {
-				fmt.Printf("\r%s: %s %.2f%% ...done", name, progressBar, percentage)
+				fmt.Printf("\r%s: %s %.2f%%    ...%d of %d Files | Done.", name, progressBar, percentage, int(curr), int(tot))
+				fmt.Println()
 				return
 			}
 		}
@@ -165,6 +166,7 @@ func (pt *ProgressTracker) Start(barLength int) {
 	pt.wg.Add(1)
 	pt.BarLength = barLength
 	pt.lastDisplayedProgress = 0
+	fmt.Println()
 
 	go pt.updateProgressBarloop(pt.Name)
 }
@@ -208,8 +210,7 @@ func (pt *ProgressCounter) updateProgressCounterloop(name string) {
 		pt.Increment()
 		fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
 	}
-	fmt.Printf("\r%s: Done %d Files", name, int(pt.currentProgress))
-	fmt.Println()
+	fmt.Printf("\r%s: Done   %d Files", name, int(pt.currentProgress))
 }
 
 func (pt *ProgressCounter) Increment() {
