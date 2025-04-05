@@ -9,14 +9,30 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
 )
 
-func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, err error) error {
-	return func(path string, d fs.DirEntry, err error) error {
+func WalkDir(path string, result *[]models.FileHash, pt *visuals.ProgressCounter) {
+	defer func() {
+		pt.SenderFinished()
+	}()
 
+	groupID := rand.Uint32()
+	log.InfoWithFuncName(fmt.Sprintf("Group %d started walking directory %s files", groupID, path))
+
+	err := filepath.WalkDir(path, StoreFilePaths(result, pt))
+
+	if err != nil {
+		log.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
+	}
+	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
+}
+
+func StoreFilePaths(result *[]models.FileHash, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
+	return func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				visuals.DirDoesNotExistMessage(path)
@@ -28,18 +44,9 @@ func StoreFilePaths(result *[]models.FileHash) func(path string, d fs.DirEntry, 
 		}
 
 		if !d.IsDir() {
-
-			file, errrr := os.Open(path)
-
-			if errrr != nil {
-				log.WarnWithFuncName(fmt.Sprintf("skipping from os.Open: %s reason: %s", path, errrr.Error()))
-				return nil
-			}
-			defer file.Close()
-
 			*result = append(*result, models.FileHash{FilePath: path})
+			pt.Channel <- 1
 		}
-
 		return nil
 	}
 }

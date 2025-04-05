@@ -5,12 +5,12 @@ import (
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
 	models "DuDe/internal/models"
+	"DuDe/internal/processing"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
 	"fmt"
 	"time"
 
-	"path/filepath"
 	"runtime"
 )
 
@@ -30,45 +30,47 @@ func main() {
 		logger.ErrorWithFuncName(err.Error())
 	}
 
-	pt := visuals.NewProgressTracker("Hashing\t\t")
-	pt.Start(50)
-
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
 	mm.Start()
+	rt := visuals.NewProgressCounter("Reading\t\t")
+	rt.Start()
 
+	var senderGroups int32
 	if Args.DualFolderModeEnabled {
-		mm.TotalSenders(2)
+		senderGroups = 2
 	} else {
-		mm.TotalSenders(1)
+		senderGroups = 1
 	}
 
+	mm.TotalSenders(senderGroups)
+	rt.TotalSenders(senderGroups)
 	// ^^^ slightly hacky and dump but works for now.
 
 	hashMemory := mm.LoadMemory()
 
 	sourceDirFiles := make([]models.FileHash, 0)
 	targetDirFiles := make([]models.FileHash, 0)
-	// var skipped []string
+
+	go processing.WalkDir(Args.SourceDir, &sourceDirFiles, rt)
 
 	if Args.DualFolderModeEnabled {
-
-		err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles))
-		// err = filepath.WalkDir(Args.TargetDir, process.StoreFilePaths(&targetDirFiles, &skipped))
-
-		if err != nil {
-			logger.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
-		}
-
-		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
+		go processing.WalkDir(Args.TargetDir, &targetDirFiles, rt)
 	}
-	err = filepath.WalkDir(Args.SourceDir, process.StoreFilePaths(&sourceDirFiles))
-	//  err = filepath.WalkDir(Args.SourceDir, process.StoreFilePaths(&sourceDirFiles, &skipped))
+	rt.Wait()
+
+	pt := visuals.NewProgressTracker("Hashing\t\t")
+	pt.Start(50)
 
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
 	}
 	process.CreateHashes(&sourceDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
+
+	if Args.DualFolderModeEnabled {
+
+		process.CreateHashes(&targetDirFiles, availableCPUs, pt, mm, &hashMemory, &failedCounter)
+	}
 	mm.Wait()
 
 	if Args.DualFolderModeEnabled {

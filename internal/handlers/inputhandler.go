@@ -7,7 +7,6 @@ import (
 	"DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -163,7 +162,7 @@ func validateAndUpdatePath(value string, argkey string, args map[string]string) 
 		(argkey == common.ArgFilename_resDir && value == common.Def) {
 		return true, nil
 	} else {
-		return false, fmt.Errorf("the selected Path: %s is invalid! Please edit to a valid path and rerun", value)
+		return false, err
 	}
 }
 

@@ -89,10 +89,10 @@ func ComparingFolders(args models.ExecutionParams) {
 	targetDir := args.TargetDir
 
 	if targetDir != common.Def && targetDir != "" {
-		fmt.Printf("Comparing files in: %s\n", sourceDir)
-		fmt.Printf("With files in: %s\n", targetDir)
+		fmt.Printf("\nComparing files in: %s\n", sourceDir)
+		fmt.Printf("\nWith files in: %s\n", targetDir)
 	} else {
-		fmt.Printf("Looking for duplicates in: %s\n", sourceDir)
+		fmt.Printf("\nLooking for duplicates in: %s\n", sourceDir)
 	}
 }
 
@@ -167,6 +167,63 @@ func (pt *ProgressTracker) Start(barLength int) {
 	pt.lastDisplayedProgress = 0
 
 	go pt.updateProgressBarloop(pt.Name)
+}
+
+type ProgressCounter struct {
+	Name            string
+	Spinner         ProgressSpinner
+	senderCount     int32
+	currentProgress int64
+	Wg              sync.WaitGroup
+	senderwg        sync.WaitGroup
+	Channel         chan int
+	DoneChannel     chan int
+}
+
+func NewProgressCounter(name string) *ProgressCounter {
+	return &ProgressCounter{
+		Spinner: *NewSpinner(), Name: name,
+		Channel: make(chan int),
+	}
+}
+
+func (pc *ProgressCounter) TotalSenders(total int32) {
+	atomic.AddInt32(&pc.senderCount, total)
+	pc.senderwg.Add(int(total))
+}
+
+func (pc *ProgressCounter) SenderFinished() {
+	if atomic.AddInt32(&pc.senderCount, -1) == 0 {
+		close(pc.Channel)
+	}
+	pc.senderwg.Done()
+}
+
+func (pt *ProgressCounter) updateProgressCounterloop(name string) {
+
+	fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+
+	for range pt.Channel {
+		pt.Spinner.Spin()
+		pt.Increment()
+		fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+	}
+	fmt.Printf("\r%s: Done %d Files", name, int(pt.currentProgress))
+	fmt.Println()
+}
+
+func (pt *ProgressCounter) Increment() {
+	atomic.AddInt64(&pt.currentProgress, 1)
+}
+
+func (pt *ProgressCounter) Wait() {
+	pt.senderwg.Wait()
+}
+
+func (pt *ProgressCounter) Start() {
+	pt.Wg.Add(1)
+	fmt.Println()
+	go pt.updateProgressCounterloop(pt.Name)
 }
 
 type ProgressSpinner struct {
