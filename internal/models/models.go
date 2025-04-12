@@ -23,7 +23,7 @@ type ExecutionParams struct {
 	TargetDir             string
 	CacheDir              string
 	ResultsDir            string
-	Cpus                  int
+	CPUs                  int
 	BufSize               int
 	DualFolderModeEnabled bool
 }
@@ -31,16 +31,3 @@ type ExecutionParams struct {
 func (e *ExecutionParams) IsDualFolderMode() bool {
 	return ((e.TargetDir != "" && e.TargetDir != common.Def) && (e.SourceDir != "" && e.SourceDir != common.Def))
 }
-
-// #region helper methods
-
-func FindByPath(fhs *[]FileHash, filePath string) *FileHash {
-	for i := range *fhs {
-		if (*fhs)[i].FilePath == filePath {
-			return &(*fhs)[i]
-		}
-	}
-	return nil
-}
-
-// #endregion

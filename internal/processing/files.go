@@ -15,7 +15,7 @@ import (
 	"runtime"
 )
 
-func WalkDir(path string, result *[]models.FileHash, pt *visuals.ProgressCounter) {
+func WalkDir(path string, result *map[string]models.FileHash, pt *visuals.ProgressCounter) {
 	defer func() {
 		pt.SenderFinished()
 	}()
@@ -31,24 +31,51 @@ func WalkDir(path string, result *[]models.FileHash, pt *visuals.ProgressCounter
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
 }
 
-func StoreFilePaths(result *[]models.FileHash, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
+func StoreFilePaths(result *map[string]models.FileHash, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
 	return func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				visuals.DirDoesNotExistMessage(path)
 			} else if errors.Is(err, os.ErrPermission) {
 				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
-				return nil                                                                                     // Skip without failing
+				return filepath.SkipDir                                                                        // Skip without failing
 			}
 			return err
 		}
 
 		if !d.IsDir() {
-			*result = append(*result, models.FileHash{FilePath: path})
+			// Check if we have read access to the file
+			// bla := isFileReadable(path)
+			// if bla == false {
+			// 	log.WarnWithFuncName(fmt.Sprintf("skipping due to no read access: %s reason: %s", path, err.Error()))
+			// 	return nil // Skip this file, don't propagate the error to stop the walk
+			// }
+
+			(*result)[path] = models.FileHash{FilePath: path}
+			// *result = append(*result, models.FileHash{FilePath: path})
 			pt.Channel <- 1
 		}
 		return nil
 	}
+}
+
+func isFileReadable(filepath string) bool {
+	fileInfo, err := os.Stat(filepath)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return false
+	}
+
+	mode := fileInfo.Mode()
+
+	// Check specific permissions
+	isReadable := mode.Perm()&0400 != 0
+	// isWritable := mode.Perm() & 0200 != 0
+	// isExecutable := mode.Perm() & 0100 != 0
+	return isReadable
+	// fmt.Printf("Readable: %v\n", isReadable)
+	// fmt.Printf("Writable: %v\n", isWritable)
+	// fmt.Printf("Executable: %v\n", isExecutable)
 }
 
 func CreateArgsFile() string {

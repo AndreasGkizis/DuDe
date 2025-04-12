@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"DuDe/internal/common"
 	logger "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
@@ -14,7 +15,7 @@ type MemoryManager struct {
 	senderCount int32
 	repo        database.FileHashRepository
 	wg          sync.WaitGroup
-	senderwg    sync.WaitGroup
+	senderWg    sync.WaitGroup
 }
 
 func NewMemoryManager(db *sql.DB, bufferSize int) *MemoryManager {
@@ -31,11 +32,7 @@ func (mm *MemoryManager) Start() {
 func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 	result := make(map[string]models.FileHash)
 
-	records, err := mm.repo.GetAll()
-
-	if err != nil {
-		logger.Logger.DPanic(err)
-	}
+	records := common.Must(mm.repo.GetAll())
 
 	for _, val := range records {
 		result[val.FilePath] = MapToServiceDTO(val)
@@ -46,24 +43,24 @@ func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 
 func (mm *MemoryManager) Wait() {
 	mm.wg.Wait()
-	mm.senderwg.Wait()
+	mm.senderWg.Wait()
 }
 
 func (mm *MemoryManager) SenderStarted() {
 	atomic.AddInt32(&mm.senderCount, 1)
-	mm.senderwg.Add(1)
+	mm.senderWg.Add(1)
 }
 
 func (mm *MemoryManager) TotalSenders(total int32) {
 	atomic.AddInt32(&mm.senderCount, total)
-	mm.senderwg.Add(int(total))
+	mm.senderWg.Add(int(total))
 }
 
 func (mm *MemoryManager) SenderFinished() {
 	if atomic.AddInt32(&mm.senderCount, -1) == 0 {
 		close(mm.Channel)
 	}
-	mm.senderwg.Done()
+	mm.senderWg.Done()
 }
 
 func (mm *MemoryManager) updateMemory() {

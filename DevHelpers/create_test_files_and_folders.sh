@@ -32,8 +32,10 @@ create_sample_files(){
     echo "Another unique text file." > "$dir/text_files/"$prefix"-has_no_duplicate.txt"
 
     # Create image files with random bytes
-    openssl rand -out "$dir/image_files/"$prefix"-has_duplicate.jpg" 1024
-    cp "$dir/image_files/"$prefix"-has_duplicate.jpg" "$dir/image_files/"$prefix"-has_duplicate1.jpg" # Duplicate
+    openssl rand -out "$dir/image_files/"$prefix"-has_many_duplicates.jpg" 1024
+    cp "$dir/image_files/"$prefix"-has_many_duplicates.jpg" "$dir/image_files/"$prefix"-has_many_duplicates1.jpg" # Duplicate
+    cp "$dir/image_files/"$prefix"-has_many_duplicates.jpg" "$dir/image_files/"$prefix"-has_many_duplicates2.jpg" # Duplicate
+    
     openssl rand -out "$dir/image_files/"$prefix"-has_no_duplicate.png" 2048
 
     # Create audio files with random bytes
@@ -48,6 +50,8 @@ create_sample_files(){
 
     # Create UNIQUE FILES
     openssl rand -out "$dir/"$prefix"-unique1.pdf" 512
+    openssl rand -out "$dir/"$prefix"-no_access_file.txt" 512
+    chmod 000 "$dir/"$prefix"-no_access_file.txt" # no Read, Write, execute
     openssl rand -out "$dir/"$prefix"-unique2.png" 1024
     openssl rand -out "$dir/"$prefix"-unique3.zip" 2048
 

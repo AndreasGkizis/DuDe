@@ -114,7 +114,7 @@ func NewProgressTracker(name string) *ProgressTracker {
 	return &ProgressTracker{Spinner: *NewSpinner(), Name: name}
 }
 
-func (pt *ProgressTracker) updateProgressBarloop(name string) {
+func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 	var percentage float64
 	defer pt.wg.Done()
 	ticker := time.NewTicker(150 * time.Millisecond) // Adjust the interval as needed
@@ -158,6 +158,10 @@ func (pt *ProgressTracker) Increment() {
 	atomic.AddInt64(&pt.currentProgress, 1)
 }
 
+func (pt *ProgressTracker) DecrementFromTotal() {
+	atomic.AddInt64(&pt.totalFiles, -1)
+}
+
 func (pt *ProgressTracker) Wait() {
 	pt.wg.Wait()
 }
@@ -168,7 +172,7 @@ func (pt *ProgressTracker) Start(barLength int) {
 	pt.lastDisplayedProgress = 0
 	fmt.Println()
 
-	go pt.updateProgressBarloop(pt.Name)
+	go pt.updateProgressBarLoop(pt.Name)
 }
 
 type ProgressCounter struct {
@@ -177,7 +181,7 @@ type ProgressCounter struct {
 	senderCount     int32
 	currentProgress int64
 	Wg              sync.WaitGroup
-	senderwg        sync.WaitGroup
+	senderWg        sync.WaitGroup
 	Channel         chan int
 	DoneChannel     chan int
 }
@@ -191,17 +195,17 @@ func NewProgressCounter(name string) *ProgressCounter {
 
 func (pc *ProgressCounter) TotalSenders(total int32) {
 	atomic.AddInt32(&pc.senderCount, total)
-	pc.senderwg.Add(int(total))
+	pc.senderWg.Add(int(total))
 }
 
 func (pc *ProgressCounter) SenderFinished() {
 	if atomic.AddInt32(&pc.senderCount, -1) == 0 {
 		close(pc.Channel)
 	}
-	pc.senderwg.Done()
+	pc.senderWg.Done()
 }
 
-func (pt *ProgressCounter) updateProgressCounterloop(name string) {
+func (pt *ProgressCounter) updateProgressCounterLoop(name string) {
 
 	fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
 
@@ -218,13 +222,13 @@ func (pt *ProgressCounter) Increment() {
 }
 
 func (pt *ProgressCounter) Wait() {
-	pt.senderwg.Wait()
+	pt.senderWg.Wait()
 }
 
 func (pt *ProgressCounter) Start() {
 	pt.Wg.Add(1)
 	fmt.Println()
-	go pt.updateProgressCounterloop(pt.Name)
+	go pt.updateProgressCounterLoop(pt.Name)
 }
 
 type ProgressSpinner struct {

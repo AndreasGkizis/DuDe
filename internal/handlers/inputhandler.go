@@ -21,8 +21,8 @@ func LoadArgs() models.ExecutionParams {
 	args[common.ArgFilename_sourceDir] = common.Def
 	args[common.ArgFilename_targetDir] = common.Def
 
-	argspath := processing.CreateArgsFile()
-	loadedFileArgs, _ := getFileArguments(argspath, args)
+	argsPath := processing.CreateArgsFile()
+	loadedFileArgs, _ := getFileArguments(argsPath, args)
 	finalArgs := getCLIArgs(loadedFileArgs)
 	applyDefaults(finalArgs)
 
@@ -40,8 +40,8 @@ func convertToObject(args map[string]string) models.ExecutionParams {
 		TargetDir:  args[common.ArgFilename_targetDir],
 		CacheDir:   args[common.ArgFilename_cacheDir],
 		ResultsDir: args[common.ArgFilename_resDir],
-		Cpus:       runtime.NumCPU(), // decide defaults here
-		BufSize:    1000,
+		CPUs:       runtime.NumCPU(), // decide defaults here
+		BufSize:    500,
 	}
 	params.DualFolderModeEnabled = params.IsDualFolderMode()
 	return params
@@ -111,12 +111,7 @@ func getCLIArgs(result map[string]string) map[string]string {
 
 func getFileArguments(path string, args map[string]string) (map[string]string, error) {
 
-	data, err := os.ReadFile(path)
-
-	if err != nil {
-		logger.Logger.DPanic(err)
-		return nil, err
-	}
+	data := common.Must(os.ReadFile(path))
 
 	lines := strings.Split(string(data), "\n")
 
@@ -131,9 +126,9 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 
 		value := parts[1]
 
-		for argkey := range args {
-			if key == argkey {
-				updated, err := validateAndUpdatePath(value, argkey, args)
+		for argKey := range args {
+			if key == argKey {
+				updated, err := validateAndUpdatePath(value, argKey, args)
 				if updated && err == nil {
 					break
 				} else if err != nil {
@@ -147,20 +142,20 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 	return args, nil
 }
 
-func validateAndUpdatePath(value string, argkey string, args map[string]string) (bool, error) {
+func validateAndUpdatePath(value string, argKey string, args map[string]string) (bool, error) {
 	value = sanitizeInput(value)
 	// Check if the path is valid
 	if _, err := os.Stat(value); err == nil {
-		args[argkey] = value
+		args[argKey] = value
 		return true, nil
 	} else if value == common.ArgFilename_sourceDir_example ||
 		value == common.ArgFilename_targetDir_example ||
 		value == common.ArgFilename_resDir_example ||
 		value == "" {
-		args[argkey] = common.Def
+		args[argKey] = common.Def
 		return true, nil
-	} else if (argkey == common.ArgFilename_targetDir && value == common.Def) ||
-		(argkey == common.ArgFilename_resDir && value == common.Def) {
+	} else if (argKey == common.ArgFilename_targetDir && value == common.Def) ||
+		(argKey == common.ArgFilename_resDir && value == common.Def) {
 		return true, nil
 	} else {
 		return false, err

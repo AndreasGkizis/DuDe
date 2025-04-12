@@ -12,13 +12,15 @@ import (
 )
 
 func main() {
+	// debug.SetMemoryLimit(2750 * 1 << 20) // 2750 MB
+
 	timer := time.Now()
 	log := logger.Logger
 
 	Args := handlers.LoadArgs()
 
 	visuals.Intro()
-	visuals.FirstRun(Args)
+	// visuals.FirstRun(Args)
 
 	db, err := db.NewDatabase(Args.CacheDir)
 
@@ -45,45 +47,47 @@ func main() {
 
 	hashMemory := mm.LoadMemory()
 
-	sourceDirFiles := make([]models.FileHash, 0)
-	targetDirFiles := make([]models.FileHash, 0)
+	sourceDirFilesmap := make(map[string]models.FileHash)
+	targetDirFilesmap := make(map[string]models.FileHash)
 
-	go process.WalkDir(Args.SourceDir, &sourceDirFiles, rt)
+	go process.WalkDir(Args.SourceDir, &sourceDirFilesmap, rt)
 
 	if Args.DualFolderModeEnabled {
-		go process.WalkDir(Args.TargetDir, &targetDirFiles, rt)
+		go process.WalkDir(Args.TargetDir, &targetDirFilesmap, rt)
 	}
 	rt.Wait()
 
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
+	err = process.CreateHashes(&sourceDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter)
 	if err != nil {
-		logger.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
+		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 	}
-	process.CreateHashes(&sourceDirFiles, Args.Cpus, pt, mm, &hashMemory, &failedCounter)
 
 	if Args.DualFolderModeEnabled {
 
-		process.CreateHashes(&targetDirFiles, Args.Cpus, pt, mm, &hashMemory, &failedCounter)
+		err = process.CreateHashes(&targetDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter)
+		if err != nil {
+			logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
+		}
 	}
 	mm.Wait()
 
 	if Args.DualFolderModeEnabled {
-		process.FindDuplicates(&sourceDirFiles, &targetDirFiles)
+		process.FindDuplicatesBetweenMaps(&sourceDirFilesmap, &targetDirFilesmap)
 	} else {
-		process.FindDuplicates(&sourceDirFiles)
+		process.FindDuplicatesInMap(&sourceDirFilesmap)
 	}
 
-	duplicates := process.GetDuplicates(&sourceDirFiles)
+	duplicates := process.GetDuplicates(&sourceDirFilesmap)
 
-	dupsFound := len(duplicates) != 0
-	if dupsFound {
+	if len(duplicates) != 0 {
 		timer1 := time.Now()
 		compareTracker := visuals.NewProgressTracker("Comparing\t")
 		compareTracker.Start(50)
 
-		duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.Cpus)
+		duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.CPUs)
 		if err != nil {
 			log.Fatalf("Error Comparing results: %v", err)
 		}
