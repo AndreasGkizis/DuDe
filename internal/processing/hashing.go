@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int) error {
+func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
 	groupID := rand.Uint32()
 	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, int64(len(*sourceFiles)), maxWorkers))
 	pt.AddTotal(int64(len(*sourceFiles)))
@@ -27,7 +27,7 @@ func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *v
 	fmt.Print(len(*sourceFiles))
 	fmt.Println()
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
-	var globalError error                  // To store the first error that occurs
+	// var globalError error                  // To store the first error that occurs
 	for i, val := range *sourceFiles {
 		wg.Add(1)
 		go func(path string) error {
@@ -42,6 +42,7 @@ func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *v
 			// path := (*sourceFiles)[index].FilePath
 			stats, err := os.Stat(val.FilePath)
 			if err != nil {
+				errChan <- err
 				mu.Lock()
 				delete(*sourceFiles, val.FilePath)
 				mu.Unlock()
@@ -60,18 +61,21 @@ func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *v
 				hash, err = calculateMD5Hash(val)
 
 				if err != nil {
-					if errors.Is(err, os.ErrPermission) {
-						mu.Lock()
-						if globalError == nil { // Only store the first error
-							globalError = err
-						}
-						mu.Unlock()
-						mu.Lock()
-						delete(*sourceFiles, val.FilePath)
+					mu.Lock()
+					delete(*sourceFiles, val.FilePath)
 
-						mu.Unlock()
-						pt.DecrementFromTotal() // remove for progress bar
-					}
+					mu.Unlock()
+					pt.DecrementFromTotal() // remove for progress bar
+					errChan <- err
+					// if errors.Is(err, os.ErrPermission) {
+
+					// mu.Lock()
+					// // if globalError == nil { // Only store the first error
+					// // 	globalError = err
+					// // }
+					// mu.Unlock()
+
+					// }
 					return nil // stop this iteration
 				}
 			} else {
@@ -104,7 +108,7 @@ func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *v
 
 	close(sem)
 
-	return globalError // Return the first error that occurred, or nil if none
+	return nil // Return the first error that occurred, or nil if none
 }
 
 func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxWorkers int) ([]models.FileHash, error) {

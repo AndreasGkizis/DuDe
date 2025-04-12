@@ -28,6 +28,8 @@ func main() {
 		logger.ErrorWithFuncName(err.Error())
 	}
 
+	errChan := make(chan error, 100)
+
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
 	mm.Start()
@@ -60,14 +62,14 @@ func main() {
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
-	err = process.CreateHashes(&sourceDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter)
+	err = process.CreateHashes(&sourceDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 	}
 
 	if Args.DualFolderModeEnabled {
 
-		err = process.CreateHashes(&targetDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter)
+		err = process.CreateHashes(&targetDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 		if err != nil {
 			logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		}
@@ -109,6 +111,13 @@ func main() {
 	log.Infof("Failed %d times to send to memorychan", failedCounter)
 
 	pt.Wait()
+
+	go func() {
+		for err := range errChan {
+			logger.WarnWithFuncName(err.Error())
+		}
+	}()
+	close(errChan)
 
 	visuals.Outro()
 }

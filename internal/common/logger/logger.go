@@ -39,7 +39,7 @@ func init() {
 
 	// Create a core that writes logs to the console
 	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()) // Use console encoder for human-readable output
-	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.WarnLevel)
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.ErrorLevel)
 
 	// Create a tee that writes to both the file and console
 	teeCore := zapcore.NewTee(fileCore, consoleCore)
@@ -50,47 +50,47 @@ func init() {
 }
 
 func DebugWithFuncName(message string) {
-	pc, _, _, ok := runtime.Caller(1)
+	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Debug(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func InfoWithFuncName(message string) {
-	pc, _, _, ok := runtime.Caller(1)
+	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Info(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func WarnWithFuncName(message string) {
-	pc, _, _, ok := runtime.Caller(1)
+	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Warn(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func ErrorWithFuncName(message string) {
-	pc, _, _, ok := runtime.Caller(1)
+	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s() -> %s", funcName, message))
+	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func LogArgs(args map[string]string) {
