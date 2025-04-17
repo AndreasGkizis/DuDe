@@ -13,9 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
-func WalkDir(path string, result *map[string]models.FileHash, pt *visuals.ProgressCounter) {
+func WalkDir(path string, result *sync.Map, pt *visuals.ProgressCounter) {
 	defer func() {
 		pt.SenderFinished()
 	}()
@@ -31,7 +32,7 @@ func WalkDir(path string, result *map[string]models.FileHash, pt *visuals.Progre
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
 }
 
-func StoreFilePaths(result *map[string]models.FileHash, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
+func StoreFilePaths(result *sync.Map, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
 	return func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -44,15 +45,8 @@ func StoreFilePaths(result *map[string]models.FileHash, pt *visuals.ProgressCoun
 		}
 
 		if !d.IsDir() {
-			// Check if we have read access to the file
-			// bla := isFileReadable(path)
-			// if bla == false {
-			// 	log.WarnWithFuncName(fmt.Sprintf("skipping due to no read access: %s reason: %s", path, err.Error()))
-			// 	return nil // Skip this file, don't propagate the error to stop the walk
-			// }
 
-			(*result)[path] = models.FileHash{FilePath: path}
-			// *result = append(*result, models.FileHash{FilePath: path})
+			result.Store(path, models.FileHash{FilePath: path})
 			pt.Channel <- 1
 		}
 		return nil

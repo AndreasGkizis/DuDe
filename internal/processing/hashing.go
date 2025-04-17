@@ -1,6 +1,7 @@
 package processing
 
 import (
+	com "DuDe/internal/common"
 	logger "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
@@ -16,67 +17,54 @@ import (
 	"time"
 )
 
-func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
+func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
+	len := com.LenSyncMap(sourceFiles)
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, int64(len(*sourceFiles)), maxWorkers))
-	pt.AddTotal(int64(len(*sourceFiles)))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, len, maxWorkers))
+	pt.AddTotal(int64(len))
 
 	var wg sync.WaitGroup
-	var mu sync.Mutex
-	fmt.Println()
-	fmt.Print(len(*sourceFiles))
-	fmt.Println()
+
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
-	// var globalError error                  // To store the first error that occurs
-	for i, val := range *sourceFiles {
+	sourceFiles.Range(func(key, value interface{}) bool {
 		wg.Add(1)
-		go func(path string) error {
+		go func(path string, val models.FileHash) {
 			defer wg.Done()
 			var hash string
 			var err error
 
-			// using struct{}{} since it allocates nothing , it is a pure signal
-			sem <- struct{}{}        // Acquire a slot
+			// Acquire a slot
+			sem <- struct{}{}
 			defer func() { <-sem }() // Release the slot
 
-			// path := (*sourceFiles)[index].FilePath
 			stats, err := os.Stat(val.FilePath)
 			if err != nil {
 				errChan <- err
-				mu.Lock()
-				delete(*sourceFiles, val.FilePath)
-				mu.Unlock()
+				sourceFiles.Delete(val.FilePath)
 				pt.DecrementFromTotal() // remove for progress bar
-				return nil              // stop this iteration
-
+				return                  // stop this iteration
 			}
 
 			curSize := stats.Size()
 			curModTime := stats.ModTime().Format(time.RFC3339)
 
-			memoryOfFile, exists := (*memory)[path]
+			var memoryOfFile models.FileHash
+			memoryOfFilePath := key.(string)
+			memoryOfValue, exists := (*memory)[memoryOfFilePath]
+			if exists {
+				memoryOfFile = memoryOfValue
+			}
+
 			needsReHashing := !exists || (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
 
 			if needsReHashing {
 				hash, err = calculateMD5Hash(val)
 
 				if err != nil {
-					mu.Lock()
-					delete(*sourceFiles, val.FilePath)
-
-					mu.Unlock()
+					sourceFiles.Delete(val.FilePath)
 					pt.DecrementFromTotal() // remove for progress bar
 					errChan <- err
-					// if errors.Is(err, os.ErrPermission) {
-
-					// mu.Lock()
-					// // if globalError == nil { // Only store the first error
-					// // 	globalError = err
-					// // }
-					// mu.Unlock()
-
-					// }
-					return nil // stop this iteration
+					return // stop this iteration
 				}
 			} else {
 				hash = memoryOfFile.Hash
@@ -90,28 +78,26 @@ func CreateHashes(sourceFiles *map[string]models.FileHash, maxWorkers int, pt *v
 				ModTime:  curModTime,
 			}
 
-			mu.Lock()
-			(*sourceFiles)[path] = newMem
-			mu.Unlock()
+			sourceFiles.Store(path, newMem)
 
 			// safeResend(mm.Channel, newMem, 500*time.Microsecond)
 			sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
 
 			pt.Increment()
-			return nil
-		}(i)
-	}
+		}(key.(string), value.(models.FileHash))
+		return true
+	})
 
 	wg.Wait()
 	mm.SenderFinished()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(len(*sourceFiles)), maxWorkers))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(len), maxWorkers))
 
 	close(sem)
 
 	return nil // Return the first error that occurred, or nil if none
 }
 
-func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxWorkers int) ([]models.FileHash, error) {
+func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTracker, maxWorkers int) (map[string]models.FileHash, error) {
 	num := 0
 	for _, v := range input {
 		num += len(v.DuplicatesFound)
@@ -128,20 +114,18 @@ func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxW
 	var mu sync.Mutex
 	var once sync.Once
 
-	for valueIndx := range input {
+	for itemHash, item := range input {
 		wg.Add(1)
-		go func(valueIndex int) {
+		go func(itemHash string, item models.FileHash) {
 			defer wg.Done()
 
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			fileHash := &input[valueIndex]
-
-			if len(fileHash.DuplicatesFound) == 0 {
+			if len(item.DuplicatesFound) == 0 {
 				return
 			}
-			mainFile, err := os.Open(fileHash.FilePath)
+			mainFile, err := os.Open(item.FilePath)
 			if err != nil {
 				once.Do(func() { errChan <- fmt.Errorf("error opening main file: %w", err) })
 				return
@@ -149,8 +133,8 @@ func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxW
 
 			defer mainFile.Close()
 
-			for dupIndex := 0; dupIndex < len(fileHash.DuplicatesFound); {
-				dup := fileHash.DuplicatesFound[dupIndex]
+			for dupIndex := 0; dupIndex < len(item.DuplicatesFound); {
+				dup := item.DuplicatesFound[dupIndex]
 
 				eq, err := filesEqual(mainFile, dup.FilePath)
 
@@ -161,9 +145,9 @@ func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxW
 
 				if !eq {
 					mu.Lock()
-					fileHash.DuplicatesFound = append(fileHash.DuplicatesFound[:dupIndex], fileHash.DuplicatesFound[dupIndex+1:]...)
-					if len(fileHash.DuplicatesFound) == 0 {
-						input = append(input[:valueIndx], input[valueIndx+1:]...)
+					item.DuplicatesFound = append(item.DuplicatesFound[:dupIndex], item.DuplicatesFound[dupIndex+1:]...)
+					if len(item.DuplicatesFound) == 0 {
+						delete(input, itemHash)
 					}
 					mu.Unlock()
 				} else {
@@ -173,7 +157,7 @@ func EnsureDuplicates(input []models.FileHash, pt *visuals.ProgressTracker, maxW
 				_, _ = mainFile.Seek(0, io.SeekStart)
 				pt.Increment()
 			}
-		}(valueIndx)
+		}(itemHash, item)
 	}
 
 	go func() {
@@ -242,63 +226,101 @@ func calculateMD5Hash(file models.FileHash) (string, error) {
 	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
 }
 
-func FindDuplicatesInMap(fileHashes *map[string]models.FileHash) {
-	for i, iitem := range *fileHashes {
-		duplicates := []models.FileHash{}
-		occurrenceCounter := 0
-		for _, jitem := range *fileHashes {
-			if iitem.Hash == jitem.Hash {
-				if occurrenceCounter == 0 {
-					occurrenceCounter++
-				} else {
-					duplicates = append(duplicates, jitem)
+func FindDuplicatesInMap(fileHashes *sync.Map) {
+	// Map to count occurrences of each hash
+	hashCounts := make(map[string]int)
+	// Map to store paths for each hash
+	hashPaths := make(map[string][]models.FileHash)
+
+	// First pass: Count occurrences and store paths
+	fileHashes.Range(func(path, value any) bool {
+		hash := value.(models.FileHash).Hash
+		hashCounts[hash]++
+		hashPaths[hash] = append(hashPaths[hash], value.(models.FileHash))
+		return true
+	})
+
+	// Second pass: Update duplicates in the map
+	fileHashes.Range(func(path, value any) bool {
+		hash := value.(models.FileHash).Hash
+		if hashCounts[hash] > 1 {
+			// Filter out the current file from duplicates
+			duplicates := make([]models.FileHash, 0, len(hashPaths[hash])-1)
+			for _, file := range hashPaths[hash] {
+				if file.FilePath != path {
+					duplicates = append(duplicates, file)
 				}
 			}
+			// Update the file with duplicates
+			fileHash := value.(models.FileHash)
+			fileHash.DuplicatesFound = duplicates
+			fileHashes.Store(path, fileHash)
 		}
-		// Create a copy of iitem to modify
-		itemCopy := iitem
-		itemCopy.DuplicatesFound = duplicates
-		// Update the map with the modified copy
-		(*fileHashes)[i] = itemCopy
-	}
+		return true
+	})
 }
 
-func FindDuplicatesBetweenMaps(first *map[string]models.FileHash, second *map[string]models.FileHash) {
+func FindDuplicatesBetweenMaps(first *sync.Map, second *sync.Map) {
 	// Iterate through each file hash in the first map
-	for path, fileHash := range *first {
-		// Check for matches in the second map
+	first.Range(func(firstPath, firstVal any) bool {
 		duplicates := []models.FileHash{}
 
-		for _, otherFileHash := range *second {
-			if fileHash.Hash == otherFileHash.Hash {
-				// Mark the match as a duplicate
-				duplicates = append(duplicates, otherFileHash)
-
+		second.Range(func(secondPath, secValue any) bool {
+			if secValue.(models.FileHash).Hash == firstVal.(models.FileHash).Hash {
+				duplicates = append(duplicates, secValue.(models.FileHash))
 			}
+			return true
+		})
+		old, ok := first.Load(firstPath)
+		var new models.FileHash
+		if ok {
+			new = old.(models.FileHash)
+			new.DuplicatesFound = duplicates
 		}
-		itemCopy := fileHash
-		itemCopy.DuplicatesFound = duplicates
-		// Update the map with the modified copy
-		(*first)[path] = itemCopy
-	}
+		first.Store(firstPath, new)
+
+		return true
+	})
+
+	// for path, fileHash := range *first {
+	// 	// Check for matches in the second map
+	// 	duplicates := []models.FileHash{}
+
+	// 	for _, otherFileHash := range *second {
+	// 		if fileHash.Hash == otherFileHash.Hash {
+	// 			// Mark the match as a duplicate
+	// 			duplicates = append(duplicates, otherFileHash)
+
+	// 		}
+	// 	}
+	// 	itemCopy := fileHash
+	// 	itemCopy.DuplicatesFound = duplicates
+	// 	// Update the map with the modified copy
+	// 	(*first)[path] = itemCopy
+	// }
 }
 
-func GetDuplicates(input *map[string]models.FileHash) []models.FileHash {
-	seen := make(map[string]bool)
-	result := make([]models.FileHash, 0)
+func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 
-	for _, val := range *input {
-		if len(val.DuplicatesFound) > 0 {
-			if !seen[val.Hash] {
-				seen[val.Hash] = true
-				result = append(result, val)
+	seen := make(map[string]bool)
+	result := make(map[string]models.FileHash)
+
+	input.Range(func(key, value any) bool {
+		value1, ok := input.Load(key)
+		if ok {
+			if !seen[value1.(models.FileHash).Hash] {
+				seen[value1.(models.FileHash).Hash] = true
+			} else {
+				result[value1.(models.FileHash).Hash] = value1.(models.FileHash)
 			}
 		}
-	}
+
+		return true
+	})
 	return result
 }
 
-func GetFlattened(input *[]models.FileHash) []models.ResultEntry {
+func GetFlattened(input *map[string]models.FileHash) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
 	separatorEntry := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
 	for _, val := range *input {

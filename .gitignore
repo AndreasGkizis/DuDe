@@ -30,6 +30,9 @@ bin/
 # Test files used
 test_files/
 
+# Test folder for compiled runs
+test/
+
 # execution log files
 logs/
 

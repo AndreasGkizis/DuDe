@@ -75,5 +75,5 @@ func (mm *MemoryManager) updateMemory() {
 		}
 	}
 
-	logger.InfoWithFuncName("finished") // NOTE: currently unreachable
+	logger.InfoWithFuncName("finished")
 }

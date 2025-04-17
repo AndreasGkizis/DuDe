@@ -4,10 +4,10 @@ import (
 	logger "DuDe/internal/common/logger"
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
-	models "DuDe/internal/models"
 	process "DuDe/internal/processing"
 	visuals "DuDe/internal/visuals"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -29,6 +29,11 @@ func main() {
 	}
 
 	errChan := make(chan error, 100)
+	go func() {
+		for err := range errChan {
+			logger.WarnWithFuncName(err.Error())
+		}
+	}()
 
 	failedCounter := 0
 	mm := process.NewMemoryManager(db, Args.BufSize)
@@ -49,40 +54,44 @@ func main() {
 
 	hashMemory := mm.LoadMemory()
 
-	sourceDirFilesmap := make(map[string]models.FileHash)
-	targetDirFilesmap := make(map[string]models.FileHash)
+	var syncSourceDirFileMap sync.Map
+	var syncTargetDirFileMap sync.Map
 
-	go process.WalkDir(Args.SourceDir, &sourceDirFilesmap, rt)
+	go process.WalkDir(Args.SourceDir, &syncSourceDirFileMap, rt)
 
 	if Args.DualFolderModeEnabled {
-		go process.WalkDir(Args.TargetDir, &targetDirFilesmap, rt)
+		go process.WalkDir(Args.TargetDir, &syncTargetDirFileMap, rt)
 	}
 	rt.Wait()
 
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
-	err = process.CreateHashes(&sourceDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
+	err = process.CreateHashes(&syncSourceDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 	}
 
 	if Args.DualFolderModeEnabled {
 
-		err = process.CreateHashes(&targetDirFilesmap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
+		err = process.CreateHashes(&syncTargetDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 		if err != nil {
 			logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		}
 	}
 	mm.Wait()
-
+	close(errChan)
+	fmt.Print("closed error channel")
+	//add finding dups progress bar
 	if Args.DualFolderModeEnabled {
-		process.FindDuplicatesBetweenMaps(&sourceDirFilesmap, &targetDirFilesmap)
+		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap)
 	} else {
-		process.FindDuplicatesInMap(&sourceDirFilesmap)
+		fmt.Print("started finding dups")
+
+		process.FindDuplicatesInMap(&syncSourceDirFileMap)
 	}
 
-	duplicates := process.GetDuplicates(&sourceDirFilesmap)
+	duplicates := process.GetDuplicates(&syncSourceDirFileMap)
 
 	if len(duplicates) != 0 {
 		timer1 := time.Now()
@@ -108,16 +117,9 @@ func main() {
 	}
 
 	log.Infof("Took: %s for buffer size %d", time.Since(timer), Args.BufSize)
-	log.Infof("Failed %d times to send to memorychan", failedCounter)
+	log.Infof("Failed %d times to send to memoryChan", failedCounter)
 
 	pt.Wait()
-
-	go func() {
-		for err := range errChan {
-			logger.WarnWithFuncName(err.Error())
-		}
-	}()
-	close(errChan)
 
 	visuals.Outro()
 }

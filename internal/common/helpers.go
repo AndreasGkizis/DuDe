@@ -3,6 +3,7 @@ package common
 import (
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 func GetExecutableDir() string {
@@ -18,4 +19,13 @@ func Must[T any](value T, err error) T {
 		panic(err)
 	}
 	return value
+}
+
+func LenSyncMap(m *sync.Map) int {
+	var count int
+	m.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }

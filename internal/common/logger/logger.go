@@ -57,7 +57,7 @@ func DebugWithFuncName(message string) {
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	Logger.Debug(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func InfoWithFuncName(message string) {
@@ -68,7 +68,7 @@ func InfoWithFuncName(message string) {
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	Logger.Info(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func WarnWithFuncName(message string) {
@@ -79,7 +79,7 @@ func WarnWithFuncName(message string) {
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	Logger.Warn(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func ErrorWithFuncName(message string) {
