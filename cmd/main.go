@@ -81,18 +81,20 @@ func main() {
 	}
 	mm.Wait()
 	close(errChan)
-	fmt.Print("closed error channel")
-	//add finding dups progress bar
+
+	findTracker := visuals.NewProgressTracker("Finding\t\t")
+	findTracker.Start(50)
+
 	if Args.DualFolderModeEnabled {
 		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap)
 	} else {
-		fmt.Print("started finding dups")
 
-		process.FindDuplicatesInMap(&syncSourceDirFileMap)
+		process.FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
 	}
 
+	findTracker.Wait()
 	duplicates := process.GetDuplicates(&syncSourceDirFileMap)
-
+	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", len(duplicates)))
 	if len(duplicates) != 0 {
 		timer1 := time.Now()
 		compareTracker := visuals.NewProgressTracker("Comparing\t")

@@ -109,10 +109,8 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 	pt.AddTotal(int64(num))
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
 	sem := make(chan struct{}, maxWorkers)
 	var mu sync.Mutex
-	var once sync.Once
 
 	for itemHash, item := range input {
 		wg.Add(1)
@@ -127,7 +125,7 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 			}
 			mainFile, err := os.Open(item.FilePath)
 			if err != nil {
-				once.Do(func() { errChan <- fmt.Errorf("error opening main file: %w", err) })
+				logger.WarnWithFuncName(fmt.Sprintf("Error opening file %s : %v. skipping..", item.FilePath, err))
 				return
 			}
 
@@ -139,8 +137,8 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 				eq, err := filesEqual(mainFile, dup.FilePath)
 
 				if err != nil {
-					once.Do(func() { errChan <- err })
-					return
+					logger.WarnWithFuncName(fmt.Sprintf("Error comparing files %s and %s: %v. Considering as equal.", item.FilePath, dup.FilePath, err))
+					eq = true
 				}
 
 				if !eq {
@@ -160,13 +158,6 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 		}(itemHash, item)
 	}
 
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-	if err := <-errChan; err != nil {
-		return nil, err
-	}
 	return input, nil
 }
 
@@ -226,7 +217,13 @@ func calculateMD5Hash(file models.FileHash) (string, error) {
 	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
 }
 
-func FindDuplicatesInMap(fileHashes *sync.Map) {
+func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker) {
+
+	len := com.LenSyncMap(fileHashes)
+	groupID := rand.Uint32()
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for %d files", groupID, len))
+	tracker.AddTotal(int64(len))
+
 	// Map to count occurrences of each hash
 	hashCounts := make(map[string]int)
 	// Map to store paths for each hash
@@ -245,7 +242,7 @@ func FindDuplicatesInMap(fileHashes *sync.Map) {
 		hash := value.(models.FileHash).Hash
 		if hashCounts[hash] > 1 {
 			// Filter out the current file from duplicates
-			duplicates := make([]models.FileHash, 0, len(hashPaths[hash])-1)
+			duplicates := make([]models.FileHash, 0)
 			for _, file := range hashPaths[hash] {
 				if file.FilePath != path {
 					duplicates = append(duplicates, file)
@@ -256,8 +253,11 @@ func FindDuplicatesInMap(fileHashes *sync.Map) {
 			fileHash.DuplicatesFound = duplicates
 			fileHashes.Store(path, fileHash)
 		}
+		tracker.Increment()
 		return true
 	})
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for %d files", groupID, len))
+
 }
 
 func FindDuplicatesBetweenMaps(first *sync.Map, second *sync.Map) {

@@ -217,6 +217,29 @@ func (pt *ProgressCounter) updateProgressCounterLoop(name string) {
 	fmt.Printf("\r%s: Done   %d Files", name, int(pt.currentProgress))
 }
 
+func (pt *ProgressCounter) updateProgressCounterLoop2(name string) {
+	ticker := time.NewTicker(150 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			pt.Spinner.Spin()
+			fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+
+		case _, ok := <-pt.Channel:
+			if !ok {
+				// Channel closed, print final status and return
+				fmt.Printf("\r%s: Done   %d Files\n", name, int(pt.currentProgress))
+				return
+			}
+			pt.Increment()
+			// Optionally print here if you want immediate feedback on increment
+			// but spinner will update on next tick anyway
+		}
+	}
+}
+
 func (pt *ProgressCounter) Increment() {
 	atomic.AddInt64(&pt.currentProgress, 1)
 }

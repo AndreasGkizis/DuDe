@@ -40,8 +40,11 @@ func StoreFilePaths(result *sync.Map, pt *visuals.ProgressCounter) func(path str
 			} else if errors.Is(err, os.ErrPermission) {
 				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
 				return filepath.SkipDir                                                                        // Skip without failing
+			} else {
+				log.ErrorWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
+				return filepath.SkipDir                                                                         // Skip without failing
 			}
-			return err
+			// return err
 		}
 
 		if !d.IsDir() {
