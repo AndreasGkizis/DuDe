@@ -218,18 +218,15 @@ func calculateMD5Hash(file models.FileHash) (string, error) {
 }
 
 func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker) {
-
 	len := com.LenSyncMap(fileHashes)
+
 	groupID := rand.Uint32()
 	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for %d files", groupID, len))
 	tracker.AddTotal(int64(len))
 
-	// Map to count occurrences of each hash
 	hashCounts := make(map[string]int)
-	// Map to store paths for each hash
 	hashPaths := make(map[string][]models.FileHash)
 
-	// First pass: Count occurrences and store paths
 	fileHashes.Range(func(path, value any) bool {
 		hash := value.(models.FileHash).Hash
 		hashCounts[hash]++
@@ -237,18 +234,15 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 		return true
 	})
 
-	// Second pass: Update duplicates in the map
 	fileHashes.Range(func(path, value any) bool {
 		hash := value.(models.FileHash).Hash
 		if hashCounts[hash] > 1 {
-			// Filter out the current file from duplicates
 			duplicates := make([]models.FileHash, 0)
 			for _, file := range hashPaths[hash] {
 				if file.FilePath != path {
 					duplicates = append(duplicates, file)
 				}
 			}
-			// Update the file with duplicates
 			fileHash := value.(models.FileHash)
 			fileHash.DuplicatesFound = duplicates
 			fileHashes.Store(path, fileHash)
@@ -257,48 +251,114 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 		return true
 	})
 	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for %d files", groupID, len))
-
 }
 
-func FindDuplicatesBetweenMaps(first *sync.Map, second *sync.Map) {
-	// Iterate through each file hash in the first map
-	first.Range(func(firstPath, firstVal any) bool {
-		duplicates := []models.FileHash{}
+func FindDuplicatesBetweenMaps(first, second *sync.Map, tracker *visuals.ProgressTracker) {
+	len1 := com.LenSyncMap(first)
+	len2 := com.LenSyncMap(second)
 
-		second.Range(func(secondPath, secValue any) bool {
-			if secValue.(models.FileHash).Hash == firstVal.(models.FileHash).Hash {
-				duplicates = append(duplicates, secValue.(models.FileHash))
-			}
-			return true
-		})
-		old, ok := first.Load(firstPath)
-		var new models.FileHash
-		if ok {
-			new = old.(models.FileHash)
-			new.DuplicatesFound = duplicates
+	groupID := rand.Uint32()
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for first folder with %v files,and second with %v files", groupID, len1, len2))
+
+	FindDuplicatesInMap(first, tracker)
+	// tracker.AddTotal(int64(len1))
+	// tracker.AddTotal(int64(len2))
+
+	firstHashPaths := make(map[string][]models.FileHash)
+
+	first.Range(func(path, value any) bool {
+		hash := value.(models.FileHash).Hash
+		firstHashPaths[hash] = append(firstHashPaths[hash], value.(models.FileHash))
+		return true
+	})
+
+	second.Range(func(path, value any) bool {
+		secondHash := value.(models.FileHash)
+		hash := secondHash.Hash
+
+		duplicates, found := firstHashPaths[hash]
+		if found {
+			duplicates = append(duplicates, secondHash)
+			firstHashPaths[hash] = duplicates
 		}
-		first.Store(firstPath, new)
+		fileHash := value.(models.FileHash)
+		fileHash.DuplicatesFound = duplicates
+		first.Store(path, fileHash)
+		// tracker.Increment()
 
 		return true
 	})
 
-	// for path, fileHash := range *first {
-	// 	// Check for matches in the second map
-	// 	duplicates := []models.FileHash{}
-
-	// 	for _, otherFileHash := range *second {
-	// 		if fileHash.Hash == otherFileHash.Hash {
-	// 			// Mark the match as a duplicate
-	// 			duplicates = append(duplicates, otherFileHash)
-
-	// 		}
-	// 	}
-	// 	itemCopy := fileHash
-	// 	itemCopy.DuplicatesFound = duplicates
-	// 	// Update the map with the modified copy
-	// 	(*first)[path] = itemCopy
-	// }
 }
+
+// func FindDuplicatesBetweenMapsAI(first *sync.Map, second *sync.Map, tracker *visuals.ProgressTracker) {
+// 	len1 := com.LenSyncMap(first)
+// 	len2 := com.LenSyncMap(second)
+
+// 	groupID := rand.Uint32()
+// 	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for first folder with %v files, and second with %v files", groupID, len1, len2))
+
+// 	// tracker.AddTotal(int64(len1))
+// 	// tracker.AddTotal(int64(len2))
+
+// 	// Map from hash to list of FileHash in first map
+// 	hashToFilesFirst := make(map[string][]models.FileHash)
+
+// 	// Populate map for first sync.Map
+// 	first.Range(func(path, value any) bool {
+// 		fileHash := value.(models.FileHash)
+// 		hashToFilesFirst[fileHash.Hash] = append(hashToFilesFirst[fileHash.Hash], fileHash)
+// 		return true
+// 	})
+
+// 	// Iterate over second map to find duplicates in first map
+// 	second.Range(func(path, value any) bool {
+// 		fileHashSecond := value.(models.FileHash)
+// 		duplicatesInFirst, found := hashToFilesFirst[fileHashSecond.Hash]
+// 		if found {
+// 			// Update duplicates for the file in the second map
+// 			duplicatesForSecond := make([]models.FileHash, 0, len(duplicatesInFirst))
+// 			for _, f := range duplicatesInFirst {
+// 				if f.FilePath != path {
+// 					duplicatesForSecond = append(duplicatesForSecond, f)
+// 				}
+// 			}
+// 			fileHashSecond.DuplicatesFound = duplicatesForSecond
+// 			second.Store(path, fileHashSecond)
+
+// 			// Also update duplicates for corresponding files in the first map
+// 			for _, f := range duplicatesInFirst {
+// 				// Avoid updating duplicates for the same file path
+// 				if f.FilePath == path {
+// 					continue
+// 				}
+// 				// Get the fileHash from first map to update duplicates
+// 				val, ok := first.Load(f.FilePath)
+// 				if !ok {
+// 					continue
+// 				}
+// 				fileHashFirst := val.(models.FileHash)
+
+// 				// Add the current second map file as duplicate if not already present
+// 				alreadyPresent := false
+// 				for _, dup := range fileHashFirst.DuplicatesFound {
+// 					if dup.FilePath == path {
+// 						alreadyPresent = true
+// 						break
+// 					}
+// 				}
+// 				if !alreadyPresent {
+// 					fileHashFirst.DuplicatesFound = append(fileHashFirst.DuplicatesFound, fileHashSecond)
+// 					first.Store(f.FilePath, fileHashFirst)
+// 				}
+// 			}
+// 		}
+// 		// tracker.Increment()
+// 		return true
+// 	})
+
+// 	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for first folder with %v files, and second with %v files", groupID, len1, len2))
+// }
 
 func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 

@@ -20,7 +20,6 @@ func main() {
 	Args := handlers.LoadArgs()
 
 	visuals.Intro()
-	// visuals.FirstRun(Args)
 
 	db, err := db.NewDatabase(Args.CacheDir)
 
@@ -79,20 +78,20 @@ func main() {
 			logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		}
 	}
+	pt.Wait()
 	mm.Wait()
 	close(errChan)
 
 	findTracker := visuals.NewProgressTracker("Finding\t\t")
-	findTracker.Start(50)
+	// findTracker.Start(50)
 
 	if Args.DualFolderModeEnabled {
-		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap)
+		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap, findTracker)
 	} else {
-
 		process.FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
 	}
+	// findTracker.Wait()
 
-	findTracker.Wait()
 	duplicates := process.GetDuplicates(&syncSourceDirFileMap)
 	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", len(duplicates)))
 	if len(duplicates) != 0 {
@@ -104,6 +103,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error Comparing results: %v", err)
 		}
+		compareTracker.Wait()
+
 		flattenedDuplicates := process.GetFlattened(&duplicates)
 		err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
 
@@ -111,7 +112,6 @@ func main() {
 			log.Fatalf("Error saving result: %v", err)
 		}
 
-		compareTracker.Wait()
 		log.Infof("Took: %s to look through bytes", time.Since(timer1))
 	} else {
 		visuals.NoDuplicatesFound()
@@ -120,8 +120,6 @@ func main() {
 
 	log.Infof("Took: %s for buffer size %d", time.Since(timer), Args.BufSize)
 	log.Infof("Failed %d times to send to memoryChan", failedCounter)
-
-	pt.Wait()
 
 	visuals.Outro()
 }
