@@ -6,7 +6,5 @@
     - [ ] include descriptions in user files
   - [ ] add clear cache option
   - [ ] Create a model for input Args
-
-
-bugs 
-- 2 folder not working?
+  - [ ] print found in terminal with "see more / exit" options
+  - [ ] allow selecting a folder as source within the target folder ( look for these in these logic)

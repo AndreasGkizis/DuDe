@@ -89,9 +89,9 @@ func CreateArgsFile() string {
 		defer file.Close()
 		content := []string{
 			common.FileIntro,
-			common.Exmaple_FileArg_Usage,
+			common.Example_FileArg_Usage,
 			common.FileOutro,
-			common.ArgFileSettigns,
+			common.ArgFileSettings,
 		}
 
 		for _, text := range content {

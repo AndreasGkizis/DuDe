@@ -32,7 +32,7 @@ const (
 	ArgFilename_targetDir_example = "replace this text with your target path (optional)"
 	ArgFilename_resDir_example    = "replace this text with the path where the results file will be created (optional)"
 
-	ArgFileSettigns = `
+	ArgFileSettings = `
 ` + ArgFilename_sourceDir + `=` + Path_prefix + ArgFilename_sourceDir_example + Path_suffix + "\n" +
 		ArgFilename_targetDir + `=` + Path_prefix + ArgFilename_targetDir_example + Path_suffix + "\n" +
 		ArgFilename_resDir + `=` + Path_prefix + ArgFilename_resDir_example + Path_suffix
@@ -48,12 +48,12 @@ The resulting file
 ------------------------->> 	What to Enter in the File
 
 `
-	Exmaple_FileArg_Usage = `1. ` + ArgFilename_sourceDir + ` – The main folder where you want to check for duplicate files.
+	Example_FileArg_Usage = `1. ` + ArgFilename_sourceDir + ` – The main folder where you want to check for duplicate files.
    - Example: ` + ArgFilename_sourceDir + `=` + Path_prefix + `C:\Users\John\Documents` + Path_suffix + `
 
 2. ` + ArgFilename_targetDir + ` (Optional) – A second folder to compare with the first one. If left empty, the program will only check for duplicates within the SOURCE_DIR.
    - Example: ` + ArgFilename_targetDir + `=` + Path_prefix + `D:\Backup\Documents` + Path_suffix + `
-   - If you don’t need a second folder, ingore this setting.
+   - If you don’t need a second folder, ignore this setting.
 
 3. ` + ArgFilename_resDir + `(Optional) – The folder where the program will save the list of duplicate files.
    - Example: ` + ArgFilename_resDir + `=` + Path_prefix + `C:\Users\John\Desktop` + Path_suffix + `
