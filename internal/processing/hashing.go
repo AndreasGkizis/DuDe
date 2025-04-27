@@ -97,22 +97,24 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 	return nil // Return the first error that occurred, or nil if none
 }
 
-func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTracker, maxWorkers int) (map[string]models.FileHash, error) {
+func EnsureDuplicates(input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) {
 	num := 0
-	for _, v := range input {
-		num += len(v.DuplicatesFound)
-	}
+
+	input.Range(func(key, value any) bool {
+		num += len(value.(models.FileHash).DuplicatesFound)
+		return true
+	})
+
 	if num == 0 {
 		logger.WarnWithFuncName("No duplicates to ensure")
-		return input, nil
 	}
+
 	pt.AddTotal(int64(num))
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers)
-	var mu sync.Mutex
 
-	for itemHash, item := range input {
+	input.Range(func(itemHash, item any) bool {
 		wg.Add(1)
 		go func(itemHash string, item models.FileHash) {
 			defer wg.Done()
@@ -142,12 +144,10 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 				}
 
 				if !eq {
-					mu.Lock()
 					item.DuplicatesFound = append(item.DuplicatesFound[:dupIndex], item.DuplicatesFound[dupIndex+1:]...)
 					if len(item.DuplicatesFound) == 0 {
-						delete(input, itemHash)
+						input.Delete(itemHash)
 					}
-					mu.Unlock()
 				} else {
 					dupIndex++
 				}
@@ -155,10 +155,9 @@ func EnsureDuplicates(input map[string]models.FileHash, pt *visuals.ProgressTrac
 				_, _ = mainFile.Seek(0, io.SeekStart)
 				pt.Increment()
 			}
-		}(itemHash, item)
-	}
-
-	return input, nil
+		}(itemHash.(string), item.(models.FileHash))
+		return true
+	})
 }
 
 func filesEqual(file1 *os.File, path2 string) (bool, error) {
@@ -218,161 +217,109 @@ func calculateMD5Hash(file models.FileHash) (string, error) {
 }
 
 func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker) {
-	len := com.LenSyncMap(fileHashes)
+	timer := time.Now()
+	initialCount := com.LenSyncMap(fileHashes)
 
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for %d files", groupID, len))
-	tracker.AddTotal(int64(len))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for source folder with %d files", groupID, initialCount))
 
 	hashCounts := make(map[string]int)
 	hashPaths := make(map[string][]models.FileHash)
 
-	fileHashes.Range(func(path, value any) bool {
+	fileHashes.Range(func(key, value any) bool {
 		hash := value.(models.FileHash).Hash
+
 		hashCounts[hash]++
 		hashPaths[hash] = append(hashPaths[hash], value.(models.FileHash))
 		return true
 	})
 
-	fileHashes.Range(func(path, value any) bool {
-		hash := value.(models.FileHash).Hash
-		if hashCounts[hash] > 1 {
-			duplicates := make([]models.FileHash, 0)
-			for _, file := range hashPaths[hash] {
-				if file.FilePath != path {
-					duplicates = append(duplicates, file)
-				}
+	totalGroups := len(hashPaths)
+	tracker.AddTotal(int64(totalGroups))
+
+	fileHashes.Clear()
+
+	for hash, files := range hashPaths {
+		if len(files) == 1 {
+			delete(hashPaths, hash)
+			tracker.Increment()
+		} else {
+			file := files[0]
+			dups := []models.FileHash{}
+			for i := 1; i < len(files); i++ {
+				dups = append(dups, files[i])
 			}
-			fileHash := value.(models.FileHash)
-			fileHash.DuplicatesFound = duplicates
-			fileHashes.Store(path, fileHash)
+			file.DuplicatesFound = dups
+			fileHashes.Store(file.Hash, file)
+			tracker.Increment()
+
 		}
-		tracker.Increment()
-		return true
-	})
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for %d files", groupID, len))
+
+	}
+
+	length2 := com.LenSyncMap(fileHashes)
+	logger.InfoWithFuncName(fmt.Sprintf("%d", length2))
+
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
 }
 
-func FindDuplicatesBetweenMaps(first, second *sync.Map, tracker *visuals.ProgressTracker) {
-	len1 := com.LenSyncMap(first)
-	len2 := com.LenSyncMap(second)
-
+func FindDuplicatesBetweenMaps(first, second *sync.Map, tracker *visuals.ProgressTracker, maxWorkers int) {
+	timer := time.Now()
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for first folder with %v files,and second with %v files", groupID, len1, len2))
+
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for 2 folders", groupID))
 
 	FindDuplicatesInMap(first, tracker)
-	// tracker.AddTotal(int64(len1))
-	// tracker.AddTotal(int64(len2))
+	FindDuplicatesInMap(second, tracker)
 
-	firstHashPaths := make(map[string][]models.FileHash)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxWorkers) // Limit concurrency to the number of CPUs
 
-	first.Range(func(path, value any) bool {
-		hash := value.(models.FileHash).Hash
-		firstHashPaths[hash] = append(firstHashPaths[hash], value.(models.FileHash))
+	first.Range(func(hash1, value1 any) bool {
+		wg.Add(1)
+		go func(hash string, value models.FileHash) {
+			defer wg.Done()
+			sem <- struct{}{}        // Acquire a slot
+			defer func() { <-sem }() // Release the slot
+
+			firstItem := value1.(models.FileHash)
+
+			second.Range(func(hash2, value2 any) bool {
+				secondItem := value2.(models.FileHash)
+
+				if firstItem.Hash == secondItem.Hash {
+					tempVarForDups := secondItem.DuplicatesFound
+					secondItem.DuplicatesFound = nil
+					firstItem.DuplicatesFound = append(firstItem.DuplicatesFound, secondItem)
+					firstItem.DuplicatesFound = append(firstItem.DuplicatesFound, tempVarForDups...)
+				}
+				return true
+			})
+			// Update the first map with the modified firstItem
+			first.Store(hash1, firstItem)
+		}(hash1.(string), value1.(models.FileHash))
+
 		return true
 	})
 
-	second.Range(func(path, value any) bool {
-		secondHash := value.(models.FileHash)
-		hash := secondHash.Hash
-
-		duplicates, found := firstHashPaths[hash]
-		if found {
-			duplicates = append(duplicates, secondHash)
-			firstHashPaths[hash] = duplicates
-		}
-		fileHash := value.(models.FileHash)
-		fileHash.DuplicatesFound = duplicates
-		first.Store(path, fileHash)
-		// tracker.Increment()
-
-		return true
-	})
-
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for 2 folders, took : %s.", groupID, time.Since(timer)))
 }
-
-// func FindDuplicatesBetweenMapsAI(first *sync.Map, second *sync.Map, tracker *visuals.ProgressTracker) {
-// 	len1 := com.LenSyncMap(first)
-// 	len2 := com.LenSyncMap(second)
-
-// 	groupID := rand.Uint32()
-// 	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for first folder with %v files, and second with %v files", groupID, len1, len2))
-
-// 	// tracker.AddTotal(int64(len1))
-// 	// tracker.AddTotal(int64(len2))
-
-// 	// Map from hash to list of FileHash in first map
-// 	hashToFilesFirst := make(map[string][]models.FileHash)
-
-// 	// Populate map for first sync.Map
-// 	first.Range(func(path, value any) bool {
-// 		fileHash := value.(models.FileHash)
-// 		hashToFilesFirst[fileHash.Hash] = append(hashToFilesFirst[fileHash.Hash], fileHash)
-// 		return true
-// 	})
-
-// 	// Iterate over second map to find duplicates in first map
-// 	second.Range(func(path, value any) bool {
-// 		fileHashSecond := value.(models.FileHash)
-// 		duplicatesInFirst, found := hashToFilesFirst[fileHashSecond.Hash]
-// 		if found {
-// 			// Update duplicates for the file in the second map
-// 			duplicatesForSecond := make([]models.FileHash, 0, len(duplicatesInFirst))
-// 			for _, f := range duplicatesInFirst {
-// 				if f.FilePath != path {
-// 					duplicatesForSecond = append(duplicatesForSecond, f)
-// 				}
-// 			}
-// 			fileHashSecond.DuplicatesFound = duplicatesForSecond
-// 			second.Store(path, fileHashSecond)
-
-// 			// Also update duplicates for corresponding files in the first map
-// 			for _, f := range duplicatesInFirst {
-// 				// Avoid updating duplicates for the same file path
-// 				if f.FilePath == path {
-// 					continue
-// 				}
-// 				// Get the fileHash from first map to update duplicates
-// 				val, ok := first.Load(f.FilePath)
-// 				if !ok {
-// 					continue
-// 				}
-// 				fileHashFirst := val.(models.FileHash)
-
-// 				// Add the current second map file as duplicate if not already present
-// 				alreadyPresent := false
-// 				for _, dup := range fileHashFirst.DuplicatesFound {
-// 					if dup.FilePath == path {
-// 						alreadyPresent = true
-// 						break
-// 					}
-// 				}
-// 				if !alreadyPresent {
-// 					fileHashFirst.DuplicatesFound = append(fileHashFirst.DuplicatesFound, fileHashSecond)
-// 					first.Store(f.FilePath, fileHashFirst)
-// 				}
-// 			}
-// 		}
-// 		// tracker.Increment()
-// 		return true
-// 	})
-
-// 	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for first folder with %v files, and second with %v files", groupID, len1, len2))
-// }
 
 func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 
-	seen := make(map[string]bool)
+	seen := make(map[string]models.FileHash)
 	result := make(map[string]models.FileHash)
 
 	input.Range(func(key, value any) bool {
-		value1, ok := input.Load(key)
-		if ok {
-			if !seen[value1.(models.FileHash).Hash] {
-				seen[value1.(models.FileHash).Hash] = true
-			} else {
-				result[value1.(models.FileHash).Hash] = value1.(models.FileHash)
-			}
+
+		hash := value.(models.FileHash).Hash
+		path := key.(string)
+
+		_, ok := seen[path]
+		if !ok {
+			seen[path] = value.(models.FileHash)
+		} else {
+			result[hash] = value.(models.FileHash)
 		}
 
 		return true
@@ -380,10 +327,12 @@ func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 	return result
 }
 
-func GetFlattened(input *map[string]models.FileHash) []models.ResultEntry {
+func GetFlattened(input *sync.Map) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
 	separatorEntry := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
-	for _, val := range *input {
+
+	input.Range(func(key, value any) bool {
+		val := value.(models.FileHash)
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
 				Filename:          val.FileName,
@@ -394,7 +343,9 @@ func GetFlattened(input *map[string]models.FileHash) []models.ResultEntry {
 			result = append(result, a)
 		}
 		result = append(result, separatorEntry)
-	}
+
+		return true
+	})
 	return result
 }
 

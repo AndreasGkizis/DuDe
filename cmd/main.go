@@ -1,6 +1,7 @@
 package main
 
 import (
+	"DuDe/internal/common"
 	logger "DuDe/internal/common/logger"
 	db "DuDe/internal/db"
 	handlers "DuDe/internal/handlers"
@@ -83,29 +84,27 @@ func main() {
 	close(errChan)
 
 	findTracker := visuals.NewProgressTracker("Finding\t\t")
-	// findTracker.Start(50)
+	findTracker.Start(50)
 
 	if Args.DualFolderModeEnabled {
-		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap, findTracker)
+		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap, findTracker, Args.CPUs)
 	} else {
 		process.FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
 	}
-	// findTracker.Wait()
+	findTracker.Wait()
+	length := common.LenSyncMap(&syncSourceDirFileMap)
 
-	duplicates := process.GetDuplicates(&syncSourceDirFileMap)
-	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", len(duplicates)))
-	if len(duplicates) != 0 {
+	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
+	if length != 0 {
 		timer1 := time.Now()
 		compareTracker := visuals.NewProgressTracker("Comparing\t")
 		compareTracker.Start(50)
 
-		duplicates, err = process.EnsureDuplicates(duplicates, compareTracker, Args.CPUs)
-		if err != nil {
-			log.Fatalf("Error Comparing results: %v", err)
-		}
+		process.EnsureDuplicates(&syncSourceDirFileMap, compareTracker, Args.CPUs)
+
 		compareTracker.Wait()
 
-		flattenedDuplicates := process.GetFlattened(&duplicates)
+		flattenedDuplicates := process.GetFlattened(&syncSourceDirFileMap)
 		err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
 
 		if err != nil {
