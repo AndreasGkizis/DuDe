@@ -35,12 +35,6 @@ func main() {
 		}
 	}()
 
-	failedCounter := 0
-	mm := process.NewMemoryManager(db, Args.BufSize)
-	mm.Start()
-	rt := visuals.NewProgressCounter("Reading\t\t")
-	rt.Start()
-
 	var senderGroups int32
 	if Args.DualFolderModeEnabled {
 		senderGroups = 2
@@ -48,37 +42,37 @@ func main() {
 		senderGroups = 1
 	}
 
-	mm.TotalSenders(senderGroups)
-	rt.TotalSenders(senderGroups)
+	failedCounter := 0
+	mm := process.NewMemoryManager(db, Args.BufSize, 1)
+	mm.Start()
+	rt := visuals.NewProgressCounter("Reading\t\t", int(senderGroups))
+	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
 	hashMemory := mm.LoadMemory()
 
 	var syncSourceDirFileMap sync.Map
-	var syncTargetDirFileMap sync.Map
 
 	go process.WalkDir(Args.SourceDir, &syncSourceDirFileMap, rt)
 
 	if Args.DualFolderModeEnabled {
-		go process.WalkDir(Args.TargetDir, &syncTargetDirFileMap, rt)
+
+		go process.WalkDir(Args.TargetDir, &syncSourceDirFileMap, rt)
 	}
 	rt.Wait()
 
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
+	// bla := common.LenSyncMap(&syncSourceDirFileMap)
+	// bla1 := common.ConvertSyncMapToMap(&syncSourceDirFileMap)
+	// log.Debug(bla1)
+
 	err = process.CreateHashes(&syncSourceDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 	}
 
-	if Args.DualFolderModeEnabled {
-
-		err = process.CreateHashes(&syncTargetDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
-		if err != nil {
-			logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
-		}
-	}
 	pt.Wait()
 	mm.Wait()
 	close(errChan)
@@ -86,11 +80,8 @@ func main() {
 	findTracker := visuals.NewProgressTracker("Finding\t\t")
 	findTracker.Start(50)
 
-	if Args.DualFolderModeEnabled {
-		process.FindDuplicatesBetweenMaps(&syncSourceDirFileMap, &syncTargetDirFileMap, findTracker, Args.CPUs)
-	} else {
-		process.FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
-	}
+	process.FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
+
 	findTracker.Wait()
 	length := common.LenSyncMap(&syncSourceDirFileMap)
 

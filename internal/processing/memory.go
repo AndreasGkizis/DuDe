@@ -18,13 +18,16 @@ type MemoryManager struct {
 	senderWg    sync.WaitGroup
 }
 
-func NewMemoryManager(db *sql.DB, bufferSize int) *MemoryManager {
+func NewMemoryManager(db *sql.DB, bufferSize, senderCount int) *MemoryManager {
 	return &MemoryManager{
-		Channel: make(chan models.FileHash, bufferSize),
-		repo:    *database.NewFileHashRepository(db)}
+		senderCount: int32(senderCount),
+		Channel:     make(chan models.FileHash, bufferSize),
+		repo:        *database.NewFileHashRepository(db)}
 }
 
 func (mm *MemoryManager) Start() {
+	mm.senderWg.Add(int(mm.senderCount))
+
 	mm.wg.Add(1)
 	go mm.updateMemory()
 }

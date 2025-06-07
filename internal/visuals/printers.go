@@ -186,9 +186,10 @@ type ProgressCounter struct {
 	DoneChannel     chan int
 }
 
-func NewProgressCounter(name string) *ProgressCounter {
+func NewProgressCounter(name string, senderCount int) *ProgressCounter {
 	return &ProgressCounter{
-		Spinner: *NewSpinner(), Name: name,
+		senderCount: int32(senderCount),
+		Spinner:     *NewSpinner(), Name: name,
 		Channel: make(chan int),
 	}
 }
@@ -205,53 +206,53 @@ func (pc *ProgressCounter) SenderFinished() {
 	pc.senderWg.Done()
 }
 
-func (pt *ProgressCounter) updateProgressCounterLoop(name string) {
+func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
 
-	fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+	fmt.Printf("\r%s: %s  ...%d Files", name, pc.Spinner.Print(), int(pc.currentProgress))
 
-	for range pt.Channel {
-		pt.Spinner.Spin()
-		pt.Increment()
-		fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+	for range pc.Channel {
+		pc.Spinner.Spin()
+		pc.Increment()
+		fmt.Printf("\r%s: %s  ...%d Files", name, pc.Spinner.Print(), int(pc.currentProgress))
 	}
-	fmt.Printf("\r%s: Done   %d Files", name, int(pt.currentProgress))
+	fmt.Printf("\r%s: Done   %d Files", name, int(pc.currentProgress))
 }
 
-func (pt *ProgressCounter) updateProgressCounterLoop2(name string) {
+func (pc *ProgressCounter) updateProgressCounterLoop2(name string) {
 	ticker := time.NewTicker(150 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			pt.Spinner.Spin()
-			fmt.Printf("\r%s: %s  ...%d Files", name, pt.Spinner.Print(), int(pt.currentProgress))
+			pc.Spinner.Spin()
+			fmt.Printf("\r%s: %s  ...%d Files", name, pc.Spinner.Print(), int(pc.currentProgress))
 
-		case _, ok := <-pt.Channel:
+		case _, ok := <-pc.Channel:
 			if !ok {
 				// Channel closed, print final status and return
-				fmt.Printf("\r%s: Done   %d Files\n", name, int(pt.currentProgress))
+				fmt.Printf("\r%s: Done   %d Files\n", name, int(pc.currentProgress))
 				return
 			}
-			pt.Increment()
+			pc.Increment()
 			// Optionally print here if you want immediate feedback on increment
 			// but spinner will update on next tick anyway
 		}
 	}
 }
 
-func (pt *ProgressCounter) Increment() {
-	atomic.AddInt64(&pt.currentProgress, 1)
+func (pc *ProgressCounter) Increment() {
+	atomic.AddInt64(&pc.currentProgress, 1)
 }
 
-func (pt *ProgressCounter) Wait() {
-	pt.senderWg.Wait()
+func (pc *ProgressCounter) Wait() {
+	pc.senderWg.Wait()
 }
 
-func (pt *ProgressCounter) Start() {
-	pt.Wg.Add(1)
-	fmt.Println()
-	go pt.updateProgressCounterLoop(pt.Name)
+func (pc *ProgressCounter) Start() {
+	pc.Wg.Add(1)
+	pc.senderWg.Add(int(pc.senderCount))
+	go pc.updateProgressCounterLoop(pc.Name)
 }
 
 type ProgressSpinner struct {
