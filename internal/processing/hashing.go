@@ -70,23 +70,23 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 					errChan <- err
 					return // stop this iteration
 				}
+
+				newMem := models.FileHash{
+					FileName: filepath.Base(path),
+					FilePath: path,
+					Hash:     hash,
+					FileSize: currentFileDiskSize,
+					ModTime:  currentFileDiskModTime,
+				}
+
+				sourceFiles.Store(path, newMem)
+				sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
+
 			} else {
-				hash = memoryOfFile.Hash
+				sourceFiles.Store(path, memoryOfFile)
 			}
-
-			// do not need to make if file exists
-			newMem := models.FileHash{
-				FileName: filepath.Base(path),
-				FilePath: path,
-				Hash:     hash,
-				FileSize: currentFileDiskSize,
-				ModTime:  currentFileDiskModTime,
-			}
-
-			sourceFiles.Store(path, newMem)
 
 			// safeResend(mm.Channel, newMem, 500*time.Microsecond)
-			sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
 
 			pt.Increment()
 		}(key.(string), value.(models.FileHash))
