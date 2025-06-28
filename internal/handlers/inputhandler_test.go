@@ -117,6 +117,13 @@ func TestGetCLIArguments(t *testing.T) {
 	// Create a temporary directory for testing paths
 	tempDir := t.TempDir()
 
+	initialArgsDefault := map[string]string{
+		common.ArgFilename_sourceDir:    common.Def,
+		common.ArgFilename_targetDir:    common.Def,
+		common.ArgFilename_resDir:       common.Def,
+		common.ArgFilename_cacheDir:     common.Def,
+		common.ArgFilename_paranoidMode: common.Def,
+	}
 	testCases := []struct {
 		name        string
 		args        []string
@@ -124,35 +131,58 @@ func TestGetCLIArguments(t *testing.T) {
 		expected    map[string]string
 	}{
 		{
-			name: "No CLI Arguments",
-			args: []string{"test_program"},
-			initialArgs: map[string]string{
-				common.ArgFilename_sourceDir: common.Def,
-				common.ArgFilename_targetDir: common.Def,
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
-			},
+			name:        "No CLI Arguments",
+			args:        []string{"test_program"},
+			initialArgs: initialArgsDefault,
 			expected: map[string]string{
-				common.ArgFilename_sourceDir: common.Def,
-				common.ArgFilename_targetDir: common.Def,
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
+				common.ArgFilename_sourceDir:    common.Def,
+				common.ArgFilename_targetDir:    common.Def,
+				common.ArgFilename_resDir:       common.Def,
+				common.ArgFilename_cacheDir:     common.Def,
+				common.ArgFilename_paranoidMode: common.Def, // due to nothing set this remains untoucheds
+			},
+		},
+		{
+			name: "INVALID CLI Arguments",
+			args: []string{"test_program",
+				"-" + common.ParanoidFlag + "=  false",
+			},
+			initialArgs: initialArgsDefault,
+			expected: map[string]string{
+				common.ArgFilename_sourceDir:    common.Def,
+				common.ArgFilename_targetDir:    common.Def,
+				common.ArgFilename_resDir:       common.Def,
+				common.ArgFilename_cacheDir:     common.Def,
+				common.ArgFilename_paranoidMode: common.Def,
+			},
+		},
+		{
+			name: "Boolean Args set to false",
+			args: []string{"test_program",
+				"-" + common.ParanoidFlag + "=false",
+			},
+			initialArgs: initialArgsDefault,
+			expected: map[string]string{
+				common.ArgFilename_sourceDir:    common.Def,
+				common.ArgFilename_targetDir:    common.Def,
+				common.ArgFilename_resDir:       common.Def,
+				common.ArgFilename_cacheDir:     common.Def,
+				common.ArgFilename_paranoidMode: "false",
 			},
 		},
 		{
 			name: "Source and Target Set",
-			args: []string{"test_program", "-s", filepath.Join(tempDir, "source_cli"), "-t", filepath.Join(tempDir, "target_cli")},
-			initialArgs: map[string]string{
-				common.ArgFilename_sourceDir: common.Def,
-				common.ArgFilename_targetDir: common.Def,
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
+			args: []string{"test_program",
+				"-" + common.SourceFlag, filepath.Join(tempDir, "source_cli"),
+				"-" + common.TargetFlag, filepath.Join(tempDir, "target_cli"),
 			},
+			initialArgs: initialArgsDefault,
 			expected: map[string]string{
-				common.ArgFilename_sourceDir: filepath.Join(tempDir, "source_cli"),
-				common.ArgFilename_targetDir: filepath.Join(tempDir, "target_cli"),
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
+				common.ArgFilename_sourceDir:    filepath.Join(tempDir, "source_cli"),
+				common.ArgFilename_targetDir:    filepath.Join(tempDir, "target_cli"),
+				common.ArgFilename_resDir:       common.Def,
+				common.ArgFilename_cacheDir:     common.Def,
+				common.ArgFilename_paranoidMode: "false", // no flag = false
 			},
 		},
 		{
@@ -163,18 +193,15 @@ func TestGetCLIArguments(t *testing.T) {
 				"-" + common.ResultDirFlag, filepath.Join(tempDir, "results_cli"),
 				"-" + common.TargetFlag, filepath.Join(tempDir, "target_cli"),
 				"-" + common.MemDirFlag, filepath.Join(tempDir, "cache_cli"),
+				"-" + common.ParanoidFlag, // even the presense of the flag makes it true
 			},
-			initialArgs: map[string]string{
-				common.ArgFilename_sourceDir: common.Def,
-				common.ArgFilename_targetDir: common.Def,
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
-			},
+			initialArgs: initialArgsDefault,
 			expected: map[string]string{
-				common.ArgFilename_sourceDir: filepath.Join(tempDir, "source_cli"),
-				common.ArgFilename_targetDir: filepath.Join(tempDir, "target_cli"),
-				common.ArgFilename_resDir:    filepath.Join(tempDir, "results_cli"),
-				common.ArgFilename_cacheDir:  filepath.Join(tempDir, "cache_cli"),
+				common.ArgFilename_sourceDir:    filepath.Join(tempDir, "source_cli"),
+				common.ArgFilename_targetDir:    filepath.Join(tempDir, "target_cli"),
+				common.ArgFilename_resDir:       filepath.Join(tempDir, "results_cli"),
+				common.ArgFilename_cacheDir:     filepath.Join(tempDir, "cache_cli"),
+				common.ArgFilename_paranoidMode: "true",
 			},
 		},
 		{
@@ -185,18 +212,15 @@ func TestGetCLIArguments(t *testing.T) {
 				"--" + common.TargetFlag_long, filepath.Join(tempDir, "long_target"),
 				"--" + common.ResultDirFlag_long, filepath.Join(tempDir, "long_res"),
 				"--" + common.MemDirFlag_long, filepath.Join(tempDir, "long_cache"),
+				"--" + common.ParanoidFlag_long, // even the presense of the flag makes it true
 			},
-			initialArgs: map[string]string{
-				common.ArgFilename_sourceDir: common.Def,
-				common.ArgFilename_targetDir: common.Def,
-				common.ArgFilename_resDir:    common.Def,
-				common.ArgFilename_cacheDir:  common.Def,
-			},
+			initialArgs: initialArgsDefault,
 			expected: map[string]string{
-				common.ArgFilename_sourceDir: filepath.Join(tempDir, "long_source"),
-				common.ArgFilename_targetDir: filepath.Join(tempDir, "long_target"),
-				common.ArgFilename_resDir:    filepath.Join(tempDir, "long_res"),
-				common.ArgFilename_cacheDir:  filepath.Join(tempDir, "long_cache"),
+				common.ArgFilename_sourceDir:    filepath.Join(tempDir, "long_source"),
+				common.ArgFilename_targetDir:    filepath.Join(tempDir, "long_target"),
+				common.ArgFilename_resDir:       filepath.Join(tempDir, "long_res"),
+				common.ArgFilename_cacheDir:     filepath.Join(tempDir, "long_cache"),
+				common.ArgFilename_paranoidMode: "true",
 			},
 		},
 	}

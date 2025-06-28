@@ -20,13 +20,17 @@ const (
 	ResultDirFlag      = "r"
 	ResultDirFlag_long = "results"
 
+	ParanoidFlag      = "p"
+	ParanoidFlag_long = "paranoid"
+
 	Path_prefix = "["
 	Path_suffix = "]"
 
-	ArgFilename_cacheDir  = "CACHE_FILE"
-	ArgFilename_resDir    = "RESULT_FILE"
-	ArgFilename_sourceDir = "SOURCE_DIR"
-	ArgFilename_targetDir = "TARGET_DIR"
+	ArgFilename_cacheDir     = "CACHE_FILE"
+	ArgFilename_resDir       = "RESULT_FILE"
+	ArgFilename_sourceDir    = "SOURCE_DIR"
+	ArgFilename_targetDir    = "TARGET_DIR"
+	ArgFilename_paranoidMode = "PARANOID"
 
 	ArgFilename_sourceDir_example = "replace this text with your source path"
 	ArgFilename_targetDir_example = "replace this text with your target path (optional)"

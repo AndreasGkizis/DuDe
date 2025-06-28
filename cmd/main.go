@@ -88,12 +88,15 @@ func main() {
 	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
 	if length != 0 {
 		timer1 := time.Now()
-		compareTracker := visuals.NewProgressTracker("Comparing\t")
-		compareTracker.Start(50)
 
-		process.EnsureDuplicates(&syncSourceDirFileMap, compareTracker, Args.CPUs)
+		if Args.ParanoidMode {
+			compareTracker := visuals.NewProgressTracker("Comparing\t")
+			compareTracker.Start(50)
 
-		compareTracker.Wait()
+			process.EnsureDuplicates(&syncSourceDirFileMap, compareTracker, Args.CPUs)
+
+			compareTracker.Wait()
+		}
 
 		flattenedDuplicates := process.GetFlattened(&syncSourceDirFileMap)
 		err = process.SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)

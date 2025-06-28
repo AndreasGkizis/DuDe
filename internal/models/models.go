@@ -23,6 +23,7 @@ type ExecutionParams struct {
 	TargetDir             string
 	CacheDir              string
 	ResultsDir            string
+	ParanoidMode          bool
 	CPUs                  int
 	BufSize               int
 	DualFolderModeEnabled bool

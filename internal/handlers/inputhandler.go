@@ -7,19 +7,23 @@ import (
 	"DuDe/internal/processing"
 	"DuDe/internal/visuals"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
 func LoadArgs() models.ExecutionParams {
 
 	args := make(map[string]string)
+
 	args[common.ArgFilename_cacheDir] = common.Def
 	args[common.ArgFilename_resDir] = common.Def
 	args[common.ArgFilename_sourceDir] = common.Def
 	args[common.ArgFilename_targetDir] = common.Def
+	args[common.ArgFilename_paranoidMode] = common.Def
 
 	argsPath := processing.CreateArgsFile()
 	loadedFileArgs, _ := getFileArguments(argsPath, args)
@@ -34,6 +38,7 @@ func LoadArgs() models.ExecutionParams {
 }
 
 func convertToObject(args map[string]string) models.ExecutionParams {
+
 	params := models.ExecutionParams{
 
 		SourceDir:  args[common.ArgFilename_sourceDir],
@@ -43,6 +48,13 @@ func convertToObject(args map[string]string) models.ExecutionParams {
 		CPUs:       runtime.NumCPU(), // decide defaults here
 		BufSize:    500,
 	}
+	value, err := strconv.ParseBool(args[common.ArgFilename_paranoidMode])
+
+	if err != nil {
+		logger.ErrorWithFuncName(fmt.Sprintf("Error Parsing string to boolean: %v", err))
+	}
+
+	params.ParanoidMode = value
 	params.DualFolderModeEnabled = params.IsDualFolderMode()
 	return params
 }
@@ -59,6 +71,10 @@ func applyDefaults(result map[string]string) {
 		result[common.ArgFilename_resDir] = filepath.Join(executableDir, common.ResFilename)
 	}
 
+	if result[common.ArgFilename_paranoidMode] == common.Def {
+		result[common.ArgFilename_paranoidMode] = "false"
+	}
+
 	if result[common.ArgFilename_sourceDir] == common.Def {
 		logger.Logger.Errorf(`The %s was set to the default value ("%s").`, common.ArgFilename_sourceDir, common.Def)
 		visuals.DefaultSource()
@@ -71,6 +87,7 @@ func getCLIArgs(result map[string]string) map[string]string {
 	var targetDir string
 	var cacheDir string
 	var resultDir string
+	var enableParanoid bool
 
 	flagsMap := make(map[string]string)
 
@@ -86,7 +103,14 @@ func getCLIArgs(result map[string]string) map[string]string {
 	flag.StringVar(&resultDir, common.ResultDirFlag_long, common.Def, "The directory where the "+common.ResFilename+" file will be created [relative path].")
 	flag.StringVar(&resultDir, common.ResultDirFlag, common.Def, "The directory where the "+common.ResFilename+" file will be created [relative path].")
 
+	flag.BoolVar(&enableParanoid, common.ParanoidFlag, false, "Enable super duplicate checking.")
+	flag.BoolVar(&enableParanoid, common.ParanoidFlag_long, false, "Enable super duplicate checking.")
+
 	flag.Parse()
+
+	if flag.NFlag() == 0 {
+		return result
+	}
 
 	flag.Visit(func(f *flag.Flag) {
 		flagsMap[f.Name] = f.Value.String()
@@ -103,6 +127,8 @@ func getCLIArgs(result map[string]string) map[string]string {
 				result[common.ArgFilename_cacheDir] = flag
 			case common.ResultDirFlag_long, common.ResultDirFlag:
 				result[common.ArgFilename_resDir] = flag
+			case common.ParanoidFlag_long, common.ParanoidFlag:
+				result[common.ArgFilename_paranoidMode] = flag
 			}
 		}
 	}
