@@ -18,14 +18,19 @@ import (
 )
 
 func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
-	len := com.LenSyncMap(sourceFiles)
+	numFilesToHash := com.LenSyncMap(sourceFiles)
+	if numFilesToHash == 0 {
+		return nil // Nothing to hash
+	}
+
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, len, maxWorkers))
-	pt.AddTotal(int64(len))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, numFilesToHash, maxWorkers))
+	pt.AddTotal(int64(numFilesToHash))
 
 	var wg sync.WaitGroup
 
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
+
 	sourceFiles.Range(func(key, value interface{}) bool {
 		wg.Add(1)
 		go func(path string, val models.FileHash) {
@@ -33,11 +38,13 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 			var hash string
 			var err error
 
+			currentFilePath := key.(string)
+
 			// Acquire a slot
 			sem <- struct{}{}
 			defer func() { <-sem }() // Release the slot
 
-			stats, err := os.Stat(val.FilePath)
+			currentFileDiskStats, err := os.Stat(val.FilePath)
 			if err != nil {
 				errChan <- err
 				sourceFiles.Delete(val.FilePath)
@@ -45,20 +52,16 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 				return                  // stop this iteration
 			}
 
-			curSize := stats.Size()
-			curModTime := stats.ModTime().Format(time.RFC3339)
+			currentFileDiskSize := currentFileDiskStats.Size()
+			currentFileDiskModTime := currentFileDiskStats.ModTime().Format(time.RFC3339)
 
-			var memoryOfFile models.FileHash
-			memoryOfFilePath := key.(string)
+			memoryOfFile, memoryExists := (*memory)[currentFilePath]
 
-			memoryOfValue, exists := (*memory)[memoryOfFilePath] // to refactor naming and vars
-			if exists {
-				memoryOfFile = memoryOfValue
-			}
+			fileHasChangedOnDisk := memoryOfFile.FileSize != currentFileDiskSize || memoryOfFile.ModTime != currentFileDiskModTime
 
-			needsReHashing := !exists || (memoryOfFile.FileSize != curSize || memoryOfFile.ModTime != curModTime)
+			fileNeedsReHashing := !memoryExists || fileHasChangedOnDisk
 
-			if needsReHashing {
+			if fileNeedsReHashing {
 				hash, err = calculateMD5Hash(val)
 
 				if err != nil {
@@ -76,8 +79,8 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 				FileName: filepath.Base(path),
 				FilePath: path,
 				Hash:     hash,
-				FileSize: curSize,
-				ModTime:  curModTime,
+				FileSize: currentFileDiskSize,
+				ModTime:  currentFileDiskModTime,
 			}
 
 			sourceFiles.Store(path, newMem)
@@ -92,7 +95,7 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 
 	wg.Wait()
 	mm.SenderFinished()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(len), maxWorkers))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(numFilesToHash), maxWorkers))
 
 	close(sem)
 
