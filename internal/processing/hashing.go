@@ -50,7 +50,8 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 
 			var memoryOfFile models.FileHash
 			memoryOfFilePath := key.(string)
-			memoryOfValue, exists := (*memory)[memoryOfFilePath]
+
+			memoryOfValue, exists := (*memory)[memoryOfFilePath] // to refactor naming and vars
 			if exists {
 				memoryOfFile = memoryOfValue
 			}
@@ -70,6 +71,7 @@ func CreateHashes(sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTra
 				hash = memoryOfFile.Hash
 			}
 
+			// do not need to make if file exists
 			newMem := models.FileHash{
 				FileName: filepath.Base(path),
 				FilePath: path,
@@ -125,7 +127,9 @@ func EnsureDuplicates(input *sync.Map, pt *visuals.ProgressTracker, maxWorkers i
 			if len(item.DuplicatesFound) == 0 {
 				return
 			}
+
 			mainFile, err := os.Open(item.FilePath)
+
 			if err != nil {
 				logger.WarnWithFuncName(fmt.Sprintf("Error opening file %s : %v. skipping..", item.FilePath, err))
 				return
@@ -213,6 +217,7 @@ func calculateMD5Hash(file models.FileHash) (string, error) {
 	}()
 
 	io.Copy(hasherMD5, f)
+	// add blob suffix for uniquness
 	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
 }
 
@@ -226,7 +231,7 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 	hashCounts := make(map[string]int)
 	hashPaths := make(map[string][]models.FileHash)
 
-	fileHashes.Range(func(key, value any) bool {
+	fileHashes.Range(func(_, value any) bool {
 		hash := value.(models.FileHash).Hash
 
 		hashCounts[hash]++
@@ -244,7 +249,7 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 			delete(hashPaths, hash)
 			tracker.Increment()
 		} else {
-			file := files[0]
+			file := files[0] // smallest name?
 			dups := []models.FileHash{}
 			for i := 1; i < len(files); i++ {
 				dups = append(dups, files[i])
@@ -252,9 +257,7 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 			file.DuplicatesFound = dups
 			fileHashes.Store(file.Hash, file)
 			tracker.Increment()
-
 		}
-
 	}
 
 	length2 := com.LenSyncMap(fileHashes)

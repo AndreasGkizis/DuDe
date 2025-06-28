@@ -7,4 +7,6 @@
   - [ ] add clear cache option
   - [ ] Create a model for input Args
   - [ ] print found in terminal with "see more / exit" options
-  - [ ] allow selecting a folder as source within the target folder ( look for these in these logic)
+  - [x] allow selecting a folder as source within the target folder (look for these in these logic)
+
+  merge time and size and the rest to a single blob and work with the blob after
