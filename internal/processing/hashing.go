@@ -269,48 +269,6 @@ func FindDuplicatesInMap(fileHashes *sync.Map, tracker *visuals.ProgressTracker)
 	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
 }
 
-func FindDuplicatesBetweenMaps(first, second *sync.Map, tracker *visuals.ProgressTracker, maxWorkers int) {
-	timer := time.Now()
-	groupID := rand.Uint32()
-
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for 2 folders", groupID))
-
-	FindDuplicatesInMap(first, tracker)
-	FindDuplicatesInMap(second, tracker)
-
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, maxWorkers) // Limit concurrency to the number of CPUs
-
-	first.Range(func(hash1, value1 any) bool {
-		wg.Add(1)
-		go func(hash string, value models.FileHash) {
-			defer wg.Done()
-			sem <- struct{}{}        // Acquire a slot
-			defer func() { <-sem }() // Release the slot
-
-			firstItem := value1.(models.FileHash)
-
-			second.Range(func(hash2, value2 any) bool {
-				secondItem := value2.(models.FileHash)
-
-				if firstItem.Hash == secondItem.Hash {
-					tempVarForDups := secondItem.DuplicatesFound
-					secondItem.DuplicatesFound = nil
-					firstItem.DuplicatesFound = append(firstItem.DuplicatesFound, secondItem)
-					firstItem.DuplicatesFound = append(firstItem.DuplicatesFound, tempVarForDups...)
-				}
-				return true
-			})
-			// Update the first map with the modified firstItem
-			first.Store(hash1, firstItem)
-		}(hash1.(string), value1.(models.FileHash))
-
-		return true
-	})
-
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished for 2 folders, took : %s.", groupID, time.Since(timer)))
-}
-
 func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 
 	seen := make(map[string]models.FileHash)

@@ -1,7 +1,9 @@
-package handlers
+package unit_tests
 
 import (
 	common "DuDe/internal/common"
+	handlers "DuDe/internal/handlers"
+
 	"flag"
 	"os"
 	"path/filepath"
@@ -100,8 +102,8 @@ func TestGetFileArguments(t *testing.T) {
 			args[common.ArgFilename_resDir] = common.Def
 			args[common.ArgFilename_cacheDir] = common.Def
 
-			// Call the getFileArguments function
-			result, err := getFileArguments(argsFilePath, args)
+			// Call the GetFileArguments function
+			result, err := handlers.GetFileArguments(argsFilePath, args)
 
 			// Assert that the result matches the expected arguments
 			assert.Equal(t, tc.expectedArgs, result)
@@ -242,7 +244,7 @@ func TestGetCLIArguments(t *testing.T) {
 			os.Args = tc.args
 
 			// Call the function
-			result := getCLIArgs(tc.initialArgs)
+			result := handlers.GetCLIArgs(tc.initialArgs)
 
 			// Assert the results
 			assert.Equal(t, tc.expected, result)
@@ -295,7 +297,7 @@ func TestSanitizeInput(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := sanitizeInput(tc.input)
+			result := handlers.SanitizeInput(tc.input)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)

@@ -26,8 +26,8 @@ func LoadArgs() models.ExecutionParams {
 	args[common.ArgFilename_paranoidMode] = common.Def
 
 	argsPath := processing.CreateArgsFile()
-	loadedFileArgs, _ := getFileArguments(argsPath, args)
-	finalArgs := getCLIArgs(loadedFileArgs)
+	loadedFileArgs, _ := GetFileArguments(argsPath, args)
+	finalArgs := GetCLIArgs(loadedFileArgs)
 	applyDefaults(finalArgs)
 
 	results := convertToObject(args)
@@ -82,7 +82,7 @@ func applyDefaults(result map[string]string) {
 	}
 }
 
-func getCLIArgs(result map[string]string) map[string]string {
+func GetCLIArgs(result map[string]string) map[string]string {
 	var sourceDir string
 	var targetDir string
 	var cacheDir string
@@ -135,7 +135,7 @@ func getCLIArgs(result map[string]string) map[string]string {
 	return result
 }
 
-func getFileArguments(path string, args map[string]string) (map[string]string, error) {
+func GetFileArguments(path string, args map[string]string) (map[string]string, error) {
 
 	data := common.Must(os.ReadFile(path))
 
@@ -169,7 +169,7 @@ func getFileArguments(path string, args map[string]string) (map[string]string, e
 }
 
 func validateAndUpdatePath(value string, argKey string, args map[string]string) (bool, error) {
-	value = sanitizeInput(value)
+	value = SanitizeInput(value)
 	// Check if the path is valid
 	if _, err := os.Stat(value); err == nil {
 		args[argKey] = value
@@ -188,7 +188,7 @@ func validateAndUpdatePath(value string, argKey string, args map[string]string) 
 	}
 }
 
-func sanitizeInput(input string) string {
+func SanitizeInput(input string) string {
 	return strings.TrimSpace(
 		strings.TrimPrefix(
 			strings.TrimSuffix(input, common.Path_suffix),
