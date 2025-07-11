@@ -60,6 +60,10 @@ func main() {
 		go process.WalkDir(Args.TargetDir, &syncSourceDirFileMap, rt)
 	}
 	rt.Wait()
+	len := common.LenSyncMap(&syncSourceDirFileMap)
+	if len == 0 {
+		visuals.EmptyDir("asd")
+	}
 
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)

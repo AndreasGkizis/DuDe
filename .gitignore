@@ -29,7 +29,7 @@ bin/
 
 # Test files used
 test_files/
-
+tests/e2e_tests/testfiles/
 # Test folder for compiled runs
 test/
 

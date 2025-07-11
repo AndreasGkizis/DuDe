@@ -14,6 +14,8 @@ import (
 	"testing"
 )
 
+var baseDir string = "./testfiles/"
+
 // buildBinary builds the Go application binary to be tested.
 // It returns the binary path, temp directory, cleanup func.
 func buildBinary(t *testing.T) (string, string, func()) {

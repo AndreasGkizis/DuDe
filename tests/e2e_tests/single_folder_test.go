@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// All your TestDuplicateScanner_* functions remain largely the same,
-// as they already execute the built binary and don't directly import your main package.
 func Test_SingleFolder_NoDuplicates(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -168,7 +166,7 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
 	}
 
-	expectedFilenames := []string{"file with spaces.txt", "file-with-special-!@#$.txt"}
+	expectedFilenames := []string{"file with spaces.txt", "file-with-special-!@#$%.txt"}
 	csvLines, err := readResultsFile(t, tempbinDir)
 	if err != nil {
 		t.Fatal("failed to read CSV data")

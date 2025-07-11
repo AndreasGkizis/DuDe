@@ -8,6 +8,15 @@ import (
 	"os"
 )
 
+func EmptyDir(path string) {
+	fmt.Println("!~~ ERROR ~~!")
+	fmt.Printf("The path:\"%s\" does was empty! \n", path)
+	fmt.Println("!~~ ERROR ~~!")
+	fmt.Println()
+	os.Exit(0)
+
+}
+
 func DirDoesNotExistMessage(path string) {
 
 	fmt.Println("!~~ ERROR ~~!")
