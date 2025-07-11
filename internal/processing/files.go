@@ -75,7 +75,7 @@ func SaveResultsAsCSV(data []models.ResultEntry, fullpath string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	writer.Comma = getDelimiterForOS()
+	writer.Comma = GetDelimiterForOS()
 
 	// Write the UTF-8 BOM bytes at the very beginning of the file to force stupid excelk to recognise the encoding.
 	_, err = file.Write([]byte{0xEF, 0xBB, 0xBF})
@@ -127,7 +127,7 @@ func storeFilePaths(result *sync.Map, pt *visuals.ProgressCounter) func(path str
 	}
 }
 
-func getDelimiterForOS() rune {
+func GetDelimiterForOS() rune {
 	var delimiter rune
 	if runtime.GOOS == "windows" {
 		delimiter = ';'
