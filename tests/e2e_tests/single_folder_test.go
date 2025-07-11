@@ -12,12 +12,12 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	files := map[string]string{
-		"file1.txt":          "content A",
-		"sub/file2.txt":      "content B",
-		"sub/sub2/file3.txt": "content C",
+	files := map[string][]byte{
+		"file1.txt":          []byte("content A"),
+		"sub/file2.txt":      []byte("content B"),
+		"sub/sub2/file3.txt": []byte("content C"),
 	}
-	tempDir, cleanup := createTestFiles(t, files)
+	tempDir, cleanup := createTestFilesByteArray(t, files)
 	defer func() {
 		cleanup()
 		cleanupBin()
@@ -46,14 +46,14 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	files := map[string]string{
-		"fileA.txt":      "duplicate content",
-		"sub/fileB.txt":  "unique content",
-		"sub2/fileC.txt": "duplicate content",
-		"sub2/fileD.txt": "another unique content",
+	files := map[string][]byte{
+		"fileA.txt":      []byte("duplicate content"),
+		"sub/fileB.txt":  []byte("unique content"),
+		"sub2/fileC.txt": []byte("duplicate content"),
+		"sub2/fileD.txt": []byte("another unique content"),
 	}
 
-	tempDir, cleanup := createTestFiles(t, files)
+	tempDir, cleanup := createTestFilesByteArray(t, files)
 
 	defer func() {
 		cleanup()
@@ -85,7 +85,7 @@ func Test_SingleFolder_EmptyFolder(t *testing.T) {
 	var stderr bytes.Buffer
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-	tempDir, cleanup := createTestFiles(t, map[string]string{})
+	tempDir, cleanup := createTestFilesByteArray(t, map[string][]byte{})
 	defer func() {
 		cleanup()
 		cleanupBin()
@@ -111,13 +111,13 @@ func Test_SingleFolder_HiddenFiles(t *testing.T) {
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	files := map[string]string{
-		"file1.txt":         "duplicate content",
-		".hidden/file2.txt": "duplicate content",
-		"file3.txt":         "unique content",
+	files := map[string][]byte{
+		"file1.txt":         []byte("duplicate content"),
+		".hidden/file2.txt": []byte("duplicate content"),
+		"file3.txt":         []byte("unique content"),
 	}
 
-	tempDir, cleanup := createTestFiles(t, files)
+	tempDir, cleanup := createTestFilesByteArray(t, files)
 	defer func() {
 		cleanup()
 		cleanupBin()
@@ -145,13 +145,13 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	files := map[string]string{
-		"file with spaces.txt":        "duplicate content",
-		"file-with-special-!@#$%.txt": "duplicate content",
-		"normal_file.txt":             "unique content",
+	files := map[string][]byte{
+		"file with spaces.txt":        []byte("duplicate content"),
+		"file-with-special-!@#$%.txt": []byte("duplicate content"),
+		"normal_file.txt":             []byte("unique content"),
 	}
 
-	tempDir, cleanup := createTestFiles(t, files)
+	tempDir, cleanup := createTestFilesByteArray(t, files)
 	defer func() {
 		cleanup()
 		cleanupBin()
@@ -180,13 +180,13 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
 	// Create files with same content but different sizes
-	files := map[string]string{
-		"small.txt":  "content",
-		"large1.txt": "content" + string(make([]byte, 1024)), // 1KB file
-		"large2.txt": "content" + string(make([]byte, 1024)), // Same content as large1.txt
+	files := map[string][]byte{
+		"small.txt":  []byte("content"),
+		"large1.txt": []byte("content" + string(make([]byte, 1024))), // 1KB file
+		"large2.txt": []byte("content" + string(make([]byte, 1024))), // Same content as large1.txt
 	}
 
-	tempDir, cleanup := createTestFiles(t, files)
+	tempDir, cleanup := createTestFilesByteArray(t, files)
 	defer func() {
 		cleanup()
 		cleanupBin()
