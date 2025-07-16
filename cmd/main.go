@@ -68,10 +68,6 @@ func main() {
 	pt := visuals.NewProgressTracker("Hashing\t\t")
 	pt.Start(50)
 
-	// bla := common.LenSyncMap(&syncSourceDirFileMap)
-	// bla1 := common.ConvertSyncMapToMap(&syncSourceDirFileMap)
-	// log.Debug(bla1)
-
 	err = process.CreateHashes(&syncSourceDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))

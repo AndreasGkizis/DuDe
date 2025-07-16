@@ -66,6 +66,10 @@ func SaveResultsAsCSV(data []models.ResultEntry, fullpath string) error {
 	log.InfoWithFuncName(fmt.Sprintf("%d results found ", len(data)))
 	log.InfoWithFuncName(fmt.Sprintf("creating results file in path :%s", fullpath))
 
+	if len(data) == 0 {
+		return nil
+	}
+
 	file, err := os.Create(fullpath)
 	if err != nil {
 		return err
