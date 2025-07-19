@@ -3,5 +3,6 @@
         "andreas",
         "Infof",
         "multierr"
-    ]
+    ],
+    "go.testTimeout": "999h"
 }
