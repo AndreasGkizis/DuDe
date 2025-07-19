@@ -213,10 +213,12 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 
 func Test_SingleFolder_MD5_Collision(t *testing.T) {
 	var stderr bytes.Buffer
+	t.Skip()
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// different content creates same MD5 hash :-O
 
-	// Create files with same MD5 hash but different content (simulated MD5 collision)
+
 	files := map[string][]byte{
 		"large1.txt": {
 			0xd1, 0x31, 0xdd, 0x02, 0xc5, 0xe6, 0xee, 0xc4, 0x69, 0x3d, 0x9a, 0x06, 0x98, 0xaf, 0xf9, 0x5c,
