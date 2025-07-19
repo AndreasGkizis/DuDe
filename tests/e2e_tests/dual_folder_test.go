@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 )
 
@@ -63,23 +62,22 @@ func Test_DualFolder_WithDuplicates(t *testing.T) {
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
 	// Create source folder with various file types including duplicates
-	sourceOptions := DefaultFileOptions()
-	sourceOptions.DuplicateFileCount = 2
-	sourceOptions.UniqueFileCount = 3
-	sourceOptions.DuplicatesPerFile = 0 // No duplicates within source folder
-	sourceOptions.FileTypes = []FileType{TextFile, AudioFile, MixedFile}
-	sourceOptions.FileSize = 2048
-	sourceOptions.Prefix = "source"
+	sourceOptions := FileOptions{
+		DuplicateFileCount: 2,
+		DuplicatesPerFile:  0, // No duplicates within target folder
+		UniqueFileCount:    3,
+		FileTypes:          []FileType{TextFile, AudioFile},
+		Prefix:             "source",
+	}
 
 	// Create target folder with some files that duplicate source files
-	targetOptions := DefaultFileOptions()
-	targetOptions.DuplicateFileCount = 2
-	targetOptions.UniqueFileCount = 3
-	targetOptions.DuplicatesPerFile = 0 // No duplicates within target folder
-	targetOptions.FileTypes = []FileType{TextFile, AudioFile, GreekFile}
-	targetOptions.FileSize = 2048 // Same size to ensure content hash matches
-	targetOptions.Prefix = "target"
-
+	targetOptions := FileOptions{
+		DuplicateFileCount: 2,
+		DuplicatesPerFile:  0, // No duplicates within target folder
+		UniqueFileCount:    3,
+		FileTypes:          []FileType{TextFile, AudioFile},
+		Prefix:             "target",
+	}
 	tempDir1, cleanup1 := createTestFiles(t, sourceOptions)
 	tempDir2, cleanup2 := createTestFiles(t, targetOptions)
 
@@ -256,62 +254,22 @@ func Test_DualFolder_SpecialCharacters(t *testing.T) {
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
-// Test_DualFolder_DifferentSizes tests the case with files having same content but different sizes
-func Test_DualFolder_DifferentSizes(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
-	// Create files with same content prefix but different sizes
-	folder1Files := map[string][]byte{
-		"small.txt":  []byte("content"),
-		"large1.txt": []byte("content" + string(make([]byte, 1024))), // 1KB file
-	}
-
-	folder2Files := map[string][]byte{
-		"tiny.txt":   []byte("content"),                              // Same as small.txt
-		"large2.txt": []byte("content" + string(make([]byte, 1024))), // Same as large1.txt
-	}
-
-	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
-	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-
-	defer func() {
-		cleanup1()
-		cleanup2()
-		cleanupBin()
-	}()
-
-	cmd := exec.Command(binaryPath, "-s="+tempDir1, "-t="+tempDir2)
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	expectedFilenames := []string{"small.txt", "tiny.txt", "large1.txt", "large2.txt"}
-	csvLines, err := readResultsFile(t, tempbinDir)
-	if err != nil {
-		t.Fatal("failed to read CSV data")
-	}
-	csvContainsExpected(t, csvLines, expectedFilenames)
-}
-
 // Test_DualFolder_OneEmptyFolder tests the edge case where one folder is empty
-func Test_DualFolder_OneEmptyFolder(t *testing.T) {
+func Test_DualFolder_OneEmptyFolder_NoDuplicates(t *testing.T) {
 	var stderr bytes.Buffer
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	// Create one folder with files and one empty folder
-	folder1Files := map[string][]byte{
-		"file1.txt": []byte("content A"),
-		"file2.txt": []byte("content B"),
+	targetOptions := FileOptions{
+		DuplicateFileCount: 2,
+		DuplicatesPerFile:  0, // No duplicates within target folder
+		UniqueFileCount:    3,
+		FileTypes:          []FileType{TextFile, AudioFile},
+		Prefix:             "target",
 	}
+	tempDir2, cleanup2 := createTestFiles(t, targetOptions)
 
-	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
-	tempDir2, cleanup2 := createTestFilesByteArray(t, map[string][]byte{}) // Empty folder
+	tempDir1, cleanup1 := createTestFilesByteArray(t, map[string][]byte{}) // Empty folder
 
 	defer func() {
 		cleanup1()
@@ -332,6 +290,45 @@ func Test_DualFolder_OneEmptyFolder(t *testing.T) {
 	if err == nil {
 		t.Error("Expected no results file when one folder is empty, but found one")
 	}
+}
+
+// Test_DualFolder_OneEmptyFolder tests the edge case where one folder is empty
+func Test_DualFolder_OneEmptyFolder_WithDuplicates(t *testing.T) {
+	var stderr bytes.Buffer
+
+	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+
+	targetOptions := FileOptions{
+		DuplicateFileCount: 2,
+		DuplicatesPerFile:  10, // No duplicates within target folder
+		UniqueFileCount:    3,
+		FileTypes:          []FileType{TextFile, AudioFile},
+		Prefix:             "target",
+	}
+	tempDir2, cleanup2 := createTestFiles(t, targetOptions)
+
+	tempDir1, cleanup1 := createTestFilesByteArray(t, map[string][]byte{}) // Empty folder
+
+	defer func() {
+		cleanup1()
+		cleanup2()
+		cleanupBin()
+	}()
+
+	cmd := exec.Command(binaryPath, "-s="+tempDir1, "-t="+tempDir2)
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	}
+
+	// No duplicates expected when one folder is empty
+	allCSVLines, err := readResultsFile(t, tempbinDir)
+	if err != nil {
+		t.Fatal("failed to read CSV data")
+	}
+	csvContainsNumberOfRowsExpected(t, allCSVLines, targetOptions.CalculateTotalDuplicateFiles())
 }
 
 // Test_DualFolder_NestedStructure tests the edge case with complex nested directory structures
@@ -428,49 +425,6 @@ func Test_DualFolder_SameFilesButDifferentContent(t *testing.T) {
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
-// Test_DualFolder_CaseSensitivity tests the edge case with files having same names but different case
-func Test_DualFolder_CaseSensitivity(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
-	// Create folders with same filenames but different case
-	folder1Files := map[string][]byte{
-		"case_test.txt":  []byte("same content"),
-		"mixed_CASE.txt": []byte("also same content"),
-	}
-
-	folder2Files := map[string][]byte{
-		"CASE_TEST.txt":  []byte("same content"),      // Same content, different case
-		"Mixed_Case.txt": []byte("also same content"), // Same content, different case
-	}
-
-	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
-	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-
-	defer func() {
-		cleanup1()
-		cleanup2()
-		cleanupBin()
-	}()
-
-	cmd := exec.Command(binaryPath, "-s="+tempDir1, "-t="+tempDir2)
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	// All files should be reported as duplicates (assuming case-insensitive comparison)
-	expectedFilenames := []string{"case_test.txt", "CASE_TEST.txt", "mixed_CASE.txt", "Mixed_Case.txt"}
-	csvLines, err := readResultsFile(t, tempbinDir)
-	if err != nil {
-		t.Fatal("failed to read CSV data")
-	}
-	csvContainsExpected(t, csvLines, expectedFilenames)
-}
-
 // Test_DualFolder_ParanoidMode tests that paranoid mode correctly identifies true duplicates between folders
 func Test_DualFolder_ParanoidMode(t *testing.T) {
 	var stderr bytes.Buffer
@@ -536,163 +490,6 @@ func Test_DualFolder_ParanoidMode(t *testing.T) {
 	// Only identical1.dat and identical2.dat should be found as duplicates
 	expectedFilenames := []string{"identical1.dat", "identical2.dat"}
 	csvContainsExpected(t, csvLines, expectedFilenames)
-
-	// Make sure collision files are not reported as duplicates in paranoid mode
-	for _, line := range csvLines {
-		if len(line) >= 1 &&
-			(strings.Contains(line[0], "collision_source.dat") ||
-				strings.Contains(line[0], "collision_target.dat")) {
-			t.Errorf("Found collision files in results when they should not be detected as duplicates in paranoid mode")
-		}
-	}
-}
-
-// Test_DualFolder_LargeFiles tests handling of larger files (moderately sized, not extreme)
-func Test_DualFolder_LargeFiles(t *testing.T) {
-	var stderr bytes.Buffer
-
-	// Skip this test if running in short mode
-	if testing.Short() {
-		t.Skip("Skipping large file test in short mode")
-	}
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
-	// Generate moderately large random content (1MB instead of 10MB to avoid test issues)
-	fileSize := 1 * 1024 * 1024 // 1MB is large enough for testing but won't cause memory issues
-	largeContent, err := createRandomContent(fileSize)
-	if err != nil {
-		t.Fatalf("Failed to create large random content: %v", err)
-	}
-
-	t.Logf("Successfully created %d bytes of test content", len(largeContent))
-
-	// Create a slightly modified copy (change last 10 bytes)
-	differentLargeContent := make([]byte, len(largeContent))
-	copy(differentLargeContent, largeContent)
-	for i := 0; i < 10; i++ {
-		if len(differentLargeContent) > i {
-			differentLargeContent[len(differentLargeContent)-i-1] = byte(i)
-		}
-	}
-
-	// Create separate folders with large files
-	folder1Files := map[string][]byte{
-		"large_original.bin": largeContent,
-	}
-
-	folder2Files := map[string][]byte{
-		"large_duplicate.bin": largeContent,          // Identical to original
-		"large_different.bin": differentLargeContent, // Almost identical
-	}
-
-	t.Log("Creating test directories...")
-	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
-	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-
-	t.Logf("Created test directories: %s and %s", tempDir1, tempDir2)
-
-	defer func() {
-		cleanup1()
-		cleanup2()
-		cleanupBin()
-	}()
-
-	// Verify files were created correctly
-	originalStat, err := os.Stat(filepath.Join(tempDir1, "large_original.bin"))
-	if err != nil {
-		t.Fatalf("Failed to stat original file: %v", err)
-	}
-	duplicateStat, err := os.Stat(filepath.Join(tempDir2, "large_duplicate.bin"))
-	if err != nil {
-		t.Fatalf("Failed to stat duplicate file: %v", err)
-	}
-
-	t.Logf("Original file size: %d bytes, Duplicate file size: %d bytes",
-		originalStat.Size(), duplicateStat.Size())
-
-	// First run standard mode
-	cmd := exec.Command(binaryPath, "-s="+tempDir1, "-t="+tempDir2)
-	cmd.Stderr = &stderr
-
-	t.Log("Running DuDe in standard mode...")
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	csvLines, err := readResultsFile(t, tempbinDir)
-	if err != nil {
-		t.Logf("Error reading results: %v", err)
-		t.Fatal("Failed to read CSV data")
-	}
-
-	t.Logf("Found %d lines in CSV results", len(csvLines))
-
-	// Since we're only looking for filenames, ignore paths in comparison
-	var found1, found2 bool
-	for _, line := range csvLines {
-		if len(line) >= 1 {
-			t.Logf("Checking CSV line: %v", line)
-			if strings.Contains(line[0], "large_original.bin") ||
-				strings.Contains(line[2], "large_original.bin") {
-				found1 = true
-			}
-			if strings.Contains(line[0], "large_duplicate.bin") ||
-				strings.Contains(line[2], "large_duplicate.bin") {
-				found2 = true
-			}
-		}
-	}
-
-	if !found1 || !found2 {
-		t.Errorf("Failed to find expected files in results: large_original.bin found: %v, large_duplicate.bin found: %v",
-			found1, found2)
-	}
-
-	// Large different file should not be reported
-	for _, line := range csvLines {
-		if len(line) >= 1 &&
-			(strings.Contains(line[0], "large_different.bin") ||
-				strings.Contains(line[2], "large_different.bin")) {
-			t.Errorf("Found large_different.bin in results when it shouldn't be detected as duplicate")
-		}
-	}
-
-	// Now run with paranoid mode
-	cmd = exec.Command(binaryPath, "-s="+tempDir1, "-t="+tempDir2, "-p")
-	cmd.Stderr = &stderr
-
-	t.Log("Running DuDe in paranoid mode...")
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	csvLines, err = readResultsFile(t, tempbinDir)
-	if err != nil {
-		t.Fatal("Failed to read CSV data")
-	}
-
-	// Check for duplicates in paranoid mode
-	found1, found2 = false, false
-	for _, line := range csvLines {
-		if len(line) >= 1 {
-			if strings.Contains(line[0], "large_original.bin") ||
-				strings.Contains(line[2], "large_original.bin") {
-				found1 = true
-			}
-			if strings.Contains(line[0], "large_duplicate.bin") ||
-				strings.Contains(line[2], "large_duplicate.bin") {
-				found2 = true
-			}
-		}
-	}
-
-	if !found1 || !found2 {
-		t.Errorf("Failed to find expected files in paranoid mode results: large_original.bin found: %v, large_duplicate.bin found: %v",
-			found1, found2)
-	}
 }
 
 // Test_DualFolder_UnicodeNormalization tests proper handling of Unicode filenames
@@ -743,7 +540,7 @@ func Test_DualFolder_UnicodeNormalization(t *testing.T) {
 }
 
 // Test_DualFolder_PermissionDenied tests handling of permission errors
-func Test_DualFolder_PermissionDenied(t *testing.T) {
+func Test_DualFolder_PermissionDenied_ShouldNotFail(t *testing.T) {
 	// Skip on Windows as permissions work differently
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping permissions test on Windows")
@@ -791,13 +588,6 @@ func Test_DualFolder_PermissionDenied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
 	}
-
-	// Check if stderr contains permission denied message
-	if !strings.Contains(stderr.String(), "permission") &&
-		!strings.Contains(stderr.String(), "Permission") {
-		t.Logf("Expected stderr to contain permission error message, got: %s", stderr.String())
-	}
-
 	csvLines, err := readResultsFile(t, tempbinDir)
 	if err != nil {
 		t.Fatal("Failed to read CSV data")

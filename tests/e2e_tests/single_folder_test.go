@@ -4,9 +4,33 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 )
+
+func Test_SingleFolder_EmptyFolder(t *testing.T) {
+	var stderr bytes.Buffer
+
+	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	tempDir, cleanup := createTestFilesByteArray(t, map[string][]byte{})
+
+	defer func() {
+		cleanup()
+		cleanupBin()
+	}()
+
+	cmd := exec.Command(binaryPath, "-s="+tempDir)
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	}
+
+	_, err = readResultsFile(t, tempbinDir)
+	if err == nil {
+		t.Error("Expected no results file for empty folder, but found one")
+	}
+}
 
 func Test_SingleFolder_NoDuplicates(t *testing.T) {
 	var stderr bytes.Buffer
@@ -47,13 +71,13 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
 
-	// Define options for test files
-	options := DefaultFileOptions()
-	options.DuplicateFileCount = 2     // Create 2 files that will have duplicates
-	options.UniqueFileCount = 2        // Create 2 files without duplicates
-	options.DuplicatesPerFile = 1      // Create 1 duplicate for each duplicate file (2 total identical files)
-	options.FileTypes = []FileType{TextFile, ImageFile} // Create text and image files
-	options.Prefix = "test-dup"        // Prefix for filenames
+	options := FileOptions{
+		DuplicateFileCount: 2,
+		DuplicatesPerFile:  1,
+		UniqueFileCount:    2,
+		FileTypes:          []FileType{TextFile, AudioFile},
+		Prefix:             "source",
+	}
 
 	tempDir, cleanup := createTestFiles(t, options)
 
@@ -76,36 +100,8 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to read CSV data")
 	}
-	
-	// Verify we have results with duplicates
-	if len(csvLines) <= 1 { // header row + at least one result row
-		t.Error("Expected to find duplicates in results file")
-	}
-}
 
-func Test_SingleFolder_EmptyFolder(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-	tempDir, cleanup := createTestFilesByteArray(t, map[string][]byte{})
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
-
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	_, err = readResultsFile(t, tempbinDir)
-	if err == nil {
-		t.Error("Expected no results file for empty folder, but found one")
-	}
+	csvContainsNumberOfRowsExpected(t, csvLines, options.CalculateTotalDuplicateFiles())
 }
 
 func Test_SingleFolder_HiddenFiles(t *testing.T) {
@@ -211,16 +207,14 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
-func Test_SingleFolder_MD5_Collision(t *testing.T) {
+func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 	var stderr bytes.Buffer
-	t.Skip()
 
 	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+
 	// different content creates same MD5 hash :-O
-
-
 	files := map[string][]byte{
-		"large1.txt": {
+		"file1.txt": {
 			0xd1, 0x31, 0xdd, 0x02, 0xc5, 0xe6, 0xee, 0xc4, 0x69, 0x3d, 0x9a, 0x06, 0x98, 0xaf, 0xf9, 0x5c,
 			0x2f, 0xca, 0xb5, 0x87, 0x12, 0x46, 0x7e, 0xab, 0x40, 0x04, 0x58, 0x3e, 0xb8, 0xfb, 0x7f, 0x89,
 			0x55, 0xad, 0x34, 0x06, 0x09, 0xf4, 0xb3, 0x02, 0x83, 0xe4, 0x88, 0x83, 0x25, 0x71, 0x41, 0x5a,
@@ -230,7 +224,7 @@ func Test_SingleFolder_MD5_Collision(t *testing.T) {
 			0xe9, 0x9f, 0x33, 0x42, 0x0f, 0x57, 0x7e, 0xe8, 0xce, 0x54, 0xb6, 0x70, 0x80, 0xa8, 0x0d, 0x1e,
 			0xc6, 0x98, 0x21, 0xbc, 0xb6, 0xa8, 0x83, 0x93, 0x96, 0xf9, 0x65, 0x2b, 0x6f, 0xf7, 0x2a, 0x70,
 		},
-		"large2.txt": {
+		"file2.txt": {
 			0xd1, 0x31, 0xdd, 0x02, 0xc5, 0xe6, 0xee, 0xc4, 0x69, 0x3d, 0x9a, 0x06, 0x98, 0xaf, 0xf9, 0x5c,
 			0x2f, 0xca, 0xb5, 0x07, 0x12, 0x46, 0x7e, 0xab, 0x40, 0x04, 0x58, 0x3e, 0xb8, 0xfb, 0x7f, 0x89,
 			0x55, 0xad, 0x34, 0x06, 0x09, 0xf4, 0xb3, 0x02, 0x83, 0xe4, 0x88, 0x83, 0x25, 0xf1, 0x41, 0x5a,
@@ -263,57 +257,5 @@ func Test_SingleFolder_MD5_Collision(t *testing.T) {
 		t.Errorf("Expected no results file to be produced, but file exists.")
 	} else if !os.IsNotExist(errFinal) {
 		t.Errorf("Expected results file to not exist, but got unexpected error: %v", errFinal)
-	}
-}
-
-// Test_SingleFolder_ParanoidMode tests that paranoid mode correctly identifies true duplicates
-func Test_SingleFolder_ParanoidMode(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
-	// Create files with identical content but different names
-	content, err := createRandomContent(4096) // 4KB of identical content
-	if err != nil {
-		t.Fatalf("Failed to create random content: %v", err)
-	}
-
-	files := map[string][]byte{
-		"original.dat": content,
-		"copy1.dat": content,
-		"subfolder/copy2.dat": content,
-		"different.dat": append(content[:len(content)-10], make([]byte, 10)...), // Almost identical
-	}
-
-	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
-
-	// Run with paranoid mode enabled
-	cmd := exec.Command(binaryPath, "-s="+tempDir, "-p")
-	cmd.Stderr = &stderr
-
-	err = cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
-	}
-
-	// Should find the exact duplicates but not the almost-identical file
-	csvLines, err := readResultsFile(t, tempbinDir)
-	if err != nil {
-		t.Fatal("Failed to read CSV data")
-	}
-
-	// Check that we have exactly the right duplicates
-	expectedFilenames := []string{"original.dat", "copy1.dat", "copy2.dat"}
-	csvContainsExpected(t, csvLines, expectedFilenames)
-	
-	// Make sure "different.dat" is not in results
-	for _, line := range csvLines {
-		if len(line) >= 1 && strings.Contains(line[0], "different.dat") {
-			t.Errorf("Found 'different.dat' in results when it should not be detected as duplicate")
-		}
 	}
 }

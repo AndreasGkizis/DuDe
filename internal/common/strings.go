@@ -26,6 +26,8 @@ const (
 	Path_prefix = "["
 	Path_suffix = "]"
 
+	ResultsFileSeperator = "------"
+
 	ArgFilename_cacheDir     = "CACHE_FILE"
 	ArgFilename_resDir       = "RESULT_FILE"
 	ArgFilename_sourceDir    = "SOURCE_DIR"

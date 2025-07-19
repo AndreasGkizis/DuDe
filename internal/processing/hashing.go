@@ -293,7 +293,12 @@ func GetDuplicates(input *sync.Map) map[string]models.FileHash {
 
 func GetFlattened(input *sync.Map) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
-	separatorEntry := models.ResultEntry{Filename: "------", FullPath: "------", DuplicateFilename: "------", DuplicateFullPath: "------"}
+
+	separatorEntry := models.ResultEntry{
+		Filename:          com.ResultsFileSeperator,
+		FullPath:          com.ResultsFileSeperator,
+		DuplicateFilename: com.ResultsFileSeperator,
+		DuplicateFullPath: com.ResultsFileSeperator}
 
 	input.Range(func(key, value any) bool {
 		val := value.(models.FileHash)

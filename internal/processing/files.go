@@ -81,7 +81,7 @@ func SaveResultsAsCSV(data []models.ResultEntry, fullpath string) error {
 
 	writer.Comma = GetDelimiterForOS()
 
-	// Write the UTF-8 BOM bytes at the very beginning of the file to force stupid excelk to recognise the encoding.
+	// Write the UTF-8 BOM bytes at the very beginning of the file to force stupid excel to recognise the encoding.
 	_, err = file.Write([]byte{0xEF, 0xBB, 0xBF})
 	if err != nil {
 		return fmt.Errorf("failed to write UTF-8 BOM: %v", err)
