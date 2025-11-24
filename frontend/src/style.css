@@ -1,0 +1,245 @@
+/*
+    Since you provided the entire existing CSS, I will add the new styles 
+    that achieve the cleaner layout.
+*/
+
+/* --- General Form Layout --- */
+
+body {
+    /* 1. FIX: Remove the default browser margin around the body */
+    margin: 0;
+    color: white;
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+        "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+        sans-serif;
+}
+
+#app {
+    height: 100vh;
+    text-align: center;
+    /* Set a solid background color here, matching the <html> background */
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 0;
+    padding-right: 0;
+    background-color: rgba(27, 38, 54, 1);
+    /* Or use the hex code if you prefer: #1b2636 */
+
+    box-sizing: border-box;
+    /* Include padding in the height calculation */
+}
+
+.form-title {
+    color: #4CAF50;
+    /* A nice green accent color */
+    margin-bottom: 25px;
+    font-size: 1.8em;
+    margin-top: 0;
+}
+
+.form-container {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 40px;
+
+    /* FIX: Remove max-width to let it expand closer to the edges */
+    /* max-width: 900px; */
+
+    /* Set a reasonable width, perhaps 90-95% of the container */
+    width: 85%;
+
+    /* Center the container */
+    margin: 40px auto;
+
+    padding: 20px;
+    background-color: rgb(32, 45, 66);
+    border-radius: 8px;
+}
+
+.input-group h3 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #61AEEF;
+    /* Blue accent for section titles */
+}
+
+/* --- Input Styling --- */
+
+label {
+    display: block;
+    text-align: left;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.95em;
+    color: rgba(255, 255, 255);
+    margin-top: 15px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #3d4a65;
+    /* Darker border */
+    background-color: #1a2a40;
+    /* Darker input background */
+    color: white;
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #61AEEF;
+}
+
+/* --- Directory Chooser (Flexbox for Path + Button) --- */
+
+.dir-chooser {
+    display: flex;
+    gap: 10px;
+}
+
+.dir-chooser .dir-input {
+    flex-grow: 1;
+    cursor: default;
+    /* Visually show it's read-only */
+}
+
+.btn-select {
+    flex-shrink: 0;
+    width: 100px;
+    /* Fixed width for the select button */
+    padding: 10px 15px;
+    background-color: #61AEEF;
+    /* Blue button */
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+}
+
+.btn-select:hover {
+    background-color: #4C9DEB;
+}
+
+/* --- System Settings (CPU/Buffer) --- */
+
+.system-group .input {
+    width: 100%;
+}
+
+.system-group label {
+    margin-bottom: 5px;
+    margin-top: 20px;
+}
+
+/* --- Checkbox Styling (Custom Look) --- */
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-top: 25px;
+}
+
+/* --- Execution Button --- */
+
+.execute-box {
+    margin-top: 30px;
+    margin-bottom: 10px;
+}
+
+.btn-execute {
+    padding: 12px 40px;
+    font-size: 1.2em;
+    font-weight: bold;
+    background-color: #4CAF50;
+    /* Green accent for the main action */
+    color: white;
+    border: none;
+    border-radius: 50px;
+    /* Rounded pill shape */
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-execute:hover {
+    background-color: #45a049;
+    transform: translateY(-1px);
+}
+
+.result {
+    padding: 10px;
+    font-style: italic;
+    color: #aaa;
+}
+
+/* This is the clean structure you should keep in your CSS */
+.paranoid-check-box {
+    display: flex;
+    justify-content: space-between;
+    /* Aligns label left, input right */
+    align-items: center;
+    margin-top: 25px;
+}
+
+.paranoid-check-box label {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-weight: normal;
+}
+
+.paranoid-check-box .checkbox-input {
+    /* Keep only the dimensions/cursor property here */
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* --- Progress Bar Styling --- */
+
+.progress-title {
+    font-weight: bold;
+    color: #61AEEF; /* Blue for status */
+    margin-bottom: 8px;
+    text-align: left;
+    padding-left: 5px;
+}
+
+.progress-container {
+    width: 100%;
+    background-color: #3d4a65; /* Background track color */
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 15px;
+    background-color: #4CAF50; /* Green fill color */
+    width: 0; /* Starts at 0% */
+    transition: width 0.4s ease; /* Smooth transition when value changes */
+    text-align: right;
+    color: white;
+    font-size: 10px;
+    line-height: 15px;
+}
+
+/* --- Detailed Status Output --- */
+.detailed-status {
+    text-align: left;
+    background-color: #1a2a40; /* Dark background */
+    border: 1px solid #3d4a65;
+    padding: 10px;
+    min-height: 80px; /* Minimum height to keep structure */
+    max-height: 200px;
+    overflow-y: auto; /* Allows scrolling for many messages */
+    white-space: pre-wrap; /* Respects line breaks */
+    font-size: 0.9em;
+    color: #ccc;
+}
