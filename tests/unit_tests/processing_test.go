@@ -1,13 +1,11 @@
 package unit_tests
 
 import (
-	process "DuDe-wails/internal/processing"
-
 	"sync"
 	"testing"
 
-	"DuDe-wails/internal/models"
-	"DuDe-wails/internal/visuals"
+	"DuDe/internal/models"
+	"DuDe/internal/visuals"
 )
 
 func TestFindDuplicatesInMap(t *testing.T) {

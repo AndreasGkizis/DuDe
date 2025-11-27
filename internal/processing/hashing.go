@@ -1,10 +1,10 @@
 package processing
 
 import (
-	com "DuDe-wails/internal/common"
-	logger "DuDe-wails/internal/common/logger"
-	models "DuDe-wails/internal/models"
-	visuals "DuDe-wails/internal/visuals"
+	com "DuDe/internal/common"
+	logger "DuDe/internal/common/logger"
+	models "DuDe/internal/models"
+	visuals "DuDe/internal/visuals"
 	"bytes"
 	"crypto/md5"
 	"errors"

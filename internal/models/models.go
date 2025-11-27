@@ -1,6 +1,6 @@
 package models
 
-import "DuDe-wails/internal/common"
+import "DuDe/internal/common"
 
 type ResultEntry struct {
 	Filename          string

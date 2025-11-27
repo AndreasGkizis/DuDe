@@ -17,6 +17,27 @@
         "-o",
         "build/bin/myproject.exe"
       ]
+    },
+    {
+      "label": "wails-linux-build",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "command": "/home/andreas/go/bin/wails",
+      "args": [
+        "build",
+        "-platform",
+        "linux/amd64",
+        "-upx",
+        "-upxflags",
+        "\"--best\"",
+        "-ldflags",
+        "\"-s -w\"",
+        "-webview2",
+        "embed"
+      ],
+      "detail": "Full Wails build for Linux/amd64 with UPX and LDFLAGS"
     }
   ]
 }

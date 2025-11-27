@@ -1,7 +1,7 @@
 package main
 
 import (
-	"DuDe-wails/internal/processing"
+	"DuDe/internal/processing"
 
 	"embed"
 
@@ -19,7 +19,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "DuDe-wails",
+		Title:  "DuDe",
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{

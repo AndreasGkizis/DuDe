@@ -7,7 +7,7 @@
       "request": "launch",
       "mode": "exec",
       "program": "${workspaceFolder}/build/bin/myproject.exe",
-      "preLaunchTask": "build",
+      "preLaunchTask": "wails-linux-build",
       "cwd": "${workspaceFolder}",
       "env": {}
     }

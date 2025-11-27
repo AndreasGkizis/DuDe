@@ -1,7 +1,7 @@
 package visuals
 
 import (
-	"DuDe-wails/internal/reporting"
+	"DuDe/internal/reporting"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -48,7 +48,7 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 
 			pt.Spinner.Spin()
 			pt.Reporter.LogDetailedStatus(
-				fmt.Sprintf("%.2f%% %s  ...%d of %d Files", percentage, pt.Spinner.Print(), int(curr), int(tot)),
+				fmt.Sprintf("%s %.2f%% %s  ...%d of %d Files", name, percentage, pt.Spinner.Print(), int(curr), int(tot)),
 			)
 
 			pt.lastDisplayedProgress = progress
@@ -56,7 +56,7 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 			if curr == tot && !isItTheStart {
 
 				pt.Reporter.LogDetailedStatus(
-					fmt.Sprintf("%.2f%% %s  ...%d of %d Files | Done.", percentage, pt.Spinner.Print(), int(curr), int(tot)),
+					fmt.Sprintf("%s %.2f%% %s  ...%d of %d Files | Done.", name, percentage, pt.Spinner.Print(), int(curr), int(tot)),
 				)
 				return
 			}

@@ -1,8 +1,8 @@
 package unit_tests
 
 import (
-	common "DuDe-wails/internal/common"
-	handlers "DuDe-wails/internal/handlers"
+	common "DuDe/internal/common"
+	handlers "DuDe/internal/handlers"
 
 	"flag"
 	"os"

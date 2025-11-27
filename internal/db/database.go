@@ -1,15 +1,19 @@
 package db
 
 import (
+	"DuDe/internal/common"
 	"database/sql"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
 
 // NewDatabase returns a new database connection
-func NewDatabase(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path)
+func NewDatabase(dir string) (*sql.DB, error) {
+	dbpath := filepath.Join(dir, common.MemFilename)
+
+	db, err := sql.Open("sqlite", dbpath)
 	if err != nil {
 		return nil, err
 	}

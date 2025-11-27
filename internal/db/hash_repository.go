@@ -1,7 +1,7 @@
 package db
 
 import (
-	"DuDe-wails/internal/models/db_models"
+	"DuDe/internal/models/db_models"
 	"database/sql"
 	"errors"
 	"fmt"

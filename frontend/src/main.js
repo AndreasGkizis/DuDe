@@ -1,75 +1,134 @@
 import './style.css';
-import './app.css';
 
-import {SelectFolder,StartExecution} from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults } from '../wailsjs/go/processing/FrontendApp';
+
+// --- HTML Template Setup ---
 document.querySelector('#app').innerHTML = `
-    <h2 class="form-title">🚀 Execution Parameters</h2>
+            <div class="main-content-wrapper">
+                <h2 class="app-title">
+                    <pre class="ascii-art">
+██████╗  ██╗   ██╗        ██████╗  ███████╗ 
+██╔══██╗ ██║   ██║        ██╔══██╗ ██╔════╝ 
+██║  ██║ ██║   ██║ █████╗ ██║  ██║ █████╗   
+██║  ██║ ██║   ██║ ╚════╝ ██║  ██║ ██╔══╝   
+██████╔╝ ╚██████╔╝        ██████╔╝ ███████╗ 
+╚═════╝   ╚═════╝         ╚═════╝  ╚══════╝ 
+--------------------------------------------
+    Welcome to Duplicate Detection      
+--------------------------------------------
+</pre>
+                </h2>
 
-    <div class="form-container">
-        <div class="input-group directory-group">
-            <h3>Directory Settings</h3>
-            
-            <label for="sourceDir">Source Directory</label>
-            <div class="dir-chooser">
-                <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Click to select Source Folder">
-                <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
+                <div class="main-container">
+
+                    <!-- 1. CORE CONFIGURATION SECTION (Directories) -->
+                    <div class="input-group mb-6">
+                        <h3>Core Settings</h3>
+                        
+                        <!-- Source Directory -->
+                        <label for="sourceDir">Source Directory (Mandatory)</label>
+                        <div class="dir-chooser">
+                            <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Click to select Source Folder">
+                            <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
+                        </div>
+                        
+                        <!-- Target Directory -->
+                        <label for="targetDir">Target Directory (Optional)</label>
+                        <div class="dir-chooser">
+                            <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Click to select Target Folder">
+                            <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. ADVANCED SETTINGS SECTION (COLLAPSIBLE) -->
+                    
+                    <div id="advancedSection" class="advanced-section" data-collapsed="true">
+                        <button id="advancedToggle" class="advanced-toggle" onclick="toggleAdvanced()">
+                            <span>Advanced Settings</span>
+                            <svg id="collapseIndicator" class="toggle-indicator" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        <div id="advancedContent" class="advanced-content">
+                            
+                            <div>
+                                <label for="cacheDir">Cache Directory</label>
+                                <div class="dir-chooser">
+                                    <input class="input dir-input" id="cacheDir" type="text" value="" placeholder="/tmp/cache">
+                                    <button class="btn btn-select" onclick="selectAndSetDir('cacheDir')">Select</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="resultsDir">Results File Path</label>
+                                <div class="dir-chooser">
+                                    <input class="input dir-input" id="resultsDir" type="text" value="" placeholder="/tmp/results.json">
+                                    <button class="btn btn-select" onclick="selectAndSetDir('resultsDir')">Select</button>
+                                </div>
+                            </div>
+
+                            <div class="full-width-item stacked-inputs">
+                                
+                                <div>
+                                    <label for="cpus">CPUs</label>
+                                    <input class="input" id="cpus" type="number" value="4">
+                                </div>
+
+                                <div>
+                                    <label for="bufSize">Buffer Size</label>
+                                    <input class="input" id="bufSize" type="number" value="1024">
+                                </div>
+                            </div>
+                            
+                            <div class="full-width-item checkbox-container">
+                                <input type="checkbox" id="paranoidMode" class="checkbox-input">
+                                <label for="paranoidMode">Paranoid Mode (Strict Validation)</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- EXECUTION BUTTON -->
+                    <div class="execute-box">
+                        <button class="btn btn-execute" onclick="startProcess()">
+                            Start
+                        </button>
+                    </div>
+
+                    <div class="results-button-container">
+                        <button id="showResultsButton" class="btn btn-show-results" onclick="showResults()" disabled>
+                            Open Results File
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- STATUS AREA -->
+                <div id="status-area">
+                    <div id="progress-title" class="progress-title">Ready to run.</div>
+                    
+                    <div class="progress-container">
+                        <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
+                    </div>
+
+                    <div id="detailed-status" class="detailed-status">
+                        Awaiting configuration and start command.
+                    </div>
+                </div>
+                
+                <footer class="app-footer">Made by A.G. with <3</footer>
             </div>
-            
-            <label for="targetDir">Target Directory (Optional)</label>
-            <div class="dir-chooser">
-                <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Click to select Target Folder">
-                <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
-            </div>
-            
-            <label for="cacheDir">Cache Directory</label>
-            <div class="dir-chooser">
-                <input class="input dir-input" id="cacheDir" type="text" value="" placeholder="e.g. /tmp/cache">
-                <button class="btn btn-select" onclick="selectAndSetDir('cacheDir')">Select</button>
-            </div>
-        </div>
+        `;
 
-        <div class="input-group system-group">
-            <h3>System Settings</h3>
-            
-            <label for="cpus">CPUs</label>
-            <input class="input" id="cpus" type="number" value="4">
-            
-            <label for="bufSize">Buffer Size</label>
-            <input class="input" id="bufSize" type="number" value="1024">
-            
-            <div class="paranoid-check-box">
-                <label for="paranoidMode">Paranoid Mode</label>
-                <input type="checkbox" id="paranoidMode" class="checkbox-input">
-            </div>
-            </div>
-        </div>
-    </div>
+// --- Elements for Status Update ---
+const progressTitle = document.getElementById("progress-title");
+const progressBar = document.getElementById("progress-bar");
+const detailedStatus = document.getElementById("detailed-status");
+const showResultsButton = document.getElementById('showResultsButton'); // 👈 Get the button here
 
-    <div class="execute-box">
-        <button class="btn btn-execute" onclick="startProcess()">Start Execution</button>
-    </div>
-    
-<div id="status-area" style="margin-top: 25px; max-width: 900px; margin-left: auto; margin-right: auto;">
-        
-        <div id="progress-title" class="progress-title">Ready to run.</div>
-        
-        <div class="progress-container">
-            <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
-        </div>
-
-        <div id="detailed-status" class="detailed-status">
-            Awaiting configuration and start command.
-        </div>
-    </div>`;
-
-
-// Get the element to display the path
-let folderPathOutput = document.getElementById("folder-path-output");
-
-// Get status element
-let executionStatus = document.getElementById("execution-status");
-
-// Function to select and fill a specific directory input field
+// --- Directory Selection Handler ---
+/**
+ * Opens a folder selection dialog and sets the input field's value.
+ * @param {string} inputId The ID of the input field to update.
+ */
 window.selectAndSetDir = function (inputId) {
     SelectFolder()
         .then((path) => {
@@ -82,89 +141,126 @@ window.selectAndSetDir = function (inputId) {
         });
 };
 
+// --- Collapsible Section Handler ---
+/**
+ * Toggles the advanced settings section's collapsed state using max-height transition.
+ */
+window.toggleAdvanced = function () {
+    const section = document.getElementById('advancedSection');
+    const content = document.getElementById('advancedContent');
 
+    if (!section || !content) return;
 
-// 🚀 NEW ELEMENTS 🚀
-let progressTitle = document.getElementById("progress-title");
-let progressBar = document.getElementById("progress-bar");
-let detailedStatus = document.getElementById("detailed-status");
+    const isCollapsed = section.getAttribute('data-collapsed') === 'true';
 
-// ---------------------------------------------------------------------
-// 1. Setup Event Listeners for the Status Bar
-// We will use two specific events from the backend:
-// - 'progressUpdate': For setting the bar percentage and title
-// - 'detailedLog': For continuous, detailed status messages
-// ---------------------------------------------------------------------
+    if (isCollapsed) {
+        section.setAttribute('data-collapsed', 'false');
 
-function setupStatusListeners() {
-    // 1. Progress/Title Update Event (For the bar and title)
-    // The Go backend should send an object like: {title: "Scanning Files (30%)", percent: 30}
-    runtime.EventsOn("progressUpdate", (data) => {
-        if (data.title) {
-            progressTitle.innerText = data.title;
-        }
-        if (data.percent !== undefined) {
-            const percent = Math.min(100, Math.max(0, data.percent));
-            progressBar.style.width = `${percent}%`;
-            progressBar.innerText = percent > 5 ? `${percent}%` : '';
-        }
-    });
+        // Temporarily ensure padding is set for accurate scrollHeight measurement
+        content.style.paddingTop = '15px';
+        content.style.paddingBottom = '15px';
 
-    // 2. Detailed Log Event (For the scrollable output box)
-    runtime.EventsOn("detailedLog", (message) => {
-        // Append the new message to the existing content
-        detailedStatus.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${message}</div>`;
-        // Auto-scroll to the bottom
-        detailedStatus.scrollTop = detailedStatus.scrollHeight;
-    });
+        const contentHeight = content.scrollHeight;
 
-    // 3. Error Event (Resets bar and shows error in detail box)
-    runtime.EventsOn("errorUpdate", (message) => {
-        progressTitle.innerText = "Error: Process Failed";
-        detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] ${message}</div>`;
-        progressBar.style.width = '100%';
-        progressBar.style.backgroundColor = '#E57373'; // Red
-    });
-}
+        // Set max-height large enough to ensure full transition (scrollHeight + buffer)
+        content.style.maxHeight = (contentHeight + 50) + 'px';
 
-// ---------------------------------------------------------------------
-// 2. Modify startProcess to initialize the status area
-// ---------------------------------------------------------------------
+    } else {
+        // 1. Get current height before starting transition (ensures smooth collapse)
+        content.style.maxHeight = content.scrollHeight + 'px';
 
+        // 2. Force reflow
+        void content.offsetWidth;
+
+        // 3. Start collapse transition
+        section.setAttribute('data-collapsed', 'true');
+        content.style.maxHeight = '0';
+        content.style.paddingTop = '0';
+        content.style.paddingBottom = '0';
+    }
+};
+
+// --- Execution Start Handler ---
 window.startProcess = function () {
-    // 1. Gather data and call StartExecution (logic remains the same)
-  const params = {
-        // Change keys from PascalCase to camelCase
+    // 1. Gather data
+    const params = {
         sourceDir: document.getElementById('sourceDir').value,
         targetDir: document.getElementById('targetDir').value,
         cacheDir: document.getElementById('cacheDir').value,
-        resultsDir: "", 
+        resultsDir: document.getElementById('resultsDir').value,
         paranoidMode: document.getElementById('paranoidMode').checked,
         cpus: parseInt(document.getElementById('cpus').value) || 0,
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
-        dualFolderModeEnabled: false, 
+        dualFolderModeEnabled: false,
     };
-    console.log(params)    
+    console.log("Starting process with parameters:", params);
+
     // Clear old status/reset bar
     progressTitle.innerText = "Starting up...";
     detailedStatus.innerHTML = "";
     progressBar.style.width = '0%';
-    progressBar.style.backgroundColor = '#4CAF50'; // Reset color
+    // Reset color to the primary accent color (bright green)
+    progressBar.style.backgroundColor = 'var(--color-accent)';
 
+
+    // Hide button at start of process
+    showResultsButton.disabled = true;
     // 2. Call the Go backend function
     StartExecution(params)
         .then((result) => {
-            // Success response from the StartExecution call (not the final process status)
-            // You can log this to the detailed status area
             detailedStatus.innerHTML += `<div>${result}</div>`;
         })
         .catch((err) => {
-            // Fatal binding error
             progressTitle.innerText = `FATAL BINDING ERROR`;
             detailedStatus.innerHTML = `<div style="color: #E57373;">${err}</div>`;
         });
 };
 
+window.showResults = function () {
+    ShowResults()
+        .catch((err) => {
+            detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] Failed to open results file: ${err}</div>`;
+        });
+};
 
-// Call the setup function after your document.querySelector('#app').innerHTML block
+
+// --- Status Listener Setup (Updated) ---
+function setupStatusListeners() {
+    const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
+    // 1. Progress/Title Update Event
+    runtime.EventsOn("progressUpdate", (data) => {
+        // ... existing title and percent logic ...
+        if (data.percent !== undefined) {
+            const percent = Math.min(100, Math.max(0, data.percent));
+            progressBar.style.width = `${percent}%`;
+            progressBar.innerText = percent > 5 ? `${percent}%` : '';
+
+            // 🟢 SUCCESS CHECK: Enable the button only on 100% completion
+            if (percent >= 100) {
+                progressTitle.innerText = "Process Complete.";
+                showResultsButton.disabled = false; // 🎯 ENABLE BUTTON
+            } else {
+                showResultsButton.disabled = true;  // Disable if progress resets or is below 100%
+            }
+        }
+    });
+
+    // 2. Detailed Log Event (unchanged)
+    runtime.EventsOn("detailedLog", (message) => {
+        detailedStatus.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${message}</div>`;
+        detailedStatus.scrollTop = detailedStatus.scrollHeight;
+    });
+
+    // 3. Error Event (Updated)
+    runtime.EventsOn("errorUpdate", (message) => {
+        progressTitle.innerText = "Error: Process Failed";
+        detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] ${message}</div>`;
+        progressBar.style.width = '100%';
+        progressBar.style.backgroundColor = '#ff6b6b';
+
+        // 🛑 ERROR CHECK: Ensure the button is hidden on failure
+        showResultsButton.disabled = true;
+    });
+}
+// Run setup after DOM load
 setupStatusListeners();

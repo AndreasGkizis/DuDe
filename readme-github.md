@@ -97,7 +97,7 @@ PARANOID_MODE=[true/false]
 
 ## Support
 
-For support, please [open an issue](https://github.com/yourusername/DuDe-wails/issues) on GitHub.
+For support, please [open an issue](https://github.com/yourusername/DuDe/issues) on GitHub.
 
 ---
 

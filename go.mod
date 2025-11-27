@@ -1,4 +1,4 @@
-module DuDe-wails
+module DuDe
 
 go 1.24.0
 

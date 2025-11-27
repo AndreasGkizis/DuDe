@@ -1,8 +1,8 @@
 package e2e_tests
 
 import (
-	"DuDe-wails/internal/common"
-	process "DuDe-wails/internal/processing"
+	"DuDe/internal/common"
+	process "DuDe/internal/processing"
 	"crypto/rand"
 	"encoding/csv"
 	"fmt"

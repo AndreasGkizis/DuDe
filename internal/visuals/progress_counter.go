@@ -1,7 +1,7 @@
 package visuals
 
 import (
-	"DuDe-wails/internal/reporting"
+	"DuDe/internal/reporting"
 	"fmt"
 	"sync"
 	"sync/atomic"

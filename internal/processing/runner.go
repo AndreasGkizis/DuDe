@@ -1,14 +1,15 @@
 package processing
 
 import (
-	common "DuDe-wails/internal/common"
-	logger "DuDe-wails/internal/common/logger"
-	db "DuDe-wails/internal/db"
-	models "DuDe-wails/internal/models"
-	reporting "DuDe-wails/internal/reporting"
-	visuals "DuDe-wails/internal/visuals"
+	common "DuDe/internal/common"
+	logger "DuDe/internal/common/logger"
+	db "DuDe/internal/db"
+	"DuDe/internal/handlers"
+	models "DuDe/internal/models"
+	visuals "DuDe/internal/visuals"
+	"os/exec"
+	"path/filepath"
 
-	// visuals "DuDe-wails/internal/visuals"
 	"context"
 	"fmt"
 	"sync"
@@ -34,9 +35,46 @@ func (a *FrontendApp) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// Greet returns a greeting for the given name
-func (a *FrontendApp) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+// ShowResults opens the results file defined in the execution arguments using the default OS handler.
+// It is directly exposed to the JavaScript frontend.
+func (a *FrontendApp) ShowResults() error {
+	resultsFilePath := filepath.Join(a.Args.ResultsDir, common.ResFilename)
+
+	if resultsFilePath == "" {
+		a.LogDetailedStatus("Cannot open results: Results file path is not set.")
+		return fmt.Errorf("results file path is empty")
+	}
+
+	var cmd *exec.Cmd
+
+	// --- Determine OS-Specific Command ---
+	switch runtime.Environment(a.ctx).Platform {
+	case "windows":
+		// Windows: uses 'start' command, which must be run via cmd.exe /C
+		cmd = exec.Command("cmd", "/C", "start", "", resultsFilePath)
+	case "darwin":
+		// macOS: uses 'open' command
+		cmd = exec.Command("open", resultsFilePath)
+	case "linux":
+		// Linux: uses 'xdg-open'
+		cmd = exec.Command("xdg-open", resultsFilePath)
+	default:
+		errorMsg := fmt.Sprintf("Unsupported operating system: %s", runtime.Environment(a.ctx).Platform)
+		runtime.EventsEmit(a.ctx, "errorUpdate", errorMsg)
+		return fmt.Errorf(errorMsg)
+	}
+
+	// --- Execute Command ---
+	err := cmd.Start()
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsFilePath, err)
+		runtime.EventsEmit(a.ctx, "errorUpdate", errorMsg)
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
+	// Optional: Log success
+	a.LogDetailedStatus(fmt.Sprintf("Successfully requested opening of file: %s", resultsFilePath))
+	return nil
 }
 
 // SelectFolder opens a native folder selection dialog and returns the selected path.
@@ -81,19 +119,22 @@ func (a *FrontendApp) LogProgress(title string, percent int) {
 }
 
 func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
+	if err := handlers.ResolveAndValidateArgs(&args); err != nil {
+		// Log the failure to the frontend
+		a.LogDetailedStatus(fmt.Sprintf("Argument Validation Failed: %v", err))
+		// Throw an error back to the frontend to stop execution
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
 	a.Args = args
-	return startExecution(args, a)
+	return startExecution(a)
 }
 
-func startExecution(args models.ExecutionParams, reporter reporting.Reporter) error {
+func startExecution(app *FrontendApp) error {
 	log := logger.Logger
 	timer := time.Now()
 
-	Args := args
-
-	// visuals.Intro()
-
-	db, err := db.NewDatabase(Args.CacheDir)
+	db, err := db.NewDatabase(app.Args.CacheDir)
 	if err != nil {
 		logger.ErrorWithFuncName(err.Error())
 	}
@@ -106,16 +147,16 @@ func startExecution(args models.ExecutionParams, reporter reporting.Reporter) er
 	}()
 
 	var senderGroups int32
-	if Args.DualFolderModeEnabled {
+	if app.Args.DualFolderModeEnabled {
 		senderGroups = 2
 	} else {
 		senderGroups = 1
 	}
 
 	failedCounter := 0
-	mm := NewMemoryManager(db, Args.BufSize, 1)
+	mm := NewMemoryManager(db, app.Args.BufSize, 1)
 	mm.Start()
-	rt := visuals.NewProgressCounter("Reading", int(senderGroups), reporter)
+	rt := visuals.NewProgressCounter("Reading", int(senderGroups), app)
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
@@ -123,22 +164,17 @@ func startExecution(args models.ExecutionParams, reporter reporting.Reporter) er
 
 	var syncSourceDirFileMap sync.Map
 
-	go WalkDir(Args.SourceDir, &syncSourceDirFileMap, rt)
+	go WalkDir(app.Args.SourceDir, &syncSourceDirFileMap, rt)
 
-	if Args.DualFolderModeEnabled {
-		go WalkDir(Args.TargetDir, &syncSourceDirFileMap, rt)
+	if app.Args.DualFolderModeEnabled {
+		go WalkDir(app.Args.TargetDir, &syncSourceDirFileMap, rt)
 	}
 	rt.Wait()
 
-	// len := common.LenSyncMap(&syncSourceDirFileMap)
-	// // if len == 0 {
-	// // 	visuals.EmptyDir("asd")
-	// // }
-
-	pt := visuals.NewProgressTracker("Hashing", reporter)
+	pt := visuals.NewProgressTracker("Hashing", app)
 	pt.Start(50)
 
-	err = CreateHashes(&syncSourceDirFileMap, Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
+	err = CreateHashes(&syncSourceDirFileMap, app.Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
@@ -148,7 +184,7 @@ func startExecution(args models.ExecutionParams, reporter reporting.Reporter) er
 	mm.Wait()
 	close(errChan)
 
-	findTracker := visuals.NewProgressTracker("Finding", reporter)
+	findTracker := visuals.NewProgressTracker("Finding", app)
 	findTracker.Start(50)
 
 	FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
@@ -160,21 +196,20 @@ func startExecution(args models.ExecutionParams, reporter reporting.Reporter) er
 	if length != 0 {
 		timer1 := time.Now()
 
-		if Args.ParanoidMode {
-			compareTracker := visuals.NewProgressTracker("Comparing", reporter)
+		if app.Args.ParanoidMode {
+			compareTracker := visuals.NewProgressTracker("Comparing", app)
 			compareTracker.Start(50)
 
-			EnsureDuplicates(&syncSourceDirFileMap, compareTracker, Args.CPUs)
+			EnsureDuplicates(&syncSourceDirFileMap, compareTracker, app.Args.CPUs)
 
 			compareTracker.Wait()
 		}
 
 		flattenedDuplicates := GetFlattened(&syncSourceDirFileMap)
-		err = SaveResultsAsCSV(flattenedDuplicates, Args.ResultsDir)
+		err = SaveResultsAsCSV(flattenedDuplicates, app.Args.ResultsDir)
 		if err != nil {
 			log.Fatalf("Error saving result: %v", err)
 			return err
-
 		}
 
 		log.Infof("Took: %s to look through bytes", time.Since(timer1))
@@ -182,9 +217,9 @@ func startExecution(args models.ExecutionParams, reporter reporting.Reporter) er
 		log.Info("No duplicates were found")
 	}
 
-	log.Infof("Took: %s for buffer size %d", time.Since(timer), Args.BufSize)
+	log.Infof("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize)
 	log.Infof("Failed %d times to send to memoryChan", failedCounter)
-	reporter.LogProgress("Done", 100)
+	app.LogProgress("Done", 100)
 
 	// visuals.Outro()
 	return nil

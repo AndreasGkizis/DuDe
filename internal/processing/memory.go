@@ -1,10 +1,10 @@
 package processing
 
 import (
-	"DuDe-wails/internal/common"
-	logger "DuDe-wails/internal/common/logger"
-	database "DuDe-wails/internal/db"
-	models "DuDe-wails/internal/models"
+	"DuDe/internal/common"
+	logger "DuDe/internal/common/logger"
+	database "DuDe/internal/db"
+	models "DuDe/internal/models"
 	"database/sql"
 	"sync"
 	"sync/atomic"

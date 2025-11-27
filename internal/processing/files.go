@@ -1,10 +1,10 @@
 package processing
 
 import (
-	common "DuDe-wails/internal/common"
-	log "DuDe-wails/internal/common/logger"
-	models "DuDe-wails/internal/models"
-	visuals "DuDe-wails/internal/visuals"
+	common "DuDe/internal/common"
+	log "DuDe/internal/common/logger"
+	models "DuDe/internal/models"
+	visuals "DuDe/internal/visuals"
 
 	"encoding/csv"
 	"errors"
@@ -33,45 +33,16 @@ func WalkDir(path string, result *sync.Map, pt *visuals.ProgressCounter) {
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
 }
 
-func CreateArgsFile() string {
-
-	entrypoint := common.GetExecutableDir()
-	fullfilepath := filepath.Join(entrypoint, common.ArgFilename)
-	_, err := os.Stat(fullfilepath)
-
-	if os.IsNotExist(err) {
-		file, err := os.Create(fullfilepath)
-		if err != nil {
-			log.ErrorWithFuncName(err.Error())
-		}
-		defer file.Close()
-		content := []string{
-			common.FileIntro,
-			common.Example_FileArg_Usage,
-			common.FileOutro,
-			common.ArgFileSettings,
-		}
-
-		for _, text := range content {
-			if _, err := file.WriteString(text); err != nil {
-				log.ErrorWithFuncName(err.Error())
-			}
-		}
-
-	}
-
-	return fullfilepath
-}
-
-func SaveResultsAsCSV(data []models.ResultEntry, fullpath string) error {
+func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 	log.InfoWithFuncName(fmt.Sprintf("%d results found ", len(data)))
-	log.InfoWithFuncName(fmt.Sprintf("creating results file in path :%s", fullpath))
+	log.InfoWithFuncName(fmt.Sprintf("creating results file in path :%s", fulldir))
 
 	if len(data) == 0 {
 		return nil
 	}
+	filepath := filepath.Join(fulldir, common.ResFilename)
 
-	file, err := os.Create(fullpath)
+	file, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
@@ -112,7 +83,7 @@ func storeFilePaths(result *sync.Map, pt *visuals.ProgressCounter) func(path str
 	return func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
-				visuals.DirDoesNotExistMessage(path)
+				// visuals.DirDoesNotExistMessage(path)
 			} else if errors.Is(err, os.ErrPermission) {
 				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
 				return filepath.SkipDir                                                                        // Skip without failing

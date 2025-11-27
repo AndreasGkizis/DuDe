@@ -1,8 +1,8 @@
 package logger
 
 import (
-	"DuDe-wails/internal/common"
-	"DuDe-wails/internal/models"
+	"DuDe/internal/common"
+	"DuDe/internal/models"
 	"fmt"
 	"os"
 	"path/filepath"

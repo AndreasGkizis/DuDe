@@ -1,245 +1,406 @@
-/*
-    Since you provided the entire existing CSS, I will add the new styles 
-    that achieve the cleaner layout.
-*/
-
-/* --- General Form Layout --- */
+/* -------------------------------------------
+ * 1. ROOT VARIABLES & BASE STYLES
+ * ------------------------------------------- */
+:root {
+    --color-bg-primary: #121212;
+    --color-bg-secondary: #1f1f1f;
+    --color-bg-tertiary: #2a2a2a;
+    --color-text-light: #e0e0e0;
+    --color-text-medium: #a0a0a0;
+    --color-accent: #00ff88;
+    /* Bright green (for buttons, focus, etc.) */
+    --color-ascii-green: #009e54;
+    /* Paler, more terminal-like green for ASCII art */
+    --color-danger: #ff6b6b;
+    /* Bright red */
+    --color-border: #333333;
+    --transition-speed: 0.2s;
+    /* Centralized transition duration */
+}
 
 body {
-    /* 1. FIX: Remove the default browser margin around the body */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-light);
     margin: 0;
-    color: white;
-    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-        "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
 }
 
+/* Custom Text Selection Style for visibility in dark theme */
+::selection {
+    background: var(--color-accent);
+    color: var(--color-bg-primary);
+    -webkit-text-emphasis-color: var(--color-accent);
+    -moz-selection: var(--color-accent);
+}
+
+/* -------------------------------------------
+ * 2. LAYOUT
+ * ------------------------------------------- */
 #app {
-    height: 100vh;
+    flex-grow: 1;
+    padding: 40px 20px 80px 20px;
+    /* Increased bottom padding to clear the fixed footer */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.main-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 25px;
+    background-color: var(--color-bg-secondary);
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--color-border);
+}
+
+.app-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 30px;
+    color: var(--color-accent);
     text-align: center;
-    /* Set a solid background color here, matching the <html> background */
-    padding-top: 10px;
-    padding-bottom: 10px;
-    padding-left: 0;
-    padding-right: 0;
-    background-color: rgba(27, 38, 54, 1);
-    /* Or use the hex code if you prefer: #1b2636 */
+    letter-spacing: 1px;
+}
+.ascii-art {
+    margin: 0; 
+    padding: 0;
+    font-family: inherit; 
+    text-align: center;
+    color: var(--color-ascii-green);
+    font-size: 2rem; 
+    line-height: 1.25;
+    font-weight: normal;
 
-    box-sizing: border-box;
-    /* Include padding in the height calculation */
+      /* ADDED: Terminal Glow Effect */
+    text-shadow: 
+        0 0 20px var(--color-ascii-green), /* Bright, immediate glow */
+        0 0 0px rgba(0, 196, 106, 0.5); /* Soft, diffused secondary glow */
 }
 
-.form-title {
-    color: #4CAF50;
-    /* A nice green accent color */
-    margin-bottom: 25px;
-    font-size: 1.8em;
-    margin-top: 0;
-}
-
-.form-container {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 40px;
-
-    /* FIX: Remove max-width to let it expand closer to the edges */
-    /* max-width: 900px; */
-
-    /* Set a reasonable width, perhaps 90-95% of the container */
-    width: 85%;
-
-    /* Center the container */
-    margin: 40px auto;
-
-    padding: 20px;
-    background-color: rgb(32, 45, 66);
-    border-radius: 8px;
-}
-
+/* -------------------------------------------
+ * 3. FORM ELEMENTS (INPUTS & LABELS)
+ * ------------------------------------------- */
 .input-group h3 {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 10px;
-    margin-top: 0;
-    margin-bottom: 20px;
-    color: #61AEEF;
-    /* Blue accent for section titles */
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-light);
 }
-
-/* --- Input Styling --- */
 
 label {
     display: block;
-    text-align: left;
-    margin-bottom: 5px;
-    font-weight: bold;
-    font-size: 0.95em;
-    color: rgba(255, 255, 255);
-    margin-top: 15px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--color-text-medium);
 }
 
-.input {
+/* Combined Input Styles */
+.input,
+.dir-input {
     width: 100%;
     padding: 10px;
-    border: 1px solid #3d4a65;
-    /* Darker border */
-    background-color: #1a2a40;
-    /* Darker input background */
-    color: white;
-    border-radius: 4px;
-    box-sizing: border-box;
-    transition: border-color 0.2s;
-}
-
-.input:focus {
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text-light);
     outline: none;
-    border-color: #61AEEF;
+    transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
 }
 
-/* --- Directory Chooser (Flexbox for Path + Button) --- */
+.input:focus,
+.dir-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2);
+}
 
 .dir-chooser {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    margin-bottom: 16px;
 }
 
-.dir-chooser .dir-input {
+.dir-input {
     flex-grow: 1;
     cursor: default;
-    /* Visually show it's read-only */
+    /* Indicates readonly */
+}
+
+/* -------------------------------------------
+ * 4. BUTTONS
+ * ------------------------------------------- */
+.btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-speed), box-shadow var(--transition-speed);
+    white-space: nowrap;
 }
 
 .btn-select {
-    flex-shrink: 0;
-    width: 100px;
-    /* Fixed width for the select button */
-    padding: 10px 15px;
-    background-color: #61AEEF;
-    /* Blue button */
-    border: none;
-    cursor: pointer;
-    border-radius: 4px;
-    color: white;
-    font-weight: bold;
+    background-color: #555555;
+    color: var(--color-text-light);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-select:hover {
-    background-color: #4C9DEB;
-}
-
-/* --- System Settings (CPU/Buffer) --- */
-
-.system-group .input {
-    width: 100%;
-}
-
-.system-group label {
-    margin-bottom: 5px;
-    margin-top: 20px;
-}
-
-/* --- Checkbox Styling (Custom Look) --- */
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    margin-top: 25px;
-}
-
-/* --- Execution Button --- */
-
-.execute-box {
-    margin-top: 30px;
-    margin-bottom: 10px;
+    background-color: #666666;
 }
 
 .btn-execute {
-    padding: 12px 40px;
-    font-size: 1.2em;
-    font-weight: bold;
-    background-color: #4CAF50;
-    /* Green accent for the main action */
-    color: white;
-    border: none;
-    border-radius: 50px;
-    /* Rounded pill shape */
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
+    width: 100%;
+    padding: 12px;
+    font-size: 1.125rem;
+    background-color: var(--color-accent);
+    color: var(--color-bg-primary);
+    margin-top: 15px;
+}
+
+.btn-show-results {
+    width: 100%; /* Make it half-width for better centering */
+    padding: 10px;
+    font-size: 1rem;
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-light);
+    border: 1px solid var(--color-accent);
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .btn-execute:hover {
-    background-color: #45a049;
-    transform: translateY(-1px);
+    background-color: #00e673;
+    box-shadow: 0 4px 10px rgba(0, 255, 136, 0.6);
 }
 
-.result {
-    padding: 10px;
-    font-style: italic;
-    color: #aaa;
+/* Style for disabled buttons */
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    /* Dims the button to show it's inactive */
+    box-shadow: none;
+    background-color: var(--color-bg-tertiary) !important;
+    /* Override hover if needed */
+    border-color: var(--color-border) !important;
+    color: var(--color-text-medium) !important;
 }
 
-/* This is the clean structure you should keep in your CSS */
-.paranoid-check-box {
+/* Ensure the disabled state is clear for the show results button */
+.btn-show-results:disabled {
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+}
+
+/* -------------------------------------------
+ * 5. COLLAPSIBLE SECTION
+ * ------------------------------------------- */
+.advanced-section {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.advanced-toggle {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--color-bg-tertiary);
+    border: none;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-light);
     display: flex;
     justify-content: space-between;
-    /* Aligns label left, input right */
     align-items: center;
-    margin-top: 25px;
-}
-
-.paranoid-check-box label {
-    margin-top: 0;
-    margin-bottom: 0;
-    font-weight: normal;
-}
-
-.paranoid-check-box .checkbox-input {
-    /* Keep only the dimensions/cursor property here */
-    width: 20px;
-    height: 20px;
     cursor: pointer;
 }
 
-/* --- Progress Bar Styling --- */
+.advanced-toggle:hover {
+    background-color: #383838;
+}
+
+.toggle-indicator {
+    width: 20px;
+    height: 20px;
+    transform: rotate(0deg);
+    transition: transform 0.3s ease-in-out;
+    color: var(--color-text-medium);
+}
+
+.advanced-section[data-collapsed="true"] .toggle-indicator {
+    transform: rotate(-90deg);
+}
+
+.advanced-content {
+    padding: 15px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    /* Transition for smooth collapse/expand (0.2s as requested by previous change) */
+    transition: max-height 0.2s ease-in-out, padding 0.2s ease-in-out;
+    overflow: hidden;
+    max-height: 500px;
+    /* Default open state height */
+}
+
+/* Collapsed State: Set max-height and vertical padding to 0 */
+.advanced-section[data-collapsed="true"] .advanced-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.advanced-content .stacked-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.advanced-content .stacked-inputs>div {
+    padding: 0;
+    margin: 0;
+}
+
+/* Checkbox Styling */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    padding-top: 5px;
+}
+
+.checkbox-input {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background-color: var(--color-bg-tertiary);
+    margin-right: 8px;
+    cursor: pointer;
+    position: relative;
+}
+
+.checkbox-input:checked {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.checkbox-input:checked::before {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: var(--color-bg-primary);
+}
+
+/* -------------------------------------------
+ * 6. STATUS AREA
+ * ------------------------------------------- */
+#status-area {
+    margin-top: 40px;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
 
 .progress-title {
-    font-weight: bold;
-    color: #61AEEF; /* Blue for status */
+    font-size: 0.875rem;
+    font-weight: 500;
     margin-bottom: 8px;
-    text-align: left;
-    padding-left: 5px;
+    color: var(--color-text-medium);
 }
 
 .progress-container {
     width: 100%;
-    background-color: #3d4a65; /* Background track color */
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 15px;
+    background-color: var(--color-bg-tertiary);
+    border-radius: 9999px;
+    height: 16px;
+    margin-bottom: 16px;
 }
 
 .progress-bar {
-    height: 15px;
-    background-color: #4CAF50; /* Green fill color */
-    width: 0; /* Starts at 0% */
-    transition: width 0.4s ease; /* Smooth transition when value changes */
-    text-align: right;
-    color: white;
-    font-size: 10px;
-    line-height: 15px;
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+    transition: width 0.5s ease-in-out, background-color 0.2s;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
 }
 
-/* --- Detailed Status Output --- */
 .detailed-status {
-    text-align: left;
-    background-color: #1a2a40; /* Dark background */
-    border: 1px solid #3d4a65;
-    padding: 10px;
-    min-height: 80px; /* Minimum height to keep structure */
-    max-height: 200px;
-    overflow-y: auto; /* Allows scrolling for many messages */
-    white-space: pre-wrap; /* Respects line breaks */
-    font-size: 0.9em;
-    color: #ccc;
+    /* Console look */
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #0d0d0d;
+    color: var(--color-text-light);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
+}
+
+.detailed-status div {
+    border-bottom: 1px dashed var(--color-border);
+    padding-bottom: 4px;
+    padding-top: 4px;
+}
+
+.detailed-status div:first-child {
+    padding-top: 0;
+}
+
+.detailed-status div:last-child {
+    border-bottom: none;
+}
+
+/* -------------------------------------------
+ * 7. FOOTER
+ * ------------------------------------------- */
+.app-footer {
+    text-align: center;
+    padding: 12px 0;
+    font-size: 0.875rem;
+    color: var(--color-text-medium);
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-bg-primary);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+/* -------------------------------------------
+ * 8. MEDIA QUERIES
+ * ------------------------------------------- */
+@media (min-width: 640px) {
+    .advanced-content {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .full-width-item {
+        grid-column: span 2;
+    }
 }

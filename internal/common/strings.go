@@ -83,7 +83,7 @@ This is a common filetype which can be opened in programs like Excel or LibreOff
 	██████╔╝ ╚██████╔╝        ██████╔╝ ███████╗ 
 	╚═════╝   ╚═════╝         ╚═════╝  ╚══════╝ 
 	--------------------------------------------
-	Welcome to Duplicate Detection CLI         
+	Welcome to Duplicate Detection         
 	--------------------------------------------
 	
 	🔍 Let's find those duplicates...  
