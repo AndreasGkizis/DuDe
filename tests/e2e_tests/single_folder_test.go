@@ -115,7 +115,6 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 		BufSize:    1024,
 	}
 
-	// 5. Execute the logic directly (replaces cmd.Run())
 	err := app.StartExecution(args)
 	if err != nil {
 		t.Fatalf("E2E app failed with error: %v", err)

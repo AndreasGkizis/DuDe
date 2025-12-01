@@ -2,8 +2,6 @@ package e2e_tests
 
 import (
 	"DuDe/internal/common"
-	"DuDe/internal/handlers/validation"
-	"DuDe/internal/models"
 	process "DuDe/internal/processing"
 	"DuDe/internal/reporting"
 	"context"
@@ -19,9 +17,7 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -29,7 +25,6 @@ import (
 
 var baseDir string = "./test_files/"
 var dataSubDir string = "dude-test-data-"
-var binSubDir string = "dude-test-bin-"
 
 // FileType represents the type of test file to create
 type FileType int
@@ -80,70 +75,6 @@ func DefaultFileOptions() FileOptions {
 		FileTypes:           []FileType{TextFile, ImageFile, AudioFile},
 		CreateNoAccessFiles: false,
 		Prefix:              "test",
-	}
-}
-
-// buildBinary builds the Go application binary to be tested.
-// It returns the binary path, temp directory, cleanup func.
-func buildBinary(t *testing.T) (string, string, func()) {
-	t.Helper()
-
-	// Get the absolute path to the project root
-	projectRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("failed to get project root path: %v", err)
-	}
-
-	// Ensure baseDir exists
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		t.Fatalf("failed to create base directory: %v", err)
-	}
-
-	tempDir, err := os.MkdirTemp(baseDir, binSubDir)
-	if err != nil {
-		t.Fatalf("failed to create temp dir for binary: %v", err)
-	}
-
-	// Ensure tempDir is absolute
-	tempDir, err = filepath.Abs(tempDir)
-	if err != nil {
-		t.Fatalf("failed to get absolute path for temp dir: %v", err)
-	}
-
-	binaryName := "dude"
-	if os.Getenv("GOOS") == "windows" || runtime.GOOS == "windows" {
-		binaryName += ".exe"
-	}
-	binaryPath := filepath.Join(tempDir, binaryName)
-
-	// Use absolute path for the main package
-	mainPkgPath := filepath.Join(projectRoot, "cmd", "main.go")
-
-	// Build the binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, mainPkgPath)
-	cmd.Dir = projectRoot // Set working directory to project root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("failed to build binary: %v\nCommand: %s", err, cmd.String())
-	}
-
-	// On Windows, we need to ensure the binary has the .exe extension for execution
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		// Try with .exe if not found (for Windows)
-		if !strings.HasSuffix(binaryPath, ".exe") {
-			binaryPath += ".exe"
-		}
-	}
-
-	// Verify the binary exists and is executable
-	if _, err := os.Stat(binaryPath); err != nil {
-		t.Fatalf("binary not found at %s: %v", binaryPath, err)
-	}
-
-	return binaryPath, tempDir, func() {
-		os.RemoveAll(tempDir)
 	}
 }
 
@@ -691,7 +622,7 @@ func createNoAccessFiles(t *testing.T, baseDir string, options FileOptions) {
 // llm slop
 
 // setupTestApp creates an app instance with real dependencies for E2E testing
-func setupTestApp(t *testing.T) *process.FrontendApp {
+func setupTestApp(_ *testing.T) *process.FrontendApp {
 
 	wailsReporter := reporting.NoOpReporter{}
 
@@ -699,22 +630,4 @@ func setupTestApp(t *testing.T) *process.FrontendApp {
 	app.Startup(context.Background()) // Initialize context (required by Wails structure)
 
 	return app
-}
-
-// executeE2E runs the full validation and execution flow.
-func executeE2E(t *testing.T, app *process.FrontendApp, resolver validation.Resolver, args *models.ExecutionParams) error {
-	// 1. Validation (Same as your app.StartExecution wrapper)
-	// NOTE: Need to find a way to get the executableDir if defaults are used.
-	// For E2E, we can use the TempDir() as the executableDir fallback.
-	exeDir := filepath.Join(t.TempDir(), "exe_mock")
-
-	if err := resolver.ResolveAndValidateArgs(args, exeDir); err != nil {
-		return fmt.Errorf("E2E Validation Failed: %w", err)
-	}
-
-	// 2. Execution
-	app.Args = *args
-	// Call the internal execution function directly (requires being in the processing_test package)
-	// return process.StartExecution(app)
-	return nil
 }

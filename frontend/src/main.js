@@ -114,7 +114,7 @@ document.querySelector('#app').innerHTML = `
                     </div>
                 </div>
                 
-                <footer class="app-footer">Made by A.G. with <3</footer>
+                <footer class="app-footer">Made by Andreas with <3</footer>
             </div>
         `;
 
@@ -122,7 +122,7 @@ document.querySelector('#app').innerHTML = `
 const progressTitle = document.getElementById("progress-title");
 const progressBar = document.getElementById("progress-bar");
 const detailedStatus = document.getElementById("detailed-status");
-const showResultsButton = document.getElementById('showResultsButton'); // 👈 Get the button here
+const showResultsButton = document.getElementById('showResultsButton');
 
 // --- Directory Selection Handler ---
 /**
@@ -230,17 +230,17 @@ function setupStatusListeners() {
     // 1. Progress/Title Update Event
     runtime.EventsOn("progressUpdate", (data) => {
         // ... existing title and percent logic ...
+        progressBar.innerText = data.title
         if (data.percent !== undefined) {
             const percent = Math.min(100, Math.max(0, data.percent));
             progressBar.style.width = `${percent}%`;
             progressBar.innerText = percent > 5 ? `${percent}%` : '';
 
-            // 🟢 SUCCESS CHECK: Enable the button only on 100% completion
             if (percent >= 100) {
                 progressTitle.innerText = "Process Complete.";
-                showResultsButton.disabled = false; // 🎯 ENABLE BUTTON
+                showResultsButton.disabled = false;
             } else {
-                showResultsButton.disabled = true;  // Disable if progress resets or is below 100%
+                showResultsButton.disabled = true;  
             }
         }
     });
@@ -258,7 +258,6 @@ function setupStatusListeners() {
         progressBar.style.width = '100%';
         progressBar.style.backgroundColor = '#ff6b6b';
 
-        // 🛑 ERROR CHECK: Ensure the button is hidden on failure
         showResultsButton.disabled = true;
     });
 }
