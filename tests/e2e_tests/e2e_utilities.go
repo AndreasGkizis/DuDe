@@ -2,7 +2,11 @@ package e2e_tests
 
 import (
 	"DuDe/internal/common"
+	"DuDe/internal/handlers/validation"
+	"DuDe/internal/models"
 	process "DuDe/internal/processing"
+	"DuDe/internal/reporting"
+	"context"
 	"crypto/rand"
 	"encoding/csv"
 	"fmt"
@@ -682,4 +686,35 @@ func createNoAccessFiles(t *testing.T, baseDir string, options FileOptions) {
 			t.Fatalf("failed to set no permissions for file %s: %v", filePath, err)
 		}
 	}
+}
+
+// llm slop
+
+// setupTestApp creates an app instance with real dependencies for E2E testing
+func setupTestApp(t *testing.T) *process.FrontendApp {
+
+	wailsReporter := reporting.NoOpReporter{}
+
+	app := process.NewApp(&wailsReporter)
+	app.Startup(context.Background()) // Initialize context (required by Wails structure)
+
+	return app
+}
+
+// executeE2E runs the full validation and execution flow.
+func executeE2E(t *testing.T, app *process.FrontendApp, resolver validation.Resolver, args *models.ExecutionParams) error {
+	// 1. Validation (Same as your app.StartExecution wrapper)
+	// NOTE: Need to find a way to get the executableDir if defaults are used.
+	// For E2E, we can use the TempDir() as the executableDir fallback.
+	exeDir := filepath.Join(t.TempDir(), "exe_mock")
+
+	if err := resolver.ResolveAndValidateArgs(args, exeDir); err != nil {
+		return fmt.Errorf("E2E Validation Failed: %w", err)
+	}
+
+	// 2. Execution
+	app.Args = *args
+	// Call the internal execution function directly (requires being in the processing_test package)
+	// return process.StartExecution(app)
+	return nil
 }

@@ -2,6 +2,7 @@ package visuals
 
 import (
 	"DuDe/internal/reporting"
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 
 type ProgressTracker struct {
 	Reporter              reporting.Reporter
+	Context               context.Context
 	Name                  string
 	BarLength             int
 	Spinner               ProgressSpinner
@@ -19,8 +21,8 @@ type ProgressTracker struct {
 	wg                    sync.WaitGroup
 }
 
-func NewProgressTracker(name string, reporter reporting.Reporter) *ProgressTracker {
-	return &ProgressTracker{Spinner: *NewSpinner(), Name: name, Reporter: reporter}
+func NewProgressTracker(ctx context.Context, reporter reporting.Reporter, name string) *ProgressTracker {
+	return &ProgressTracker{Reporter: reporter, Context: ctx, Name: name, Spinner: *NewSpinner()}
 }
 
 func (pt *ProgressTracker) updateProgressBarLoop(name string) {
@@ -42,12 +44,13 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 				percentage = curr / tot * 100
 				isItTheStart = false
 			}
-			pt.Reporter.LogProgress(name, int(curr))
+			pt.Reporter.LogProgress(pt.Context, name, int(curr))
 
 			progress := int(float64(pt.BarLength) * percentage / 100)
 
 			pt.Spinner.Spin()
 			pt.Reporter.LogDetailedStatus(
+				pt.Context,
 				fmt.Sprintf("%s %.2f%% %s  ...%d of %d Files", name, percentage, pt.Spinner.Print(), int(curr), int(tot)),
 			)
 
@@ -56,6 +59,7 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 			if curr == tot && !isItTheStart {
 
 				pt.Reporter.LogDetailedStatus(
+					pt.Context,
 					fmt.Sprintf("%s %.2f%% %s  ...%d of %d Files | Done.", name, percentage, pt.Spinner.Print(), int(curr), int(tot)),
 				)
 				return

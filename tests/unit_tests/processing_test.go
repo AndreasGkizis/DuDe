@@ -1,10 +1,13 @@
 package unit_tests
 
 import (
+	"context"
 	"sync"
 	"testing"
 
 	"DuDe/internal/models"
+	"DuDe/internal/processing"
+	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
 
@@ -28,11 +31,11 @@ func TestFindDuplicatesInMap(t *testing.T) {
 		Hash:     "abc123", // Duplicate hash
 	})
 
-	tracker := visuals.NewProgressTracker("Test Progress")
+	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Test Progress")
 	tracker.Start(10)
 
 	// ACT
-	process.FindDuplicatesInMap(fileHashes, tracker)
+	processing.FindDuplicatesInMap(fileHashes, tracker)
 
 	// ASSERT
 	fileHashes.Range(func(key, value any) bool {

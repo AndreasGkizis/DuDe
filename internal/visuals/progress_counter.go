@@ -2,6 +2,7 @@ package visuals
 
 import (
 	"DuDe/internal/reporting"
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,7 @@ import (
 
 type ProgressCounter struct {
 	Reporter        reporting.Reporter
+	Context         context.Context
 	Name            string
 	Spinner         ProgressSpinner
 	senderCount     int32
@@ -19,9 +21,10 @@ type ProgressCounter struct {
 	DoneChannel     chan int
 }
 
-func NewProgressCounter(name string, senderCount int, reporter reporting.Reporter) *ProgressCounter {
+func NewProgressCounter(ctx context.Context, reporter reporting.Reporter, name string, senderCount int) *ProgressCounter {
 	return &ProgressCounter{
-		Reporter:    reporter, // Store the interface implementation
+		Reporter:    reporter,
+		Context:     ctx,
 		senderCount: int32(senderCount),
 		Spinner:     *NewSpinner(),
 		Name:        name,
@@ -44,6 +47,7 @@ func (pc *ProgressCounter) SenderFinished() {
 func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
 
 	pc.Reporter.LogProgress(
+		pc.Context,
 		name,
 		0,
 	)
@@ -51,9 +55,10 @@ func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
 	for range pc.Channel {
 		pc.Spinner.Spin()
 		pc.Increment()
-		pc.Reporter.LogDetailedStatus(fmt.Sprintf("Read %d files", pc.currentProgress))
+		pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Read %d files", pc.currentProgress))
 	}
 	pc.Reporter.LogProgress(
+		pc.Context,
 		name,
 		100,
 	)

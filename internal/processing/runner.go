@@ -2,9 +2,12 @@ package processing
 
 import (
 	common "DuDe/internal/common"
+	"DuDe/internal/common/fs"
 	logger "DuDe/internal/common/logger"
 	db "DuDe/internal/db"
-	"DuDe/internal/handlers"
+	"DuDe/internal/handlers/validation"
+	"DuDe/internal/reporting"
+
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"os/exec"
@@ -20,13 +23,16 @@ import (
 
 // FrontendApp struct
 type FrontendApp struct {
-	ctx  context.Context
-	Args models.ExecutionParams
+	ctx      context.Context
+	Args     models.ExecutionParams
+	reporter reporting.Reporter
 }
 
 // NewApp creates a new App application struct
-func NewApp() *FrontendApp {
-	return &FrontendApp{}
+func NewApp(reporter reporting.Reporter) *FrontendApp {
+	return &FrontendApp{
+		reporter: reporter,
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -41,7 +47,7 @@ func (a *FrontendApp) ShowResults() error {
 	resultsFilePath := filepath.Join(a.Args.ResultsDir, common.ResFilename)
 
 	if resultsFilePath == "" {
-		a.LogDetailedStatus("Cannot open results: Results file path is not set.")
+		a.reporter.LogDetailedStatus(a.ctx, "Cannot open results: Results file path is not set.")
 		return fmt.Errorf("results file path is empty")
 	}
 
@@ -61,7 +67,7 @@ func (a *FrontendApp) ShowResults() error {
 	default:
 		errorMsg := fmt.Sprintf("Unsupported operating system: %s", runtime.Environment(a.ctx).Platform)
 		runtime.EventsEmit(a.ctx, "errorUpdate", errorMsg)
-		return fmt.Errorf(errorMsg)
+		return fmt.Errorf("%s", errorMsg)
 	}
 
 	// --- Execute Command ---
@@ -72,8 +78,6 @@ func (a *FrontendApp) ShowResults() error {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 
-	// Optional: Log success
-	a.LogDetailedStatus(fmt.Sprintf("Successfully requested opening of file: %s", resultsFilePath))
 	return nil
 }
 
@@ -97,40 +101,27 @@ func (a *FrontendApp) SelectFolder() (string, error) {
 	return selectedPath, nil
 }
 
-type ProgressUpdate struct {
-	Title   string `json:"title"`
-	Percent int    `json:"percent"`
-}
-
-// LogDetailedStatus sends continuous log messages to the detailed status box.
-func (a *FrontendApp) LogDetailedStatus(message string) {
-	// Use a new event name specifically for detailed logging
-	runtime.EventsEmit(a.ctx, "detailedLog", message)
-}
-
-// LogProgress sends progress percentage and title to the frontend.
-func (a *FrontendApp) LogProgress(title string, percent int) {
-	update := ProgressUpdate{
-		Title:   title,
-		Percent: percent,
-	}
-	// Wails automatically marshals the struct to JSON
-	runtime.EventsEmit(a.ctx, "progressUpdate", update)
-}
-
 func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
-	if err := handlers.ResolveAndValidateArgs(&args); err != nil {
+	executableDir := common.GetExecutableDir()
+
+	resolver := validation.Resolver{
+		V: validation.Validator{
+			FS: fs.OS{},
+		},
+	}
+
+	if err := resolver.ResolveAndValidateArgs(&args, executableDir); err != nil {
 		// Log the failure to the frontend
-		a.LogDetailedStatus(fmt.Sprintf("Argument Validation Failed: %v", err))
+		a.reporter.LogDetailedStatus(a.ctx, fmt.Sprintf("Argument Validation Failed: %v", err))
 		// Throw an error back to the frontend to stop execution
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	a.Args = args
-	return startExecution(a)
+	return startExecution(a, a.reporter)
 }
 
-func startExecution(app *FrontendApp) error {
+func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	log := logger.Logger
 	timer := time.Now()
 
@@ -156,7 +147,7 @@ func startExecution(app *FrontendApp) error {
 	failedCounter := 0
 	mm := NewMemoryManager(db, app.Args.BufSize, 1)
 	mm.Start()
-	rt := visuals.NewProgressCounter("Reading", int(senderGroups), app)
+	rt := visuals.NewProgressCounter(app.ctx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
@@ -171,7 +162,15 @@ func startExecution(app *FrontendApp) error {
 	}
 	rt.Wait()
 
-	pt := visuals.NewProgressTracker("Hashing", app)
+	len := common.LenSyncMap(&syncSourceDirFileMap)
+	if len == 0 {
+
+		app.reporter.LogProgress(app.ctx, "Error", 0)
+
+		return ErrNoFilesFound
+	}
+
+	pt := visuals.NewProgressTracker(app.ctx, reporter, "Hashing")
 	pt.Start(50)
 
 	err = CreateHashes(&syncSourceDirFileMap, app.Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
@@ -184,7 +183,7 @@ func startExecution(app *FrontendApp) error {
 	mm.Wait()
 	close(errChan)
 
-	findTracker := visuals.NewProgressTracker("Finding", app)
+	findTracker := visuals.NewProgressTracker(app.ctx, reporter, "Finding")
 	findTracker.Start(50)
 
 	FindDuplicatesInMap(&syncSourceDirFileMap, findTracker)
@@ -197,7 +196,7 @@ func startExecution(app *FrontendApp) error {
 		timer1 := time.Now()
 
 		if app.Args.ParanoidMode {
-			compareTracker := visuals.NewProgressTracker("Comparing", app)
+			compareTracker := visuals.NewProgressTracker(app.ctx, reporter, "Comparing")
 			compareTracker.Start(50)
 
 			EnsureDuplicates(&syncSourceDirFileMap, compareTracker, app.Args.CPUs)
@@ -219,7 +218,7 @@ func startExecution(app *FrontendApp) error {
 
 	log.Infof("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize)
 	log.Infof("Failed %d times to send to memoryChan", failedCounter)
-	app.LogProgress("Done", 100)
+	app.reporter.LogProgress(app.ctx, "Done", 100)
 
 	// visuals.Outro()
 	return nil

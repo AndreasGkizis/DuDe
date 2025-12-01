@@ -1,42 +1,53 @@
 package e2e_tests
 
 import (
-	"bytes"
+	"DuDe/internal/models"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
 func Test_SingleFolder_EmptyFolder(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// 1. new App instance
+	app := setupTestApp(t)
+	// 2. Create files (empty here)
 	tempDir, cleanup := createTestFilesByteArray(t, map[string][]byte{})
 
 	defer func() {
 		cleanup()
-		cleanupBin()
 	}()
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
 
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 3. Prepare Arguments
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
 	}
 
-	_, err = readResultsFile(t, tempbinDir)
+	err := app.StartExecution(args)
+	if err != nil {
+		t.Fatalf("E2E app failed with error: %v", err)
+	}
+	// 5. Verification
+	// Check the results file path defined in the arguments (not the binary's directory)
+	_, err = readResultsFile(t, testResultsDir)
+
 	if err == nil {
 		t.Error("Expected no results file for empty folder, but found one")
 	}
 }
 
 func Test_SingleFolder_NoDuplicates(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
+	// 1. new App instance
+	app := setupTestApp(t)
+	// 2. Create files (empty here)
 	files := map[string][]byte{
 		"file1.txt":          []byte("content A"),
 		"sub/file2.txt":      []byte("content B"),
@@ -45,19 +56,26 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 	tempDir, cleanup := createTestFilesByteArray(t, files)
 	defer func() {
 		cleanup()
-		cleanupBin()
 	}()
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
 
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run() // Run the CLI app
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
+	}
+	err := app.StartExecution(args)
 	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+		t.Fatalf("E2E app failed with error: %v", err)
 	}
 
-	_, errFinal := readResultsFile(t, tempbinDir)
+	_, errFinal := readResultsFile(t, testResultsDir)
 
 	if errFinal == nil {
 		t.Errorf("Expected no results file to be produced, but file exists.")
@@ -67,9 +85,8 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 }
 
 func Test_SingleFolder_WithDuplicates(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// 1. New App instance
+	app := setupTestApp(t)
 
 	options := FileOptions{
 		DuplicateFileCount: 2,
@@ -79,35 +96,44 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 		Prefix:             "source",
 	}
 
+	// 2. Create complex test files using the helper function
 	tempDir, cleanup := createTestFiles(t, options)
+	defer cleanup()
 
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
+	// 3. Define the output directories within the temporary test scope
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 4. Prepare Arguments
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
 	}
 
-	// We expect to find duplicates in the results file
-	csvLines, err := readResultsFile(t, tempbinDir)
+	// 5. Execute the logic directly (replaces cmd.Run())
+	err := app.StartExecution(args)
 	if err != nil {
-		t.Fatal("failed to read CSV data")
+		t.Fatalf("E2E app failed with error: %v", err)
 	}
 
+	// 6. Verification
+	csvLines, err := readResultsFile(t, testResultsDir)
+	if err != nil {
+		t.Fatal("Failed to read CSV data:", err)
+	}
+
+	// Assert the correct number of duplicate files were found
 	csvContainsNumberOfRowsExpected(t, csvLines, options.CalculateTotalDuplicateFiles())
 }
 
 func Test_SingleFolder_HiddenFiles(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// 1. New App instance
+	app := setupTestApp(t)
 
 	files := map[string][]byte{
 		"file1.txt":         []byte("duplicate content"),
@@ -115,33 +141,43 @@ func Test_SingleFolder_HiddenFiles(t *testing.T) {
 		"file3.txt":         []byte("unique content"),
 	}
 
+	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
+	defer cleanup()
 
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 3. Prepare Arguments
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
 	}
 
+	// 4. Execute the logic
+	err := app.StartExecution(args)
+	if err != nil {
+		t.Fatalf("E2E app failed with error: %v", err)
+	}
+
+	// 5. Verification
 	expectedFilenames := []string{"file1.txt", "file2.txt"}
-	csvLines, err := readResultsFile(t, tempbinDir)
+	csvLines, err := readResultsFile(t, testResultsDir)
 	if err != nil {
-		t.Fatal("failed to read CSV data")
+		t.Fatal("Failed to read CSV data:", err)
 	}
+	// Assert that both duplicate files (one hidden) are in the results
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
 func Test_SingleFolder_SpecialCharacters(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// 1. New App instance
+	app := setupTestApp(t)
 
 	files := map[string][]byte{
 		"file with spaces.txt":        []byte("duplicate content"),
@@ -149,70 +185,89 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 		"normal_file.txt":             []byte("unique content"),
 	}
 
+	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
+	defer cleanup()
 
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 3. Prepare Arguments
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
 	}
 
-	expectedFilenames := []string{"file with spaces.txt", "file-with-special-!@#$%.txt"}
-	csvLines, err := readResultsFile(t, tempbinDir)
+	// 4. Execute the logic
+	err := app.StartExecution(args)
 	if err != nil {
-		t.Fatal("failed to read CSV data")
+		t.Fatalf("E2E app failed with error: %v", err)
+	}
+
+	// 5. Verification
+	expectedFilenames := []string{"file with spaces.txt", "file-with-special-!@#$%.txt"}
+	csvLines, err := readResultsFile(t, testResultsDir)
+	if err != nil {
+		t.Fatal("Failed to read CSV data:", err)
 	}
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
 func Test_SingleFolder_DifferentSizes(t *testing.T) {
-	var stderr bytes.Buffer
-
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
+	// 1. New App instance
+	app := setupTestApp(t)
 
 	// Create files with same content but different sizes
 	files := map[string][]byte{
-		"small.txt":  []byte("content"),
-		"large1.txt": []byte("content" + string(make([]byte, 1024))), // 1KB file
-		"large2.txt": []byte("content" + string(make([]byte, 1024))), // Same content as large1.txt
+		"small.txt":  []byte("content"),                              // Unique size/content
+		"large1.txt": []byte("content" + string(make([]byte, 1024))), // Same content/size as large2
+		"large2.txt": []byte("content" + string(make([]byte, 1024))), // Same content/size as large1
 	}
 
+	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
+	defer cleanup()
 
-	// Use filepath.ToSlash to ensure consistent path separators
-	cmd := exec.Command(binaryPath, "-s="+tempDir)
-	cmd.Stderr = &stderr
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 3. Prepare Arguments
+	args := models.ExecutionParams{
+		SourceDir:  tempDir,
+		ResultsDir: testResultsDir,
+		CacheDir:   testCacheDir,
+		CPUs:       1,
+		BufSize:    1024,
 	}
 
+	// 4. Execute the logic
+	err := app.StartExecution(args)
+	if err != nil {
+		t.Fatalf("E2E app failed with error: %v", err)
+	}
+
+	// 5. Verification
 	expectedFilenames := []string{"large1.txt", "large2.txt"}
-	csvLines, err := readResultsFile(t, tempbinDir)
+	csvLines, err := readResultsFile(t, testResultsDir)
 	if err != nil {
-		t.Fatal("failed to read CSV data")
+		t.Fatal("Failed to read CSV data:", err)
 	}
+	// Only the two large identical files should be listed
 	csvContainsExpected(t, csvLines, expectedFilenames)
 }
 
 func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
-	var stderr bytes.Buffer
+	// 1. New App instance
+	app := setupTestApp(t)
 
-	binaryPath, tempbinDir, cleanupBin := buildBinary(t)
-
-	// different content creates same MD5 hash :-O
+	// Files with different content designed to produce an MD5 collision
 	files := map[string][]byte{
 		"file1.txt": {
 			0xd1, 0x31, 0xdd, 0x02, 0xc5, 0xe6, 0xee, 0xc4, 0x69, 0x3d, 0x9a, 0x06, 0x98, 0xaf, 0xf9, 0x5c,
@@ -236,25 +291,36 @@ func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 		},
 	}
 
+	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-		cleanupBin()
-	}()
+	defer cleanup()
 
-	// Use paranoid mode to detect if the files are actually different
-	cmd := exec.Command(binaryPath, "-s="+tempDir, "-p")
-	cmd.Stderr = &stderr
+	testResultsDir := filepath.Join(tempDir, "results")
+	testCacheDir := filepath.Join(tempDir, "cache")
+	os.MkdirAll(testResultsDir, 0755)
+	os.MkdirAll(testCacheDir, 0755)
 
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("CLI app failed with error: %v, Stderr: %s", err, stderr.String())
+	// 3. Prepare Arguments: Crucially enable ParanoidMode
+	args := models.ExecutionParams{
+		SourceDir:    tempDir,
+		ResultsDir:   testResultsDir,
+		CacheDir:     testCacheDir,
+		CPUs:         1,
+		BufSize:      1024,
+		ParanoidMode: true, // <-- Enable full byte-by-byte comparison
 	}
 
-	_, errFinal := readResultsFile(t, tempbinDir)
+	// 4. Execute the logic
+	err := app.StartExecution(args)
+	if err != nil {
+		t.Fatalf("E2E app failed with error: %v", err)
+	}
+
+	// 5. Verification: Because content differs (despite hash collision), no duplicates should be found.
+	_, errFinal := readResultsFile(t, testResultsDir)
 
 	if errFinal == nil {
-		t.Errorf("Expected no results file to be produced, but file exists.")
+		t.Errorf("Expected no results file (due to content mismatch in paranoid mode), but file exists.")
 	} else if !os.IsNotExist(errFinal) {
 		t.Errorf("Expected results file to not exist, but got unexpected error: %v", errFinal)
 	}
