@@ -2,9 +2,7 @@
   -  Remove unused code
   -  fix open results to be avaialble only when results available
   -  Fix status bar
-  -  Create hover help menus
   -  check logs. levels and details 
-  -  make spinner for frontend 
 
   -  unit test more
 
@@ -12,4 +10,4 @@
 
 
 ## Notes
-  merge time and size and the rest to a single blob and work with the blob after
+  1. merge time and size and the rest to a single blob and work with the blob after

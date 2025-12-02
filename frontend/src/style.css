@@ -1,20 +1,41 @@
 /* -------------------------------------------
  * 1. ROOT VARIABLES & BASE STYLES
  * ------------------------------------------- */
+/* -------------------------------------------
+ * 1. ROOT VARIABLES & BASE STYLES
+ * ------------------------------------------- */
 :root {
-    --color-bg-primary: #121212;
-    --color-bg-secondary: #1f1f1f;
-    --color-bg-tertiary: #2a2a2a;
-    --color-text-light: #e0e0e0;
-    --color-text-medium: #a0a0a0;
-    --color-accent: #00ff88;
-    /* Bright green (for buttons, focus, etc.) */
-    --color-ascii-green: #009e54;
-    /* Paler, more terminal-like green for ASCII art */
-    --color-danger: #ff6b6b;
-    /* Bright red */
-    --color-border: #333333;
-    /* Centralized transition duration */
+    /* --- THEME COLORS (All centralized here) --- */
+    --color-bg-primary: #1e1e2e;
+    /* Deep Charcoal/Navy */
+    --color-bg-secondary: #282a36;
+    /* Container Background */
+    --color-bg-tertiary: #343746;
+    /* Input/Tertiary Background */
+    --color-text-light: #f8f8f2;
+    /* Nearly White Text */
+    --color-text-medium: #9b9fae;
+    /* Muted Gray Text/Borders */
+    --color-accent: #8be9fd;
+    /* Primary Accent: Bright Aqua/Teal */
+    --color-accent-hover: #6ed0e0;
+    /* Accent Hover (Slightly darker) */
+    --color-ascii-green: #50fa7b;
+    /* Terminal Green (for ASCII art) */
+    --color-danger: #ff79c6;
+    /* Danger/Stop: Pink/Magenta */
+    --color-danger-hover: #e56bc4;
+    /* Danger Hover (Slightly darker) */
+    --color-border: #44475a;
+    /* Soft Border Color */
+    --color-disabled-bg: #383838;
+    /* Disabled Button Background */
+    --color-disabled-border: #555555;
+    /* Disabled Button Border */
+    --color-error: #E57373;
+    /* Text/Status Error Color */
+    --color-info: #FFB74D;
+    /* Text/Status Info Color */
 }
 
 body {
@@ -33,8 +54,8 @@ body {
 ::selection {
     background: var(--color-accent);
     color: var(--color-bg-primary);
+    text-emphasis-color: var(--color-accent);
     -webkit-text-emphasis-color: var(--color-accent);
-    -moz-selection: var(--color-accent);
 }
 
 /* -------------------------------------------
@@ -68,20 +89,21 @@ body {
     text-align: center;
     letter-spacing: 1px;
 }
+
 .ascii-art {
-    margin: 0; 
+    margin: 0;
     padding: 0;
-    font-family: inherit; 
+    font-family: inherit;
     text-align: center;
     color: var(--color-ascii-green);
-    font-size: 2rem; 
+    font-size: 2rem;
     line-height: 1.25;
     font-weight: normal;
 
-      /* ADDED: Terminal Glow Effect */
-    text-shadow: 
-        0 0 20px var(--color-ascii-green), /* Bright, immediate glow */
-        0 0 0px rgba(0, 196, 106, 0.5); /* Soft, diffused secondary glow */
+    /* ADDED: Terminal Glow Effect */
+    text-shadow:
+        0 0 20px var(--color-ascii-green),
+        0 0 0px var(--color-ascii-green);
 }
 
 /* -------------------------------------------
@@ -97,7 +119,9 @@ body {
 }
 
 label {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 0.875rem;
     font-weight: 500;
     margin-bottom: 4px;
@@ -120,7 +144,7 @@ label {
 .input:focus,
 .dir-input:focus {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2);
+    box-shadow: 0 0 0 2px var(--color-accent);
 }
 
 .dir-chooser {
@@ -132,7 +156,6 @@ label {
 .dir-input {
     flex-grow: 1;
     cursor: default;
-    /* Indicates readonly */
 }
 
 /* -------------------------------------------
@@ -149,13 +172,13 @@ label {
 }
 
 .btn-select {
-    background-color: #555555;
+    background-color: var(--color-border);
     color: var(--color-text-light);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-select:hover {
-    background-color: #666666;
+    background-color: var(--color-text-medium);
 }
 
 .btn-execute {
@@ -168,7 +191,8 @@ label {
 }
 
 .btn-show-results {
-    width: 100%; /* Make it half-width for better centering */
+    width: 100%;
+    /* Make it half-width for better centering */
     padding: 10px;
     font-size: 1rem;
     background-color: var(--color-bg-tertiary);
@@ -179,55 +203,52 @@ label {
 }
 
 .btn-execute:hover {
-    background-color: #00e673;
-    box-shadow: 0 4px 10px rgba(0, 255, 136, 0.6);
+    background-color: var(--color-accent-hover);
+    box-shadow: 0 4px 10px var(--color-accent);
 }
 
-/* Style for disabled buttons */
-.btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-    /* Dims the button to show it's inactive */
-    box-shadow: none;
-    background-color: var(--color-bg-tertiary) !important;
-    /* Override hover if needed */
-    border-color: var(--color-border) !important;
-    color: var(--color-text-medium) !important;
-}
-
-/* Ensure the disabled state is clear for the show results button */
 .btn-show-results:disabled {
     background-color: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border) !important;
 }
+
 .btn-stop {
     width: 100%;
     padding: 12px;
     font-size: 1.125rem;
-    background-color: var(--color-danger); /* Use red danger color */
+    background-color: var(--color-danger);
     color: var(--color-bg-primary);
     margin-top: 15px;
-    margin-left: 10px; /* Separator from Start button */
+    margin-left: 10px;
 }
 
 .btn-stop:hover {
-    background-color: #e65c5c;
-    box-shadow: 0 4px 10px rgba(255, 107, 107, 0.6);
+    background-color: var(--color-danger-hover);
+    box-shadow: 0 4px 10px var(--color-danger);
 }
 
-/* Update the execute box to align buttons side-by-side */
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+    background-color: var(--color-disabled-bg) !important;
+    border-color: var(--color-disabled-border) !important;
+    color: var(--color-text-medium) !important;
+}
+
 .execute-box {
-    display: flex; /* Makes buttons appear in a row */
-    gap: 10px; /* Space between buttons */
+    display: flex;
+    gap: 10px;
     margin-top: 15px;
 }
 
 .btn-execute,
 .btn-stop {
-    flex-grow: 1; /* Makes both buttons take equal width */
-    width: auto; /* Override previous full-width */
-    margin-top: 0; /* Remove top margin from the original .btn-execute */
+    flex-grow: 1;
+    width: auto;
+    margin-top: 0;
 }
+
 /* -------------------------------------------
  * 5. COLLAPSIBLE SECTION
  * ------------------------------------------- */
@@ -254,7 +275,8 @@ label {
 }
 
 .advanced-toggle:hover {
-    background-color: #383838;
+    background-color: var(--color-border);
+    /* Using border color for hover */
 }
 
 .toggle-indicator {
@@ -277,10 +299,8 @@ label {
     transition: none;
     overflow: hidden;
     max-height: 500px;
-    /* Default open state height */
 }
 
-/* Collapsed State: Set max-height and vertical padding to 0 */
 .advanced-section[data-collapsed="true"] .advanced-content {
     max-height: 0;
     padding-top: 0;
@@ -298,7 +318,6 @@ label {
     margin: 0;
 }
 
-/* Checkbox Styling */
 .checkbox-container {
     display: flex;
     align-items: center;
@@ -319,6 +338,7 @@ label {
 
 .checkbox-input:checked {
     background-color: var(--color-accent);
+    border: 1px solid var(--color-border);
     border-color: var(--color-accent);
 }
 
@@ -399,6 +419,14 @@ label {
     border-bottom: none;
 }
 
+.detailed-status .error {
+    color: var(--color-error);
+}
+
+.detailed-status .info {
+    color: var(--color-info);
+}
+
 /* -------------------------------------------
  * 7. FOOTER
  * ------------------------------------------- */
@@ -428,4 +456,288 @@ label {
     .full-width-item {
         grid-column: span 2;
     }
+}
+/* -------------------------------------------
+ * 9. TOOLTIP SYSTEM
+ * ------------------------------------------- */
+
+/* --- 9.1 Base Container & Icon Styles --- */
+
+/* The container that holds the icon and tooltip text.
+   It provides the relative positioning context. */
+.tooltip-container {
+    position: relative;
+    display: inline-flex;
+    cursor: help;
+    z-index: 50;
+}
+
+/* The circular information icon (the 'i' symbol) */
+.info-icon {
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: var(--color-bg-primary);
+    background-color: var(--color-accent);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    display: block;
+    border: 1px solid var(--color-accent);
+    transition: background-color 0.2s;
+}
+
+.info-icon:hover {
+    /* Use accent hover variable if defined, otherwise keep existing logic */
+    background-color: var(--color-accent-hover, #00a854); 
+}
+
+
+/* --- 9.2 Tooltip Box & Visibility (Default Position: LEFT) --- */
+
+/* The main tooltip box (text content) */
+.tooltip-text {
+    /* Universal Box Styles */
+    visibility: hidden;
+    width: 250px;
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-light);
+    text-align: left;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s, visibility 0.3s;
+    font-size: 0.8rem;
+    font-weight: 400;
+    border: 1px solid var(--color-accent);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    line-height: 1.3;
+    white-space: normal;
+    
+    /* SCENARIO 1: DEFAULT POSITION (LEFT of icon) */
+    top: 50%;
+    right: 0;
+    left: auto;
+    margin-right: calc(100% + 10px); /* Shifts the box left by icon width + gap */
+    transform: translateY(-50%);
+}
+
+/* The arrow that points back to the icon */
+.tooltip-text::after {
+    content: "";
+    position: absolute;
+    border-width: 5px;
+    border-style: solid;
+    
+    /* SCENARIO 1: DEFAULT ARROW (Points Right, from the right edge of the tooltip box) */
+    top: 50%;
+    left: 100%;
+    margin-top: -5px;
+    border-color: transparent transparent transparent var(--color-accent);
+}
+
+/* Visibility on hover */
+.tooltip-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+
+/* -------------------------------------------
+ * 9.3 Positioning Overrides
+ * ------------------------------------------- */
+
+/* --- SCENARIO 2: TOP --- */
+.tooltip-container.tooltip-top .tooltip-text {
+    /* Reset horizontal positioning */
+    right: auto;
+    margin-right: 0; 
+    
+    /* Vertical positioning */
+    bottom: 150%;
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+}
+
+.tooltip-container.tooltip-top .tooltip-text::after {
+    /* Arrow points DOWN from the bottom edge of the tooltip box */
+    top: 100%;
+    left: 50%;
+    margin-top: 0; /* Clear margin */
+    margin-left: -5px;
+    border-color: var(--color-accent) transparent transparent transparent;
+}
+
+
+/* --- SCENARIO 3: BOTTOM-LEFT --- */
+.tooltip-container.tooltip-bottom-left .tooltip-text {
+    /* Reset horizontal center positioning */
+    right: auto;
+    margin-right: 0; 
+    transform: none; /* Clear previous transform */
+    
+    /* Vertical positioning */
+    top: 150%;
+    bottom: auto;
+    left: auto;
+
+    /* Horizontal positioning (Right edge of tooltip aligned to Left side of icon) */
+    right: 100%;
+    transform: translateX(5px); /* Small offset from the icon */
+}
+
+.tooltip-container.tooltip-bottom-left .tooltip-text::after {
+    /* Arrow points UP-RIGHT (from the top-right corner of the tooltip box) */
+    top: 0;
+    left: 100%; 
+    margin-top: -5px;
+    margin-left: -5px;
+    
+    /* Create a diagonal arrow by combining borders */
+    border-top: 5px solid var(--color-accent);
+    border-right: 5px solid var(--color-accent);
+    border-bottom: 5px solid transparent;
+    border-left: 5px solid transparent;
+}
+
+
+/* --- SCENARIO 4: BOTTOM --- */
+.tooltip-container.tooltip-bottom .tooltip-text {
+    /* Reset horizontal center positioning */
+    right: auto;
+    margin-right: 0; 
+    
+    /* Vertical positioning */
+    top: 150%;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+}
+
+.tooltip-container.tooltip-bottom .tooltip-text::after {
+    /* Arrow points UP from the top edge of the tooltip box */
+    top: auto;
+    bottom: 100%;
+    left: 50%;
+    margin-top: 0;
+    margin-left: -5px;
+    border-color: transparent transparent var(--color-accent) transparent;
+}
+
+
+/* -------------------------------------------
+ * 9.4 Layout Fixes (Required for Checkbox Label)
+ * ------------------------------------------- */
+
+/* Fix for Paranoid Mode checkbox label (ensures text and icon are together) */
+.checkbox-container label {
+    margin-bottom: 0;
+    justify-content: unset; /* Override the space-between from general label */
+    gap: 10px;
+}
+
+.checkbox-container label:not(:has(input)) {
+    /* Select the label text itself (or the container holding the text and icon) */
+    display: inline-flex;
+    align-items: center;
+}
+/* -------------------------------------------
+ * 10. SPINNER STYLES (UPDATED: Terminal Loading Dots)
+ * ------------------------------------------- */
+
+/* Base element visibility control */
+.hidden {
+    visibility: hidden;
+}
+
+.spinner-hidden {
+    display: none;
+}
+
+/* Spinner container within the button */
+#startButton {
+    position: relative;
+    overflow: hidden;
+}
+
+/* The primary dot/container element */
+#startButtonSpinner {
+    /* Center the container of the dots */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    /* Set up as the first dot */
+    width: 6px;
+    height: 6px;
+    background-color: var(--color-accent);
+    border-radius: 50%;
+    margin-right: 12px; /* Space for the next dot */
+    
+    /* Animation definition */
+    animation: dot-fade 1.5s infinite; /* 1.5s total cycle time */
+    animation-delay: 0s; /* Start immediately */
+    
+    display: none; /* Initially hidden */
+}
+
+/* Second Dot (using ::before pseudo-element) */
+#startButtonSpinner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -12px; /* Position to the left of the main dot */
+    
+    width: 6px;
+    height: 6px;
+    background-color: var(--color-accent);
+    border-radius: 50%;
+    
+    /* Inherit animation but delay by 0.5s */
+    animation: dot-fade 1.5s infinite;
+    animation-delay: 0.5s; 
+}
+
+/* Third Dot (using ::after pseudo-element) */
+#startButtonSpinner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12px; /* Position to the right of the main dot */
+    
+    width: 6px;
+    height: 6px;
+    background-color: var(--color-accent);
+    border-radius: 50%;
+    
+    /* Inherit animation but delay by 1.0s */
+    animation: dot-fade 1.5s infinite;
+    animation-delay: 1.0s;
+}
+
+/* The Keyframe Animation: Fade out/in */
+@keyframes dot-fade {
+    0%, 100% {
+        opacity: 0; /* Hidden state */
+    }
+    33%, 66% {
+        opacity: 1; /* Visible state */
+    }
+}
+
+
+/* --- Loading State Handlers (MUST BE PRESENT) --- */
+/* When the spinner is active, we hide the button text and show the spinner */
+#startButton.is-loading #startText {
+    visibility: hidden;
+}
+
+#startButton.is-loading #startButtonSpinner {
+    /* Ensures the spinner element (and its pseudo-elements) are visible */
+    display: block; 
 }

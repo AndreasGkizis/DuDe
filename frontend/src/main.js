@@ -24,22 +24,30 @@ document.querySelector('#app').innerHTML = `
                     <div class="input-group mb-6">
                         <h3>Settings</h3>
                         
-                        <!-- Source Directory -->
-                        <label for="sourceDir">Source Directory (Mandatory)</label>
+                        <label for="sourceDir">Source Directory (Mandatory)
+                        <span class="tooltip-container">
+                                <span class="info-icon">i</span>
+                                <span class="tooltip-text">The **primary folder** where files will be scanned for duplicates.</span>
+                            </span></label>
                         <div class="dir-chooser">
                             <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
                             <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
                         </div>
                         
-                        <!-- Target Directory -->
-                        <label for="targetDir">Target Directory (Optional)</label>
+                        <label for="targetDir">Target Directory (Optional)
+                        
+                        <span class="tooltip-container">
+                                <span class="info-icon">i</span>
+                                <span class="tooltip-text">An **additional folder** to scan for duplicates. If used, results will only show duplicates found between Source and Target.</span>
+                            </span>
+                            </label>
                         <div class="dir-chooser">
                             <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
                             <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
                         </div>
                     </div>
 
-                    <!-- 2. ADVANCED SETTINGS SECTION (COLLAPSIBLE) -->
+                    <!-- 2. ADVANCED SETTINGS SECTION -->
                     
                     <div id="advancedSection" class="advanced-section" data-collapsed="true">
                         <button id="advancedToggle" class="advanced-toggle" onclick="toggleAdvanced()">
@@ -50,7 +58,13 @@ document.querySelector('#app').innerHTML = `
                         <div id="advancedContent" class="advanced-content">
                             
                             <div>
-                                <label for="cacheDir">Cache Directory</label>
+                                <label for="cacheDir">Cache Directory
+                                
+                                <span class="tooltip-container tooltip-bottom-left">
+                                        <span class="info-icon">i</span>
+                                        <span class="tooltip-text ">Location to store pre-calculated file hashes. Reusing hashes speeds up subsequent runs. Defaults to OS temp folder.</span>
+                                    </span>
+                                    </label>
                                 <div class="dir-chooser">
                                     <input class="input dir-input" id="cacheDir" type="text" value="" placeholder="/tmp/cache">
                                     <button class="btn btn-select" onclick="selectAndSetDir('cacheDir')">Select</button>
@@ -58,7 +72,13 @@ document.querySelector('#app').innerHTML = `
                             </div>
 
                             <div>
-                                <label for="resultsDir">Results File Path</label>
+                                <label for="resultsDir">Results File Path
+                                
+                                <span class="tooltip-container tooltip-bottom-left">
+                                        <span class="info-icon">i</span>
+                                        <span class="tooltip-text">The full path where the final JSON report will be saved. Defaults to OS temp folder.</span>
+                                    </span>
+                                    </label>
                                 <div class="dir-chooser">
                                     <input class="input dir-input" id="resultsDir" type="text" value="" placeholder="/tmp/results.json">
                                     <button class="btn btn-select" onclick="selectAndSetDir('resultsDir')">Select</button>
@@ -68,27 +88,46 @@ document.querySelector('#app').innerHTML = `
                             <div class="full-width-item stacked-inputs">
                                 
                                 <div>
-                                    <label for="cpus">CPUs</label>
+                                    <label for="cpus">CPUs
+                                    
+                                    <span class="tooltip-container">
+                                            <span class="info-icon">i</span>
+                                            <span class="tooltip-text">Number of CPU cores to use for parallel hashing. 0 means all available cores.</span>
+                                        </span>
+                                        </label>
                                     <input class="input" id="cpus" type="number" value="8">
                                 </div>
 
                                 <div>
-                                    <label for="bufSize">Buffer Size</label>
+                                    <label for="bufSize">Buffer Size
+                                    <span class="tooltip-container">
+                                            <span class="info-icon">i</span>
+                                            <span class="tooltip-text">I/O buffer size (in KB) when reading files for hashing. Larger size can improve speed on HDDs.</span>
+                                        </span>
+                                        </label>
                                     <input class="input" id="bufSize" type="number" value="1024">
                                 </div>
                             </div>
-                            
+
                             <div class="full-width-item checkbox-container">
                                 <input type="checkbox" id="paranoidMode" class="checkbox-input">
-                                <label for="paranoidMode">Paranoid Mode (Strict Validation)</label>
+                                <label for="paranoidMode">
+                                    Paranoid Mode (Strict Validation)
+                                    <span class="tooltip-container tooltip-top">
+                                        <span class="info-icon">i</span>
+                                        <span class="tooltip-text">Performs additional file size/timestamp checks before hashing to minimize false positives. Slightly slower.</span>
+                                    </span>
+                                </label>
                             </div>
+   
                         </div>
                     </div>
                     
                     <!-- EXECUTION BUTTON -->
                     <div class="execute-box">
                         <button id="startButton" class="btn btn-execute" onclick="startProcess()">
-                                Start
+                                <span id="startText">Start</span>
+                                <span id="startButtonSpinner" class="spinner-hidden"></span>
                             </button>
                         <button id="stopButton" class="btn btn-stop" onclick="cancelProcess()" disabled>
                             Stop
@@ -128,6 +167,9 @@ const showResultsButton = document.getElementById('showResultsButton');
 
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
+
+const startText = document.getElementById('startText');
+const startButtonSpinner = document.getElementById('startButtonSpinner');
 
 // --- Directory Selection Handler ---
 /**
@@ -207,12 +249,15 @@ window.startProcess = function () {
     stopButton.disabled = false;
     showResultsButton.disabled = true;
 
+    toggleStartSpinner(true);
+
     // 2. Call the Go backend function
     StartExecution(params)
         .then((result) => {
             detailedStatus.innerHTML += `<div>${result}</div>`;
             startButton.disabled = false; // Enable Start again
             stopButton.disabled = true;   // Disable Stop
+            toggleStartSpinner(false);
         })
         .catch((err) => {
             progressTitle.innerText = `FATAL BINDING ERROR`;
@@ -220,6 +265,7 @@ window.startProcess = function () {
             // Ensure buttons reset on binding error
             startButton.disabled = false;
             stopButton.disabled = true;
+            toggleStartSpinner(false);
         });
 };
 
@@ -236,12 +282,14 @@ window.cancelProcess = function () {
             // Backend received signal. The actual termination will be reflected by the status listener.
             progressTitle.innerText = "Process Stopped.";
             startButton.disabled = false; // Allow restart
+            toggleStartSpinner(false);
         })
         .catch((err) => {
             // Should generally not happen if binding is correct, but good to handle.
             progressTitle.innerText = `CANCELLATION ERROR`;
             detailedStatus.innerHTML += `<div style="color: #E57373;">[ERROR] Failed to send cancellation: ${err}</div>`;
             startButton.disabled = false;
+            toggleStartSpinner(false);
         });
 };
 
@@ -275,6 +323,7 @@ function setupStatusListeners() {
             if (cappedPercent >= 100) {
                 progressTitle.innerText = "Process Complete.";
                 showResultsButton.disabled = false;
+                toggleStartSpinner(false);
             } else {
                 showResultsButton.disabled = true;
             }
@@ -313,7 +362,26 @@ function setupStatusListeners() {
         progressBar.style.backgroundColor = '#ff6b6b';
 
         showResultsButton.disabled = true;
+
+        toggleStartSpinner(false);
     });
 }
 // Run setup after DOM load
 setupStatusListeners();
+
+// --- Spinner State Handler ---
+/**
+ * Toggles the visibility of the start button text and spinner.
+ * @param {boolean} isRunning - True if the process is starting/running.
+ */
+function toggleStartSpinner(isLoading) {
+    if (isLoading) {
+        startButton.classList.add('is-loading');
+        // If you had content:'◢' here for the character spinner, remove it, 
+        // as the dots spinner relies on the CSS pseudo-elements.
+        startButtonSpinner.textContent = ''; 
+    } else {
+        startButton.classList.remove('is-loading');
+        startButtonSpinner.textContent = '';
+    }
+}
