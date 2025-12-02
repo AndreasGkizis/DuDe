@@ -15,7 +15,7 @@ func (a *WailsReporter) LogDetailedStatus(ctx context.Context, message string) {
 }
 
 // LogProgress sends progress percentage and title to the frontend.
-func (a *WailsReporter) LogProgress(ctx context.Context, title string, percent int) {
+func (a *WailsReporter) LogProgress(ctx context.Context, title string, percent float64) {
 	update := ProgressUpdate{
 		Title:   title,
 		Percent: percent,

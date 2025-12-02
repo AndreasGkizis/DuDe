@@ -1,8 +1,7 @@
 import './style.css';
 
-import { SelectFolder, StartExecution, ShowResults } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution } from '../wailsjs/go/processing/FrontendApp';
 
-// --- HTML Template Setup ---
 document.querySelector('#app').innerHTML = `
             <div class="main-content-wrapper">
                 <h2 class="app-title">
@@ -23,19 +22,19 @@ document.querySelector('#app').innerHTML = `
 
                     <!-- 1. CORE CONFIGURATION SECTION (Directories) -->
                     <div class="input-group mb-6">
-                        <h3>Core Settings</h3>
+                        <h3>Settings</h3>
                         
                         <!-- Source Directory -->
                         <label for="sourceDir">Source Directory (Mandatory)</label>
                         <div class="dir-chooser">
-                            <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Click to select Source Folder">
+                            <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
                             <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
                         </div>
                         
                         <!-- Target Directory -->
                         <label for="targetDir">Target Directory (Optional)</label>
                         <div class="dir-chooser">
-                            <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Click to select Target Folder">
+                            <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
                             <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
                         </div>
                     </div>
@@ -70,7 +69,7 @@ document.querySelector('#app').innerHTML = `
                                 
                                 <div>
                                     <label for="cpus">CPUs</label>
-                                    <input class="input" id="cpus" type="number" value="4">
+                                    <input class="input" id="cpus" type="number" value="8">
                                 </div>
 
                                 <div>
@@ -88,8 +87,11 @@ document.querySelector('#app').innerHTML = `
                     
                     <!-- EXECUTION BUTTON -->
                     <div class="execute-box">
-                        <button class="btn btn-execute" onclick="startProcess()">
-                            Start
+                        <button id="startButton" class="btn btn-execute" onclick="startProcess()">
+                                Start
+                            </button>
+                        <button id="stopButton" class="btn btn-stop" onclick="cancelProcess()" disabled>
+                            Stop
                         </button>
                     </div>
 
@@ -124,6 +126,9 @@ const progressBar = document.getElementById("progress-bar");
 const detailedStatus = document.getElementById("detailed-status");
 const showResultsButton = document.getElementById('showResultsButton');
 
+const startButton = document.getElementById('startButton');
+const stopButton = document.getElementById('stopButton');
+
 // --- Directory Selection Handler ---
 /**
  * Opens a folder selection dialog and sets the input field's value.
@@ -156,23 +161,18 @@ window.toggleAdvanced = function () {
     if (isCollapsed) {
         section.setAttribute('data-collapsed', 'false');
 
-        // Temporarily ensure padding is set for accurate scrollHeight measurement
         content.style.paddingTop = '15px';
         content.style.paddingBottom = '15px';
 
         const contentHeight = content.scrollHeight;
 
-        // Set max-height large enough to ensure full transition (scrollHeight + buffer)
         content.style.maxHeight = (contentHeight + 50) + 'px';
 
     } else {
-        // 1. Get current height before starting transition (ensures smooth collapse)
         content.style.maxHeight = content.scrollHeight + 'px';
 
-        // 2. Force reflow
         void content.offsetWidth;
 
-        // 3. Start collapse transition
         section.setAttribute('data-collapsed', 'true');
         content.style.maxHeight = '0';
         content.style.paddingTop = '0';
@@ -193,7 +193,6 @@ window.startProcess = function () {
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
         dualFolderModeEnabled: false,
     };
-    console.log("Starting process with parameters:", params);
 
     // Clear old status/reset bar
     progressTitle.innerText = "Starting up...";
@@ -203,16 +202,46 @@ window.startProcess = function () {
     progressBar.style.backgroundColor = 'var(--color-accent)';
 
 
-    // Hide button at start of process
+    // UI State: Running
+    startButton.disabled = true;
+    stopButton.disabled = false;
     showResultsButton.disabled = true;
+
     // 2. Call the Go backend function
     StartExecution(params)
         .then((result) => {
             detailedStatus.innerHTML += `<div>${result}</div>`;
+            startButton.disabled = false; // Enable Start again
+            stopButton.disabled = true;   // Disable Stop
         })
         .catch((err) => {
             progressTitle.innerText = `FATAL BINDING ERROR`;
             detailedStatus.innerHTML = `<div style="color: #E57373;">${err}</div>`;
+            // Ensure buttons reset on binding error
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        });
+};
+
+// --- Execution Cancellation Handler ---
+window.cancelProcess = function () {
+    progressTitle.innerText = "Cancellation Requested...";
+    detailedStatus.innerHTML += '<div style="color: #FFB74D; font-weight: bold;">[INFO] Sending cancellation signal to backend...</div>';
+
+    // Disable the stop button immediately to prevent multiple presses
+    stopButton.disabled = true;
+
+    CancelExecution()
+        .then(() => {
+            // Backend received signal. The actual termination will be reflected by the status listener.
+            progressTitle.innerText = "Process Stopped.";
+            startButton.disabled = false; // Allow restart
+        })
+        .catch((err) => {
+            // Should generally not happen if binding is correct, but good to handle.
+            progressTitle.innerText = `CANCELLATION ERROR`;
+            detailedStatus.innerHTML += `<div style="color: #E57373;">[ERROR] Failed to send cancellation: ${err}</div>`;
+            startButton.disabled = false;
         });
 };
 
@@ -223,32 +252,57 @@ window.showResults = function () {
         });
 };
 
+const MAX_LOG_ROWS = 100; // Define your maximum row limit (e.g., 200 rows)
 
 // --- Status Listener Setup (Updated) ---
 function setupStatusListeners() {
     const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
     // 1. Progress/Title Update Event
     runtime.EventsOn("progressUpdate", (data) => {
-        // ... existing title and percent logic ...
-        progressBar.innerText = data.title
+        if (progressTitle.innerText != data.title) {
+            progressTitle.innerText = data.title;
+        }
         if (data.percent !== undefined) {
-            const percent = Math.min(100, Math.max(0, data.percent));
-            progressBar.style.width = `${percent}%`;
-            progressBar.innerText = percent > 5 ? `${percent}%` : '';
+            // Ensure the value is treated as a number and cap it
+            const rawPercent = parseFloat(data.percent);
+            const cappedPercent = Math.min(100, Math.max(0, rawPercent));
 
-            if (percent >= 100) {
+
+            const displayPercent = cappedPercent.toFixed(2);
+
+            progressBar.style.width = `${cappedPercent}%`;
+            progressBar.innerText = cappedPercent > 5 ? `${displayPercent}%` : '';
+            if (cappedPercent >= 100) {
                 progressTitle.innerText = "Process Complete.";
                 showResultsButton.disabled = false;
             } else {
-                showResultsButton.disabled = true;  
+                showResultsButton.disabled = true;
             }
         }
     });
 
     // 2. Detailed Log Event (unchanged)
     runtime.EventsOn("detailedLog", (message) => {
-        detailedStatus.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${message}</div>`;
-        detailedStatus.scrollTop = detailedStatus.scrollHeight;
+
+        const tolerance = 20;
+        const isScrolledToBottom = (detailedStatus.scrollHeight - detailedStatus.clientHeight) <= (detailedStatus.scrollTop + tolerance);
+
+        const logEntry = document.createElement('div');
+        logEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+
+        // Use appendChild instead of innerHTML +=
+        detailedStatus.appendChild(logEntry);
+
+        while (detailedStatus.children.length > MAX_LOG_ROWS) {
+            // detailedStatus.firstChild is the oldest element appended
+            detailedStatus.removeChild(detailedStatus.firstChild);
+        }
+
+        // 4. SCROLL: Only scroll to bottom if the user was already at the bottom
+        if (isScrolledToBottom) {
+            detailedStatus.scrollTop = detailedStatus.scrollHeight;
+        }
+
     });
 
     // 3. Error Event (Updated)

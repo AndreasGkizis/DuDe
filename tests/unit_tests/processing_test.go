@@ -35,7 +35,7 @@ func TestFindDuplicatesInMap(t *testing.T) {
 	tracker.Start(10)
 
 	// ACT
-	processing.FindDuplicatesInMap(fileHashes, tracker)
+	processing.FindDuplicatesInMap(context.Background(), fileHashes, tracker)
 
 	// ASSERT
 	fileHashes.Range(func(key, value any) bool {

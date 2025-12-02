@@ -14,7 +14,6 @@
     --color-danger: #ff6b6b;
     /* Bright red */
     --color-border: #333333;
-    --transition-speed: 0.2s;
     /* Centralized transition duration */
 }
 
@@ -201,7 +200,34 @@ label {
     background-color: var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
 }
+.btn-stop {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.125rem;
+    background-color: var(--color-danger); /* Use red danger color */
+    color: var(--color-bg-primary);
+    margin-top: 15px;
+    margin-left: 10px; /* Separator from Start button */
+}
 
+.btn-stop:hover {
+    background-color: #e65c5c;
+    box-shadow: 0 4px 10px rgba(255, 107, 107, 0.6);
+}
+
+/* Update the execute box to align buttons side-by-side */
+.execute-box {
+    display: flex; /* Makes buttons appear in a row */
+    gap: 10px; /* Space between buttons */
+    margin-top: 15px;
+}
+
+.btn-execute,
+.btn-stop {
+    flex-grow: 1; /* Makes both buttons take equal width */
+    width: auto; /* Override previous full-width */
+    margin-top: 0; /* Remove top margin from the original .btn-execute */
+}
 /* -------------------------------------------
  * 5. COLLAPSIBLE SECTION
  * ------------------------------------------- */
@@ -248,8 +274,7 @@ label {
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
-    /* Transition for smooth collapse/expand (0.2s as requested by previous change) */
-    transition: max-height 0.2s ease-in-out, padding 0.2s ease-in-out;
+    transition: none;
     overflow: hidden;
     max-height: 500px;
     /* Default open state height */

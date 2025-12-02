@@ -5,6 +5,7 @@ import (
 	log "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
+	"context"
 
 	"encoding/csv"
 	"errors"
@@ -17,7 +18,7 @@ import (
 	"sync"
 )
 
-func WalkDir(path string, result *sync.Map, pt *visuals.ProgressCounter) {
+func WalkDir(ctx context.Context, path string, result *sync.Map, pt *visuals.ProgressCounter) {
 	defer func() {
 		pt.SenderFinished()
 	}()
@@ -25,12 +26,54 @@ func WalkDir(path string, result *sync.Map, pt *visuals.ProgressCounter) {
 	groupID := rand.Uint32()
 	log.InfoWithFuncName(fmt.Sprintf("Group %d started walking directory %s files", groupID, path))
 
-	err := filepath.WalkDir(path, storeFilePaths(result, pt))
+	err := filepath.WalkDir(path, storeFilePaths(ctx, result, pt))
 
 	if err != nil {
+		// Check if the error was due to user cancellation
+		if errors.Is(err, context.Canceled) {
+			log.WarnWithFuncName(fmt.Sprintf("Group %d walking cancelled by user.", groupID))
+			// Do not treat cancellation as a failure
+			return
+		}
 		log.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
 	}
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
+}
+
+func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
+	return func(path string, d fs.DirEntry, err error) error {
+
+		// --- 1. Cancellation Check ---
+		select {
+		case <-ctx.Done():
+			// If the context is done, stop the walk immediately.
+			// Returning the context error will cause WalkDir to stop
+			// and return context.Canceled.
+			log.WarnWithFuncName(fmt.Sprintf("Stopping file walk at %s due to context cancellation.", path))
+			return ctx.Err() // returns context.Canceled
+		default:
+			// Continue if not cancelled
+		}
+		if err != nil {
+			if os.IsNotExist(err) {
+				// visuals.DirDoesNotExistMessage(path)
+			} else if errors.Is(err, os.ErrPermission) {
+				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
+				return filepath.SkipDir                                                                        // Skip without failing
+			} else {
+				log.ErrorWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
+				return filepath.SkipDir                                                                         // Skip without failing
+			}
+			// return err
+		}
+
+		if !d.IsDir() {
+
+			result.Store(path, models.FileHash{FilePath: path})
+			pt.Channel <- 1
+		}
+		return nil
+	}
 }
 
 func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
@@ -77,30 +120,6 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 	}
 
 	return nil
-}
-
-func storeFilePaths(result *sync.Map, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
-	return func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				// visuals.DirDoesNotExistMessage(path)
-			} else if errors.Is(err, os.ErrPermission) {
-				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
-				return filepath.SkipDir                                                                        // Skip without failing
-			} else {
-				log.ErrorWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
-				return filepath.SkipDir                                                                         // Skip without failing
-			}
-			// return err
-		}
-
-		if !d.IsDir() {
-
-			result.Store(path, models.FileHash{FilePath: path})
-			pt.Channel <- 1
-		}
-		return nil
-	}
 }
 
 func GetDelimiterForOS() rune {

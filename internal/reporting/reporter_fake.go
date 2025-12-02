@@ -19,6 +19,6 @@ func (l NoOpReporter) LogDetailedStatus(ctx context.Context, message string) {
 }
 
 // LogProgress satisfies the interface contract but executes no Wails code.
-func (l NoOpReporter) LogProgress(ctx context.Context, title string, percent int) {
+func (l NoOpReporter) LogProgress(ctx context.Context, title string, percent float64) {
 	// l.T.Logf("E2E Progress: %s - %d%%", title, percent)
 }

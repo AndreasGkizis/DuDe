@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type ProgressCounter struct {
 	Reporter        reporting.Reporter
 	Context         context.Context
 	Name            string
-	Spinner         ProgressSpinner
 	senderCount     int32
 	currentProgress int64
 	Wg              sync.WaitGroup
@@ -26,7 +26,6 @@ func NewProgressCounter(ctx context.Context, reporter reporting.Reporter, name s
 		Reporter:    reporter,
 		Context:     ctx,
 		senderCount: int32(senderCount),
-		Spinner:     *NewSpinner(),
 		Name:        name,
 		Channel:     make(chan int),
 	}
@@ -45,6 +44,13 @@ func (pc *ProgressCounter) SenderFinished() {
 }
 
 func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
+	// Ensure pc.Wg.Done() is called when the loop exits
+	defer pc.Wg.Done()
+
+	// 1. Setup Ticker for UI Updates
+	const updateInterval = 250 * time.Millisecond
+	ticker := time.NewTicker(updateInterval)
+	defer ticker.Stop()
 
 	pc.Reporter.LogProgress(
 		pc.Context,
@@ -52,24 +58,49 @@ func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
 		0,
 	)
 
-	for range pc.Channel {
-		pc.Spinner.Spin()
-		pc.Increment()
-		pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Read %d files", pc.currentProgress))
+	for {
+		select {
+		case <-pc.Context.Done():
+			// CANCELLATION: Log final count and exit cleanly.
+			currentCount := atomic.LoadInt64(&pc.currentProgress)
+			pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Read stopped (Cancelled after %d files)", currentCount))
+			return
+		case <-ticker.C:
+			// TICK: This is the UI Update trigger.
+			currentCount := atomic.LoadInt64(&pc.currentProgress)
+
+			// Only update the UI if the count has changed since the last tick
+			pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Read %d files", currentCount))
+
+		case _, ok := <-pc.Channel:
+			if !ok {
+				// Channel closed (all senders finished normally): Exit loop
+				currentCount := atomic.LoadInt64(&pc.currentProgress)
+
+				// Final log and 100% progress must be sent immediately upon completion
+				pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Finished reading %d files.", currentCount))
+
+				return
+			}
+			// 4. Normal increment of progress
+			pc.Increment()
+		}
 	}
-	pc.Reporter.LogProgress(
-		pc.Context,
-		name,
-		100,
-	)
 }
 
 func (pc *ProgressCounter) Increment() {
 	atomic.AddInt64(&pc.currentProgress, 1)
 }
 
-func (pc *ProgressCounter) Wait() {
+func (pc *ProgressCounter) WaitForSenders() {
 	pc.senderWg.Wait()
+}
+
+// Stop waits for the internal update loop to finish.
+// This should be called after WaitForSenders() completes,
+// or after cancellation is initiated.
+func (pc *ProgressCounter) Stop() {
+	pc.Wg.Wait()
 }
 
 func (pc *ProgressCounter) Start() {
