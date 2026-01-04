@@ -32,7 +32,7 @@ func TestFindDuplicatesInMap(t *testing.T) {
 	})
 
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Test Progress")
-	tracker.Start(10)
+	tracker.Start()
 
 	// ACT
 	processing.FindDuplicatesInMap(context.Background(), fileHashes, tracker)

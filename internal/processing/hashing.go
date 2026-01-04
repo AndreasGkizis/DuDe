@@ -114,7 +114,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 				sourceFiles.Store(path, memoryOfFile)
 			}
 
-			// safeResend(mm.Channel, newMem, 500*time.Microsecond)
+			// safeResend(mm.Channel, newMem, 500*time.Microsecond), something to never miss a new memory?
 
 			pt.Increment()
 		}(key.(string), value.(models.FileHash))

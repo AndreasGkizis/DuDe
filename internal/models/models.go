@@ -19,13 +19,15 @@ type FileHash struct {
 }
 
 type ExecutionParams struct {
-	SourceDir             string `json:"sourceDir"` // Maps to JS 'sourceDir'
+	SourceDir             string `json:"sourceDir"`
 	TargetDir             string `json:"targetDir"`
+	UseCache              bool   `json:"useCache"`
 	CacheDir              string `json:"cacheDir"`
 	ResultsDir            string `json:"resultsDir"`
 	ParanoidMode          bool   `json:"paranoidMode"`
 	CPUs                  int    `json:"cpus"`
 	BufSize               int    `json:"bufSize"`
+	KeepLogs              bool   `json:"keepLogs"`
 	DualFolderModeEnabled bool   `json:"dualFolderModeEnabled"`
 }
 

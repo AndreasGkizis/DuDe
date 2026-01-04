@@ -93,12 +93,6 @@ func ErrorWithFuncName(message string) {
 	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
-func LogArgs(args map[string]string) {
-	for key, value := range args {
-		Logger.Info(fmt.Sprintf("Key: %s, Value: %s", key, value))
-	}
-}
-
 func LogModelArgs(args models.ExecutionParams) {
 	v := reflect.ValueOf(args)
 	t := v.Type()

@@ -47,6 +47,7 @@ func AutoMigrate(db *sql.DB) error {
 	return nil
 }
 
+// Removes db file
 func DeleteDatabase(path string) error {
 	err := os.Remove(path)
 	if err != nil {

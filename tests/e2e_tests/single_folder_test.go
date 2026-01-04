@@ -13,9 +13,7 @@ func Test_SingleFolder_EmptyFolder(t *testing.T) {
 	// 2. Create files (empty here)
 	tempDir, cleanup := createTestFilesByteArray(t, map[string][]byte{})
 
-	defer func() {
-		cleanup()
-	}()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")
 
@@ -54,9 +52,9 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 		"sub/sub2/file3.txt": []byte("content C"),
 	}
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer func() {
-		cleanup()
-	}()
+
+	defer func() { cleanup(); deleteTestFolder(t) }()
+
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")
 
@@ -98,7 +96,7 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 
 	// 2. Create complex test files using the helper function
 	tempDir, cleanup := createTestFiles(t, options)
-	defer cleanup()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 
 	// 3. Define the output directories within the temporary test scope
 	testResultsDir := filepath.Join(tempDir, "results")
@@ -142,7 +140,7 @@ func Test_SingleFolder_HiddenFiles(t *testing.T) {
 
 	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer cleanup()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")
@@ -186,7 +184,7 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 
 	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer cleanup()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")
@@ -230,7 +228,7 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 
 	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer cleanup()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")
@@ -292,7 +290,7 @@ func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 
 	// 2. Create test files
 	tempDir, cleanup := createTestFilesByteArray(t, files)
-	defer cleanup()
+	defer func() { cleanup(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(tempDir, "results")
 	testCacheDir := filepath.Join(tempDir, "cache")

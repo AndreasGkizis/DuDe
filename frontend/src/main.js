@@ -115,7 +115,29 @@ document.querySelector('#app').innerHTML = `
                                     Paranoid Mode (Strict Validation)
                                     <span class="tooltip-container tooltip-top">
                                         <span class="info-icon">i</span>
-                                        <span class="tooltip-text">Performs additional file size/timestamp checks before hashing to minimize false positives. Slightly slower.</span>
+                                        <span class="tooltip-text">Performs additional file size/timestamp checks before hashing to eliminate false positives. Slower!</span>
+                                    </span>
+                                </label>
+                            </div>                           
+                            
+                            <div class="full-width-item checkbox-container">
+                                <input type="checkbox" id="keepLogs" class="checkbox-input">
+                                <label for="keepLogs">
+                                    Keep Logs
+                                    <span class="tooltip-container tooltip-top">
+                                        <span class="info-icon">i</span>
+                                        <span class="tooltip-text">Decides on whether to keep logs of the execution or not (ON by default)</span>
+                                    </span>
+                                </label>
+                            </div>                           
+                            
+                            <div class="full-width-item checkbox-container">
+                                <input type="checkbox" id="keepMemory" class="checkbox-input">
+                                <label for="keepMemory">
+                                    Keep Memory of run
+                                    <span class="tooltip-container tooltip-top">
+                                        <span class="info-icon">i</span>
+                                        <span class="tooltip-text">Decides on whether to keep a memory of the run in order to not redo work in case of looking up in the same folders (ON by default, creates a memory.db file which can be safely deleted)</span>
                                     </span>
                                 </label>
                             </div>
@@ -228,11 +250,13 @@ window.startProcess = function () {
     const params = {
         sourceDir: document.getElementById('sourceDir').value,
         targetDir: document.getElementById('targetDir').value,
+        useCache: document.getElementById('keepMemory').value,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
         paranoidMode: document.getElementById('paranoidMode').checked,
         cpus: parseInt(document.getElementById('cpus').value) || 0,
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
+        keepLogs: document.getElementById('keepMemory').checked,
         dualFolderModeEnabled: false,
     };
 
@@ -300,9 +324,9 @@ window.showResults = function () {
         });
 };
 
-const MAX_LOG_ROWS = 100; // Define your maximum row limit (e.g., 200 rows)
+const MAX_LOG_ROWS = 100; // Define your maximum row limit (e.g., 100 rows) [less things on screen less lag]
 
-// --- Status Listener Setup (Updated) ---
+// --- Status Listener Setup ---
 function setupStatusListeners() {
     const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
     // 1. Progress/Title Update Event

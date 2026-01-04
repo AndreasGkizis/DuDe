@@ -28,11 +28,12 @@ func NewFileHashRepository(db *sql.DB) *FileHashRepository {
 func (r *FileHashRepository) GetAll() ([]*db_models.FileHash, error) {
 	var filehashes []*db_models.FileHash
 	rows, err := r.Db.Query(`SELECT id, path, hash, size, modified_time, created_at FROM file_hashes`)
-	defer rows.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		filehash := &db_models.FileHash{}

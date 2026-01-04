@@ -104,8 +104,9 @@ func createTestFilesByteArray(t *testing.T, files map[string][]byte) (string, fu
 
 	cleanup := func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			t.Errorf("failed to clean up temporary directory %q: %v", tempDir, err)
+			t.Errorf("failed to clean up temporary test files %q: %v", tempDir, err)
 		}
+
 	}
 
 	for path, content := range files {
@@ -129,6 +130,16 @@ func createTestFilesByteArray(t *testing.T, files map[string][]byte) (string, fu
 
 	return tempDir, cleanup
 
+}
+
+// Deletes the directory in which test files were
+func deleteTestFolder(t *testing.T) error {
+	var err error
+	if err := os.Remove(baseDir); err != nil {
+		t.Errorf("failed to clean up temporary directory %q: %v", baseDir, err)
+	}
+
+	return err
 }
 
 // Reads and parses the CSV results file from the specified directory.

@@ -616,7 +616,8 @@ func Test_DualFolder_NoDuplicates(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -687,7 +688,7 @@ func Test_DualFolder_WithDuplicates(t *testing.T) {
 		t.Fatalf("failed to create file %s: %v", sharedFile2Target, err)
 	}
 
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -729,7 +730,7 @@ func Test_DualFolder_EmptyFolders(t *testing.T) {
 	// 2. Create two empty folders
 	tempDir1, cleanup1 := createTestFilesByteArray(t, map[string][]byte{})
 	tempDir2, cleanup2 := createTestFilesByteArray(t, map[string][]byte{})
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -784,7 +785,7 @@ func Test_DualFolder_HiddenFiles(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -832,7 +833,7 @@ func Test_DualFolder_SpecialCharacters(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -876,7 +877,7 @@ func Test_DualFolder_OneEmptyFolder_NoDuplicates(t *testing.T) {
 	}
 	tempDir2, cleanup2 := createTestFiles(t, targetOptions)
 	tempDir1, cleanup1 := createTestFilesByteArray(t, map[string][]byte{}) // Empty folder
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -920,7 +921,7 @@ func Test_DualFolder_OneEmptyFolder_WithDuplicates(t *testing.T) {
 	}
 	tempDir2, cleanup2 := createTestFiles(t, targetOptions)
 	tempDir1, cleanup1 := createTestFilesByteArray(t, map[string][]byte{}) // Empty folder
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -970,7 +971,7 @@ func Test_DualFolder_NestedStructure(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -1020,7 +1021,7 @@ func Test_DualFolder_SameFilesButDifferentContent(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -1074,7 +1075,7 @@ func Test_DualFolder_ParanoidMode(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -1125,7 +1126,7 @@ func Test_DualFolder_UnicodeNormalization(t *testing.T) {
 
 	tempDir1, cleanup1 := createTestFilesByteArray(t, folder1Files)
 	tempDir2, cleanup2 := createTestFilesByteArray(t, folder2Files)
-	defer func() { cleanup1(); cleanup2() }()
+	defer func() { cleanup1(); cleanup2(); deleteTestFolder(t) }()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")
 	testCacheDir := filepath.Join(t.TempDir(), "cache")
@@ -1185,6 +1186,7 @@ func Test_DualFolder_PermissionDenied_ShouldNotFail(t *testing.T) {
 		os.Chmod(unreadableFile, 0644)
 		cleanup1()
 		cleanup2()
+		deleteTestFolder(t)
 	}()
 
 	testResultsDir := filepath.Join(t.TempDir(), "results")

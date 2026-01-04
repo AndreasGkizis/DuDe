@@ -1,12 +1,16 @@
 ## TODO
   -  Remove unused code
-  -  fix open results to be avaialble only when results available
+  -  fix open results to be available only when results available
   -  Fix status bar
   -  check logs. levels and details 
 
   -  unit test more
+  -  cleanup log/logger use in start execution
+  -  use must pattern?
+  -  finish `UseCache` and `KeepLogs` execution params 
 
-  - Release v1 via github packages
+  
+  -  Release v1 via github packages
 
 
 ## Notes

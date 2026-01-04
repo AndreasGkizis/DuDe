@@ -23,7 +23,7 @@ type ProgressTracker struct {
 }
 
 func NewProgressTracker(ctx context.Context, reporter reporting.Reporter, name string) *ProgressTracker {
-	return &ProgressTracker{Reporter: reporter, Context: ctx, Name: name}
+	return &ProgressTracker{Reporter: reporter, Context: ctx, Name: name, BarLength: 100}
 }
 
 func (pt *ProgressTracker) updateProgressBarLoop(name string) {
@@ -91,9 +91,9 @@ func (pt *ProgressTracker) Wait() {
 	pt.wg.Wait()
 }
 
-func (pt *ProgressTracker) Start(barLength int) {
+func (pt *ProgressTracker) Start() {
 	pt.wg.Add(1)
-	pt.BarLength = barLength
+	pt.BarLength = 100
 	pt.lastDisplayedProgress = 0
 
 	go pt.updateProgressBarLoop(pt.Name)

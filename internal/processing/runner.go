@@ -150,6 +150,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	log := logger.Logger
 	timer := time.Now()
+	logger.LogModelArgs(app.Args)
 
 	db, err := db.NewDatabase(app.Args.CacheDir)
 	if err != nil {
@@ -197,7 +198,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	}
 
 	pt := visuals.NewProgressTracker(app.execCtx, reporter, "Hashing")
-	pt.Start(50)
+	pt.Start()
 
 	err = CreateHashes(app.execCtx, &syncSourceDirFileMap, app.Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
@@ -210,7 +211,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	close(errChan)
 
 	findTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Finding")
-	findTracker.Start(50)
+	findTracker.Start()
 
 	FindDuplicatesInMap(app.execCtx, &syncSourceDirFileMap, findTracker)
 
@@ -223,7 +224,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 		if app.Args.ParanoidMode {
 			compareTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Comparing")
-			compareTracker.Start(50)
+			compareTracker.Start()
 
 			EnsureDuplicates(app.execCtx, &syncSourceDirFileMap, compareTracker, app.Args.CPUs)
 
