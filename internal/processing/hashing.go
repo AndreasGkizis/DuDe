@@ -136,7 +136,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 
 	// Check 1: Cancellation before starting any work (and before the first Range loop)
 	if ctx.Err() != nil {
-		log.Logger.Debug("EnsureDuplicates skipped due to context cancellation.")
+		log.DebugWithFuncName("EnsureDuplicates skipped due to context cancellation.")
 		return
 	}
 
@@ -380,28 +380,6 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished and, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
 }
 
-func GetDuplicates(input *sync.Map) map[string]models.FileHash {
-
-	seen := make(map[string]models.FileHash)
-	result := make(map[string]models.FileHash)
-
-	input.Range(func(key, value any) bool {
-
-		hash := value.(models.FileHash).Hash
-		path := key.(string)
-
-		_, ok := seen[path]
-		if !ok {
-			seen[path] = value.(models.FileHash)
-		} else {
-			result[hash] = value.(models.FileHash)
-		}
-
-		return true
-	})
-	return result
-}
-
 func GetFlattened(input *sync.Map) []models.ResultEntry {
 	result := make([]models.ResultEntry, 0)
 
@@ -429,21 +407,20 @@ func GetFlattened(input *sync.Map) []models.ResultEntry {
 	return result
 }
 
-func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay, maxRetryDelay time.Duration, failedCount *int) error {
-	retryDelay := baseDelay
-	for {
-		select {
-		case ch <- value:
-			// common.Logger.Warnf("\nData Sent! : %v", value.FileName)
-			return nil
-		default:
-			(*failedCount)++
-			// common.Logger.Warnf("\nFailed to send data, retrying in %v: %v", retryDelay, value.FileName)
-			time.Sleep(retryDelay)
-			retryDelay *= 2
-			if retryDelay > maxRetryDelay {
-				retryDelay = maxRetryDelay
-			}
-		}
-	}
-}
+// FIXME : unreachable code
+// func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay, maxRetryDelay time.Duration, failedCount *int) error {
+// 	retryDelay := baseDelay
+// 	for {
+// 		select {
+// 		case ch <- value:
+// 			return nil
+// 		default:
+// 			(*failedCount)++
+// 			time.Sleep(retryDelay)
+// 			retryDelay *= 2
+// 			if retryDelay > maxRetryDelay {
+// 				retryDelay = maxRetryDelay
+// 			}
+// 		}
+// 	}
+// }

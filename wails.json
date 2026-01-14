@@ -9,5 +9,14 @@
   "author": {
     "name": "Andreas",
     "email": "andreasgkizis@gmail.com"
+  },
+  "info": {
+    "companyName": "Andreas",
+    "productName": "DuDe",
+    "productVersion": "v1.0.0",
+    "copyright": "Copyright © 2026",
+    "comments": "High-performance backend management tool built with Go.",
+    "summary": "Duplicate detection tool.",
+    "description": "A duplicate file detection tool which is multi core and tries to be dependency free and a portable executable. Written with golang and wails"  
   }
 }

@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Logger *zap.SugaredLogger
+var logger *zap.SugaredLogger
 
 func Initialize(enabled bool) {
 	if !enabled {
 		// Use a "No-Op" logger so the rest of your code doesn't crash
 		// calling Logger.Info, but nothing actually happens.
-		Logger = zap.NewNop().Sugar()
+		logger = zap.NewNop().Sugar()
 		return
 	}
 
@@ -50,63 +50,63 @@ func Initialize(enabled bool) {
 	teeCore := zapcore.NewTee(fileCore, consoleCore)
 
 	// Create the logger with the core
-	Logger = zap.New(teeCore).Sugar()
-	Logger.Info("Program started!")
+	logger = zap.New(teeCore).Sugar()
+	logger.Info("Program started!")
 }
 
 func DebugWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Debug(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Debug(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func InfoWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Info(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Info(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func WarnWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Warn(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Warn(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func ErrorWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func FatalWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
-		Logger.Fatal(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		logger.Fatal(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func LogModelArgs(args models.ExecutionParams) {
@@ -116,7 +116,7 @@ func LogModelArgs(args models.ExecutionParams) {
 	for i := range v.NumField() {
 		field := v.Field(i)
 		fieldName := t.Field(i).Name
-		Logger.Info(fmt.Sprintf("Key: %s, Value: %v", fieldName, field.Interface()))
+		logger.Info(fmt.Sprintf("Key: %s, Value: %v", fieldName, field.Interface()))
 	}
 }
 

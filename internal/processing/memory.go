@@ -62,16 +62,6 @@ func (mm *MemoryManager) Wait() {
 	mm.senderWg.Wait()
 }
 
-func (mm *MemoryManager) SenderStarted() {
-	atomic.AddInt32(&mm.senderCount, 1)
-	mm.senderWg.Add(1)
-}
-
-func (mm *MemoryManager) TotalSenders(total int32) {
-	atomic.AddInt32(&mm.senderCount, total)
-	mm.senderWg.Add(int(total))
-}
-
 func (mm *MemoryManager) SenderFinished() {
 	if !mm.isActive {
 		return
@@ -98,7 +88,7 @@ func (mm *MemoryManager) updateMemory() {
 		db_fh := MapToDomainDTO(fh)
 		err := mm.repo.Upsert(&db_fh)
 		if err != nil {
-			log.Logger.Fatalf(err.Error())
+			log.FatalWithFuncName(err.Error())
 		}
 	}
 

@@ -66,18 +66,6 @@ func (fo FileOptions) CalculateTotalDuplicateFiles() int {
 	return totalDuplicateFiles
 }
 
-// DefaultFileOptions returns default options for file creation
-func DefaultFileOptions() FileOptions {
-	return FileOptions{
-		DuplicateFileCount:  3,
-		UniqueFileCount:     2,
-		DuplicatesPerFile:   1,
-		FileTypes:           []FileType{TextFile, ImageFile, AudioFile},
-		CreateNoAccessFiles: false,
-		Prefix:              "test",
-	}
-}
-
 // createTestFilesByteArray creates a temporary directory and populates it with the
 // specified files and their content for testing.
 // It returns the path to the created temporary directory and a cleanup

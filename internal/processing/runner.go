@@ -4,7 +4,6 @@ import (
 	"DuDe/internal/common"
 	"DuDe/internal/common/fs"
 	log "DuDe/internal/common/logger"
-	logger "DuDe/internal/common/logger"
 	"DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/reporting"
@@ -44,7 +43,7 @@ func NewApp(reporter reporting.Reporter) *FrontendApp {
 // This function will be exposed to the Wails frontend.
 func (app *FrontendApp) CancelExecution() {
 	if app.cancelFunc != nil {
-		logger.Logger.Info("Execution cancellation requested by user.")
+		log.InfoWithFuncName("Execution cancellation requested by user.")
 		app.cancelFunc()
 	}
 }
@@ -57,18 +56,23 @@ func (a *FrontendApp) Startup(ctx context.Context) {
 
 // CheckIfResultsExist returns true if the results JSON file is found on disk
 func (a *FrontendApp) CheckIfResultsExist() bool {
-	executableDir := common.GetExecutableDir()
-	return FileExists(executableDir)
+	var resultsDir string
+
+	if a.Args.ResultsDir == "" {
+		resultsDir = common.GetExecutableDir()
+	} else {
+		resultsDir = a.Args.ResultsDir
+	}
+	return FileExists(resultsDir)
 }
 
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) ShowResults() error {
 	var resultsFilePath string
-	executableDir := common.GetExecutableDir()
 
 	if a.Args.ResultsDir == "" {
-		resultsFilePath = filepath.Join(executableDir, common.ResFilename)
+		resultsFilePath = filepath.Join(common.GetExecutableDir(), common.ResFilename)
 	} else {
 		resultsFilePath = filepath.Join(a.Args.ResultsDir, common.ResFilename)
 	}

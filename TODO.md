@@ -1,7 +1,8 @@
 ## TODO
 
   - Remove unused code
-  - check logs. levels and details 
+  - check logs. levels and details
+  - test with large files to provoke buffer overflow ( kinda overkill )
   - unit test more
 
   - use must pattern?
@@ -10,8 +11,6 @@
   - Release v1.0.0 via github packages!
 
 ## FIXME
-
-  - Do I need `MemoryManager.SenderStarted` and `MemoryManager.TotalSenders`?
   - Fix status bar
 
 ## Notes

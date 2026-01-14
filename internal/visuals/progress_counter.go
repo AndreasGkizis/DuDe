@@ -31,11 +31,6 @@ func NewProgressCounter(ctx context.Context, reporter reporting.Reporter, name s
 	}
 }
 
-func (pc *ProgressCounter) TotalSenders(total int32) {
-	atomic.AddInt32(&pc.senderCount, total)
-	pc.senderWg.Add(int(total))
-}
-
 func (pc *ProgressCounter) SenderFinished() {
 	if atomic.AddInt32(&pc.senderCount, -1) == 0 {
 		close(pc.Channel)
@@ -94,13 +89,6 @@ func (pc *ProgressCounter) Increment() {
 
 func (pc *ProgressCounter) WaitForSenders() {
 	pc.senderWg.Wait()
-}
-
-// Stop waits for the internal update loop to finish.
-// This should be called after WaitForSenders() completes,
-// or after cancellation is initiated.
-func (pc *ProgressCounter) Stop() {
-	pc.Wg.Wait()
 }
 
 func (pc *ProgressCounter) Start() {

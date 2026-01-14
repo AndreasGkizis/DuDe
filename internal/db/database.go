@@ -40,14 +40,13 @@ func AutoMigrate(db *sql.DB) error {
                 )
         `)
 
-	// NOTE: add more tables as you go
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// Removes db file
+// Removes db file, currently unsed but maybe useful
 func DeleteDatabase(path string) error {
 	err := os.Remove(path)
 	if err != nil {
