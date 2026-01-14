@@ -23,3 +23,8 @@ func (a *WailsReporter) LogProgress(ctx context.Context, title string, percent f
 	// Wails automatically marshals the struct to JSON
 	runtime.EventsEmit(ctx, "progressUpdate", update)
 }
+
+// FinishExecution signals the endof execution to the frontend.
+func (a *WailsReporter) FinishExecution(ctx context.Context) {
+	runtime.EventsEmit(ctx, "executionFinished")
+}

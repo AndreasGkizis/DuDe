@@ -4,6 +4,8 @@ import {models} from '../models';
 
 export function CancelExecution():Promise<void>;
 
+export function CheckIfResultsExist():Promise<boolean>;
+
 export function SelectFolder():Promise<string>;
 
 export function ShowResults():Promise<void>;

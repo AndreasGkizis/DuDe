@@ -1,6 +1,6 @@
 import './style.css';
 
-import { SelectFolder, StartExecution, ShowResults, CancelExecution } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist } from '../wailsjs/go/processing/FrontendApp';
 
 document.querySelector('#app').innerHTML = `
             <div class="main-content-wrapper">
@@ -389,9 +389,18 @@ function setupStatusListeners() {
 
         toggleStartSpinner(false);
     });
+
+    runtime.EventsOn("executionFinished", (filePath) => {
+    progressTitle.innerText = "Process Complete.";
+    showResultsButton.disabled = false; // ENABLE BUTTON
+    toggleStartSpinner(false);
+    startButton.disabled = false;
+    stopButton.disabled = true;
+});
 }
 // Run setup after DOM load
 setupStatusListeners();
+refreshResultsButtonState();
 
 // --- Spinner State Handler ---
 /**
@@ -401,11 +410,22 @@ setupStatusListeners();
 function toggleStartSpinner(isLoading) {
     if (isLoading) {
         startButton.classList.add('is-loading');
-        // If you had content:'◢' here for the character spinner, remove it, 
-        // as the dots spinner relies on the CSS pseudo-elements.
+ 
         startButtonSpinner.textContent = ''; 
     } else {
         startButton.classList.remove('is-loading');
         startButtonSpinner.textContent = '';
+    }
+}
+
+// Function to check if the results button should be enabled.
+async function refreshResultsButtonState() {
+    try {
+        // Assuming CheckIfResultsExist is exposed via Wails
+        const exists = await CheckIfResultsExist();
+        console.log("exists ", exists)
+        showResultsButton.disabled = !exists;
+    } catch (err) {
+        showResultsButton.disabled = true;
     }
 }

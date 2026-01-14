@@ -1,8 +1,8 @@
 ## TODO
+
   - Remove unused code
   - check logs. levels and details 
   - unit test more
-  - cleanup log/logger use in start execution
 
   - use must pattern?
   - make file info work for all builds, also test it! 
@@ -12,7 +12,6 @@
 ## FIXME
 
   - Do I need `MemoryManager.SenderStarted` and `MemoryManager.TotalSenders`?
-  - Fix open results to be available only when results available
   - Fix status bar
 
 ## Notes

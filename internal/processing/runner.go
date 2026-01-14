@@ -55,10 +55,23 @@ func (a *FrontendApp) Startup(ctx context.Context) {
 	a.wailsCtx = ctx
 }
 
+// CheckIfResultsExist returns true if the results JSON file is found on disk
+func (a *FrontendApp) CheckIfResultsExist() bool {
+	executableDir := common.GetExecutableDir()
+	return FileExists(executableDir)
+}
+
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) ShowResults() error {
-	resultsFilePath := filepath.Join(a.Args.ResultsDir, common.ResFilename)
+	var resultsFilePath string
+	executableDir := common.GetExecutableDir()
+
+	if a.Args.ResultsDir == "" {
+		resultsFilePath = filepath.Join(executableDir, common.ResFilename)
+	} else {
+		resultsFilePath = filepath.Join(a.Args.ResultsDir, common.ResFilename)
+	}
 
 	if resultsFilePath == "" {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Cannot open results: Results file path is not set.")
@@ -255,6 +268,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize))
 	log.InfoWithFuncName(fmt.Sprintf("Failed %d times to send to memoryChan", failedCounter))
 	app.reporter.LogProgress(app.wailsCtx, "Done", 100)
+	app.reporter.FinishExecution(app.wailsCtx)
 
 	return nil
 }

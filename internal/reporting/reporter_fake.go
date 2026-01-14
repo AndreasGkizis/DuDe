@@ -22,3 +22,7 @@ func (l NoOpReporter) LogDetailedStatus(ctx context.Context, message string) {
 func (l NoOpReporter) LogProgress(ctx context.Context, title string, percent float64) {
 	// l.T.Logf("E2E Progress: %s - %d%%", title, percent)
 }
+
+// FinishExecution signals the endof execution to the frontend.
+func (l NoOpReporter) FinishExecution(ctx context.Context) {
+}

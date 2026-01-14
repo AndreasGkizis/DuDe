@@ -7,6 +7,7 @@ import "context"
 type Reporter interface {
 	LogProgress(ctx context.Context, title string, percent float64)
 	LogDetailedStatus(ctx context.Context, message string)
+	FinishExecution(ctx context.Context)
 }
 
 type ProgressUpdate struct {

@@ -123,6 +123,15 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 	return nil
 }
 
+func FileExists(path string) bool {
+	filepath := filepath.Join(path, common.ResFilename)
+
+	if _, err := os.Stat(filepath); err == nil {
+		return true
+	}
+	return false
+}
+
 func GetDelimiterForOS() rune {
 	var delimiter rune
 	if runtime.GOOS == "windows" {

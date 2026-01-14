@@ -6,6 +6,10 @@ export function CancelExecution() {
   return window['go']['processing']['FrontendApp']['CancelExecution']();
 }
 
+export function CheckIfResultsExist() {
+  return window['go']['processing']['FrontendApp']['CheckIfResultsExist']();
+}
+
 export function SelectFolder() {
   return window['go']['processing']['FrontendApp']['SelectFolder']();
 }
