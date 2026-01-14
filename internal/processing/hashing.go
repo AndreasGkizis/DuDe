@@ -2,7 +2,7 @@ package processing
 
 import (
 	com "DuDe/internal/common"
-	logger "DuDe/internal/common/logger"
+	log "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"bytes"
@@ -27,7 +27,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 	}
 
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, numFilesToHash, maxWorkers))
+	log.InfoWithFuncName(fmt.Sprintf("Group %d started hashing %d files with %d workers", groupID, numFilesToHash, maxWorkers))
 	pt.AddTotal(int64(numFilesToHash))
 
 	var wg sync.WaitGroup
@@ -38,7 +38,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 
 		select {
 		case <-ctx.Done():
-			logger.DebugWithFuncName(fmt.Sprintf("Group %d CreateHashes stopped spawning workers due to context cancellation.", groupID))
+			log.DebugWithFuncName(fmt.Sprintf("Group %d CreateHashes stopped spawning workers due to context cancellation.", groupID))
 			return false // Stop sourceFiles.Range loop
 		default:
 			// Continue spawning worker
@@ -57,7 +57,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 			select {
 			case <-ctx.Done():
 				// Context canceled while waiting for the semaphore
-				logger.DebugWithFuncName(fmt.Sprintf("Worker skipped file. context canceled while waiting for semaphore. | filepath: %s", currentFilePath))
+				log.DebugWithFuncName(fmt.Sprintf("Worker skipped file. context canceled while waiting for semaphore. | filepath: %s", currentFilePath))
 				return // Exit the worker goroutine
 			case sem <- struct{}{}:
 				// Slot acquired, proceed
@@ -65,7 +65,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 			defer func() { <-sem }() // Release the slots
 			// --- 3. Check for Cancellation after acquiring slot (optional but good) ---
 			if ctx.Err() != nil {
-				logger.DebugWithFuncName(fmt.Sprintf("Worker skipped file. context canceled immediately after semaphore acquisition. | filepath: %s", currentFilePath))
+				log.DebugWithFuncName(fmt.Sprintf("Worker skipped file. context canceled immediately after semaphore acquisition. | filepath: %s", currentFilePath))
 				return
 			}
 
@@ -89,7 +89,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 			if fileNeedsReHashing {
 				hash, err = calculateMD5Hash(ctx, val)
 				if errors.Is(err, context.Canceled) {
-					logger.DebugWithFuncName(fmt.Sprintf("Hashing stopped due to context cancellation. | filepath: %s", currentFilePath))
+					log.DebugWithFuncName(fmt.Sprintf("Hashing stopped due to context cancellation. | filepath: %s", currentFilePath))
 					return // Stop this iteration/worker
 				}
 				if err != nil {
@@ -124,7 +124,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 
 	wg.Wait()
 	mm.SenderFinished()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(numFilesToHash), maxWorkers))
+	log.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(numFilesToHash), maxWorkers))
 
 	close(sem)
 	// Check if the overall context was canceled or nil if not
@@ -136,7 +136,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 
 	// Check 1: Cancellation before starting any work (and before the first Range loop)
 	if ctx.Err() != nil {
-		logger.Logger.Debug("EnsureDuplicates skipped due to context cancellation.")
+		log.Logger.Debug("EnsureDuplicates skipped due to context cancellation.")
 		return
 	}
 
@@ -147,7 +147,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 	})
 
 	if num == 0 {
-		logger.WarnWithFuncName("No duplicates to ensure")
+		log.WarnWithFuncName("No duplicates to ensure")
 	}
 
 	pt.AddTotal(int64(num))
@@ -160,7 +160,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 		select {
 		case <-ctx.Done():
 
-			logger.DebugWithFuncName("stopped spawning workers due to context cancellation.")
+			log.DebugWithFuncName("stopped spawning workers due to context cancellation.")
 
 			return false // Stop outer Range loop
 		default:
@@ -174,7 +174,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 			// Check 3: Cancellation while waiting for semaphore
 			select {
 			case <-ctx.Done():
-				logger.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled while waiting for semaphore.", itemHash))
+				log.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled while waiting for semaphore.", itemHash))
 				return // Exit worker goroutine
 			case sem <- struct{}{}:
 				// Slot acquired, proceed
@@ -183,7 +183,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 
 			// Check 3b: Cancellation immediately after semaphore acquisition
 			if ctx.Err() != nil {
-				logger.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled immediately after semaphore acquisition.", itemHash))
+				log.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled immediately after semaphore acquisition.", itemHash))
 				return
 			}
 
@@ -194,7 +194,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 			mainFile, err := os.Open(item.FilePath)
 
 			if err != nil {
-				logger.WarnWithFuncName(fmt.Sprintf("skipping | Error opening file %s : %v.", item.FilePath, err))
+				log.WarnWithFuncName(fmt.Sprintf("skipping | Error opening file %s : %v.", item.FilePath, err))
 				return
 			}
 
@@ -205,7 +205,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 				// Check 4: Cancellation inside the innermost loop
 				select {
 				case <-ctx.Done():
-					logger.WarnWithFuncName(fmt.Sprintf("Worker for hash %s stopped mid-comparison loop due to cancellation.", itemHash))
+					log.WarnWithFuncName(fmt.Sprintf("Worker for hash %s stopped mid-comparison loop due to cancellation.", itemHash))
 					return // Exit worker goroutine
 				default:
 					// Continue
@@ -216,7 +216,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 				eq, err := filesEqual(ctx, mainFile, dup.FilePath)
 
 				if err != nil {
-					logger.WarnWithFuncName(fmt.Sprintf("Error comparing files %s and %s: %v. Considering as equal.", item.FilePath, dup.FilePath, err))
+					log.WarnWithFuncName(fmt.Sprintf("Error comparing files %s and %s: %v. Considering as equal.", item.FilePath, dup.FilePath, err))
 					eq = true
 				}
 
@@ -296,7 +296,7 @@ func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error)
 	f, err := os.Open(file.FilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrPermission) {
-			logger.WarnWithFuncName(fmt.Sprintf("Skipping file: %s, reason: %s", file.FilePath, err.Error()))
+			log.WarnWithFuncName(fmt.Sprintf("Skipping file: %s, reason: %s", file.FilePath, err.Error()))
 			return "", err
 		}
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -305,7 +305,7 @@ func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error)
 	defer func() {
 		err := f.Close()
 		if err != nil {
-			logger.ErrorWithFuncName(err.Error())
+			log.ErrorWithFuncName(err.Error())
 		}
 	}()
 
@@ -322,7 +322,7 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 	initialCount := com.LenSyncMap(fileHashes)
 
 	groupID := rand.Uint32()
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d started for source folder with %d files", groupID, initialCount))
+	log.InfoWithFuncName(fmt.Sprintf("Group %d started for source folder with %d files", groupID, initialCount))
 
 	hashCounts := make(map[string]int)
 	hashPaths := make(map[string][]models.FileHash)
@@ -331,7 +331,7 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 
 		select {
 		case <-ctx.Done():
-			logger.DebugWithFuncName(fmt.Sprintf("Group %d stopped grouping by hash due to context cancellation.", groupID))
+			log.DebugWithFuncName(fmt.Sprintf("Group %d stopped grouping by hash due to context cancellation.", groupID))
 			return false // Stop fileHashes.Range loop
 		default:
 			// Continue
@@ -356,7 +356,7 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 
 		select {
 		case <-ctx.Done():
-			logger.DebugWithFuncName(fmt.Sprintf("Group %d stopped processing hash groups due to context cancellation.", groupID))
+			log.DebugWithFuncName(fmt.Sprintf("Group %d stopped processing hash groups due to context cancellation.", groupID))
 			return // Exit the function entirely
 		default:
 			// Continue
@@ -377,7 +377,7 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 		}
 	}
 
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished and, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
+	log.InfoWithFuncName(fmt.Sprintf("Group %d finished and, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
 }
 
 func GetDuplicates(input *sync.Map) map[string]models.FileHash {

@@ -3,7 +3,8 @@ package processing
 import (
 	"DuDe/internal/common"
 	"DuDe/internal/common/fs"
-	"DuDe/internal/common/logger"
+	log "DuDe/internal/common/logger"
+	logger "DuDe/internal/common/logger"
 	"DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/reporting"
@@ -147,11 +148,10 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 			app.cancelFunc = nil
 		}
 	}()
-	logger.Initialize(app.Args.DebugMode)
+	log.Initialize(app.Args.DebugMode)
 
-	log := logger.Logger
 	timer := time.Now()
-	logger.LogModelArgs(app.Args)
+	log.LogModelArgs(app.Args)
 
 	var localdb *sql.DB
 	var err error
@@ -159,14 +159,14 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	if app.Args.UseCache {
 		localdb, err = db.NewDatabase(app.Args.CacheDir)
 		if err != nil {
-			logger.ErrorWithFuncName(err.Error())
+			log.ErrorWithFuncName(err.Error())
 		}
 	}
 
 	errChan := make(chan error, 100)
 	go func() {
 		for err := range errChan {
-			logger.WarnWithFuncName(err.Error())
+			log.WarnWithFuncName(err.Error())
 		}
 	}()
 
@@ -210,7 +210,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	err = CreateHashes(app.execCtx, &syncSourceDirFileMap, app.Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
-		logger.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
+		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
 	}
 
@@ -227,7 +227,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	findTracker.Wait()
 	length := common.LenSyncMap(&syncSourceDirFileMap)
 
-	logger.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
+	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
 	if length != 0 {
 		timer1 := time.Now()
 
@@ -243,17 +243,17 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		flattenedDuplicates := GetFlattened(&syncSourceDirFileMap)
 		err = SaveResultsAsCSV(flattenedDuplicates, app.Args.ResultsDir)
 		if err != nil {
-			log.Fatalf("Error saving result: %v", err)
+			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
 			return err
 		}
 
-		log.Infof("Took: %s to look through bytes", time.Since(timer1))
+		log.InfoWithFuncName(fmt.Sprintf("Took: %s to look through bytes", time.Since(timer1)))
 	} else {
-		log.Info("No duplicates were found")
+		log.InfoWithFuncName("No duplicates were found")
 	}
 
-	log.Infof("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize)
-	log.Infof("Failed %d times to send to memoryChan", failedCounter)
+	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize))
+	log.InfoWithFuncName(fmt.Sprintf("Failed %d times to send to memoryChan", failedCounter))
 	app.reporter.LogProgress(app.wailsCtx, "Done", 100)
 
 	return nil

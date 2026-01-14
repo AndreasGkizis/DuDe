@@ -16,7 +16,6 @@ import (
 
 var Logger *zap.SugaredLogger
 
-// init func always runs first no matter what. its a go thing
 func Initialize(enabled bool) {
 	if !enabled {
 		// Use a "No-Op" logger so the rest of your code doesn't crash
@@ -92,6 +91,17 @@ func ErrorWithFuncName(message string) {
 	pc, _, lineNum, ok := runtime.Caller(1)
 	if !ok {
 		Logger.Error(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+
+	Logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+}
+
+func FatalWithFuncName(message string) {
+	pc, _, lineNum, ok := runtime.Caller(1)
+	if !ok {
+		Logger.Fatal(fmt.Sprintf("Could not get caller info: %s", message)) // Log a warning without the function name
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()

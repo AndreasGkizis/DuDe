@@ -2,7 +2,7 @@ package processing
 
 import (
 	"DuDe/internal/common"
-	logger "DuDe/internal/common/logger"
+	log "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
 	"database/sql"
@@ -91,16 +91,16 @@ func (mm *MemoryManager) Push(fh models.FileHash) {
 }
 
 func (mm *MemoryManager) updateMemory() {
-	logger.DebugWithFuncName("started")
+	log.DebugWithFuncName("started")
 	defer mm.wg.Done()
 
 	for fh := range mm.Channel {
 		db_fh := MapToDomainDTO(fh)
 		err := mm.repo.Upsert(&db_fh)
 		if err != nil {
-			logger.Logger.Fatalf(err.Error())
+			log.Logger.Fatalf(err.Error())
 		}
 	}
 
-	logger.DebugWithFuncName("finished")
+	log.DebugWithFuncName("finished")
 }
