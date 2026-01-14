@@ -29,20 +29,3 @@ func LenSyncMap(m *sync.Map) int {
 	})
 	return count
 }
-
-func ConvertSyncMapToMap(sMap *sync.Map) map[any]any {
-	if sMap == nil {
-		return nil // Or return an empty map, depending on desired behavior
-	}
-
-	resultMap := make(map[any]any)
-
-	// Iterate over the sync.Map and store its contents in the regular map.
-	// The Range method is thread-safe.
-	sMap.Range(func(key, value any) bool {
-		resultMap[key] = value
-		return true // Continue iteration
-	})
-
-	return resultMap
-}

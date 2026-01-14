@@ -18,6 +18,7 @@ type FileHash struct {
 	DuplicatesFound []FileHash
 }
 
+// TODO This should remain immutable!!not sure how to force this yet
 type ExecutionParams struct {
 	SourceDir             string `json:"sourceDir"`
 	TargetDir             string `json:"targetDir"`

@@ -6,20 +6,12 @@ import (
 
 // IValidator defines the contract for all validation processes.
 type IValidator interface {
-	Resolve(value, fallback string) string
 	ReadableDir(path string) error
 	WritableDir(path string) error
 }
 
 type Validator struct {
 	FS fs.FS
-}
-
-func (v Validator) Resolve(value, fallback string) string {
-	if value == "" {
-		return fallback
-	}
-	return value
 }
 
 func (v Validator) ReadableDir(path string) error {

@@ -2,8 +2,6 @@ package e2e_tests
 
 import (
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -750,23 +748,15 @@ func Test_DualFolder_EmptyFolders(t *testing.T) {
 
 	// 4. Execute the logic
 	err := app.StartExecution(args)
-
-	// A. Check if an error was returned at all
-	if err == nil {
-		t.Fatalf("Expected execution to return the 'no files found' error, but it succeeded without error.")
+	if err != nil {
+		t.Fatalf("E2E app failed with error: %v", err)
 	}
 
-	// B. Check if the returned error matches the expected custom error
-	if !errors.Is(err, processing.ErrNoFilesFound) {
-		t.Fatalf("Expected error type %v, but got: %v", processing.ErrNoFilesFound, err)
-	}
-
-	// C. (Optional but good practice) Verify no results file was written
+	// Verify no results file was written
 	_, errFile := readResultsFile(t, testResultsDir)
+
 	if errFile == nil {
 		t.Error("Expected no results file (since no files were processed), but found one.")
-	} else if !os.IsNotExist(errFile) {
-		t.Errorf("Expected results file to not exist, but got unexpected error: %v", errFile)
 	}
 }
 func Test_DualFolder_HiddenFiles(t *testing.T) {

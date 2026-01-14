@@ -3,6 +3,7 @@ package validation
 import (
 	"DuDe/internal/models"
 	"fmt"
+	"runtime"
 )
 
 type Resolver struct {
@@ -10,8 +11,8 @@ type Resolver struct {
 }
 
 func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir string) error {
-	args.CacheDir = r.V.Resolve(args.CacheDir, exeDir)
-	args.ResultsDir = r.V.Resolve(args.ResultsDir, exeDir)
+	args.CacheDir = resolveDir(args.CacheDir, exeDir)
+	args.ResultsDir = resolveDir(args.ResultsDir, exeDir)
 
 	// SourceDir (must exist + read)
 	if err := r.V.ReadableDir(args.SourceDir); err != nil {
@@ -35,5 +36,49 @@ func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir st
 		return fmt.Errorf("ResultsDir: %w", err)
 	}
 
+	// resolve or validate the cpus
+	args.CPUs = resolveWorkers(&args.CPUs)
+
+	args.BufSize = resolveBufferSize(&args.BufSize)
+
+	// resolve the buffersize
+
 	return nil
+}
+
+func resolveDir(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func resolveWorkers(value *int) int {
+	max := runtime.GOMAXPROCS(0)
+
+	if value == nil || *value <= 0 {
+		return max // Default to max performance if not specified
+	}
+
+	if *value > max {
+		return max
+	}
+
+	return *value
+
+}
+
+func resolveBufferSize(value *int) int {
+	const defaultValue = 1024
+	const maxValue = 1048576
+
+	if value == nil || *value <= 0 {
+		return defaultValue // Default to max performance if not specified
+	}
+	if *value > maxValue {
+		return maxValue
+	}
+
+	return *value
+
 }

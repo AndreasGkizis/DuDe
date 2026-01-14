@@ -77,8 +77,8 @@ func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressC
 }
 
 func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
-	log.InfoWithFuncName(fmt.Sprintf("%d results found ", len(data)))
-	log.InfoWithFuncName(fmt.Sprintf("creating results file in path :%s", fulldir))
+	log.InfoWithFuncName(fmt.Sprintf("Number of duplicates found: %d", len(data)))
+	log.InfoWithFuncName(fmt.Sprintf("Creating results file in: %s", fulldir))
 
 	if len(data) == 0 {
 		return nil
@@ -114,6 +114,7 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 			entry.DuplicateFilename,
 			entry.DuplicateFullPath,
 		})
+
 		if err != nil {
 			return err
 		}

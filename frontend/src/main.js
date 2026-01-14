@@ -95,7 +95,7 @@ document.querySelector('#app').innerHTML = `
                                             <span class="tooltip-text">Number of CPU cores to use for parallel hashing. 0 means all available cores.</span>
                                         </span>
                                         </label>
-                                    <input class="input" id="cpus" type="number" value="8">
+                                    <input class="input" id="cpus" type="number" value="0" min="0" max="512">
                                 </div>
 
                                 <div>
@@ -105,7 +105,7 @@ document.querySelector('#app').innerHTML = `
                                             <span class="tooltip-text">I/O buffer size (in KB) when reading files for hashing. Larger size can improve speed on HDDs.</span>
                                         </span>
                                         </label>
-                                    <input class="input" id="bufSize" type="number" value="1024">
+                                    <input class="input" id="bufSize" type="number" value="1024" min="0" max="1048576">
                                 </div>
                             </div>
 
@@ -132,7 +132,7 @@ document.querySelector('#app').innerHTML = `
                             </div>                           
                             
                             <div class="full-width-item checkbox-container">
-                                <input type="checkbox" id="keepMemory" class="checkbox-input">
+                                <input type="checkbox" id="keepMemory" class="checkbox-input" checked>
                                 <label for="keepMemory">
                                     Keep Memory of run
                                     <span class="tooltip-container tooltip-top">
@@ -250,13 +250,13 @@ window.startProcess = function () {
     const params = {
         sourceDir: document.getElementById('sourceDir').value,
         targetDir: document.getElementById('targetDir').value,
-        useCache: document.getElementById('keepMemory').value,
+        useCache: document.getElementById('keepMemory').checked,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
         paranoidMode: document.getElementById('paranoidMode').checked,
         cpus: parseInt(document.getElementById('cpus').value) || 0,
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
-        keepLogs: document.getElementById('keepMemory').checked,
+        keepLogs: document.getElementById('keepLogs').checked,
         dualFolderModeEnabled: false,
     };
 

@@ -33,7 +33,7 @@ func Test_SingleFolder_EmptyFolder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("E2E app failed with error: %v", err)
 	}
-	// 5. Verification
+
 	// Check the results file path defined in the arguments (not the binary's directory)
 	_, err = readResultsFile(t, testResultsDir)
 

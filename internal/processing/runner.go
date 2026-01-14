@@ -7,6 +7,7 @@ import (
 	"DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/reporting"
+	"database/sql"
 	"errors"
 
 	"DuDe/internal/models"
@@ -23,13 +24,12 @@ import (
 
 // FrontendApp struct
 type FrontendApp struct {
-	// PERMANENT: Wails Context (Set once in WailsInit)
-	wailsCtx context.Context
-	// TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
-	cancelFunc context.CancelFunc
-	execCtx    context.Context
-	Args       models.ExecutionParams
-	reporter   reporting.Reporter
+	wailsCtx   context.Context    // PERMANENT: Wails Context (Set once in WailsInit)
+	cancelFunc context.CancelFunc // TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
+
+	execCtx  context.Context
+	Args     models.ExecutionParams
+	reporter reporting.Reporter
 }
 
 // NewApp creates a new App application struct
@@ -152,9 +152,14 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	timer := time.Now()
 	logger.LogModelArgs(app.Args)
 
-	db, err := db.NewDatabase(app.Args.CacheDir)
-	if err != nil {
-		logger.ErrorWithFuncName(err.Error())
+	var localdb *sql.DB
+	var err error
+
+	if app.Args.UseCache {
+		localdb, err = db.NewDatabase(app.Args.CacheDir)
+		if err != nil {
+			logger.ErrorWithFuncName(err.Error())
+		}
 	}
 
 	errChan := make(chan error, 100)
@@ -172,8 +177,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	}
 
 	failedCounter := 0
-	mm := NewMemoryManager(db, app.Args.BufSize, 1)
+	mm := NewMemoryManager(&app.Args, localdb, app.Args.BufSize, 1)
 	mm.Start()
+
 	rt := visuals.NewProgressCounter(app.execCtx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
@@ -193,8 +199,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	if len == 0 {
 
 		app.reporter.LogProgress(app.execCtx, "Error", 0)
+		app.reporter.LogDetailedStatus(app.execCtx, "No files found in directory/directories! Check your paths again")
 
-		return ErrNoFilesFound
+		return nil
 	}
 
 	pt := visuals.NewProgressTracker(app.execCtx, reporter, "Hashing")
@@ -208,6 +215,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	pt.Wait()
 	mm.Wait()
+
 	close(errChan)
 
 	findTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Finding")

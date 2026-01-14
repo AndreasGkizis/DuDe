@@ -12,20 +12,26 @@ import (
 
 type MemoryManager struct {
 	Channel     chan models.FileHash
-	senderCount int32
 	repo        database.FileHashRepository
 	wg          sync.WaitGroup
 	senderWg    sync.WaitGroup
+	senderCount int32
+	isActive    bool
 }
 
-func NewMemoryManager(db *sql.DB, bufferSize, senderCount int) *MemoryManager {
+func NewMemoryManager(args *models.ExecutionParams, db *sql.DB, bufferSize, senderCount int) *MemoryManager {
 	return &MemoryManager{
 		senderCount: int32(senderCount),
 		Channel:     make(chan models.FileHash, bufferSize),
-		repo:        *database.NewFileHashRepository(db)}
+		repo:        *database.NewFileHashRepository(db),
+		isActive:    args.UseCache}
 }
 
 func (mm *MemoryManager) Start() {
+	if !mm.isActive {
+		return
+	}
+
 	mm.wg.Add(1)
 	mm.senderWg.Add(int(mm.senderCount))
 	go mm.updateMemory()
@@ -33,6 +39,10 @@ func (mm *MemoryManager) Start() {
 
 func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 	result := make(map[string]models.FileHash)
+
+	if !mm.isActive { // return empty memory
+		return make(map[string]models.FileHash)
+	}
 
 	records := common.Must(mm.repo.GetAll())
 
@@ -44,6 +54,10 @@ func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 }
 
 func (mm *MemoryManager) Wait() {
+
+	if !mm.isActive {
+		return
+	}
 	mm.wg.Wait()
 	mm.senderWg.Wait()
 }
@@ -59,10 +73,21 @@ func (mm *MemoryManager) TotalSenders(total int32) {
 }
 
 func (mm *MemoryManager) SenderFinished() {
+	if !mm.isActive {
+		return
+	}
+
 	if atomic.AddInt32(&mm.senderCount, -1) == 0 {
 		close(mm.Channel)
 	}
 	mm.senderWg.Done()
+}
+
+func (mm *MemoryManager) Push(fh models.FileHash) {
+	if !mm.isActive {
+		return
+	}
+	mm.Channel <- fh
 }
 
 func (mm *MemoryManager) updateMemory() {

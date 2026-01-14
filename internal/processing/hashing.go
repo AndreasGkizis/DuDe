@@ -108,7 +108,8 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 				}
 
 				sourceFiles.Store(path, newMem)
-				sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
+				mm.Push(newMem)
+				// sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
 
 			} else {
 				sourceFiles.Store(path, memoryOfFile)
@@ -376,10 +377,7 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 		}
 	}
 
-	length2 := com.LenSyncMap(fileHashes)
-	logger.InfoWithFuncName(fmt.Sprintf("%d", length2)) // TODO: delete?
-
-	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
+	logger.InfoWithFuncName(fmt.Sprintf("Group %d finished and, took : %s .source folder with %d files", groupID, time.Since(timer), initialCount))
 }
 
 func GetDuplicates(input *sync.Map) map[string]models.FileHash {
