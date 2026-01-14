@@ -17,11 +17,17 @@ import (
 var Logger *zap.SugaredLogger
 
 // init func always runs first no matter what. its a go thing
-func init() {
+func Initialize(enabled bool) {
+	if !enabled {
+		// Use a "No-Op" logger so the rest of your code doesn't crash
+		// calling Logger.Info, but nothing actually happens.
+		Logger = zap.NewNop().Sugar()
+		return
+	}
 
 	logFile, err := createLogFile()
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to initialize logger: %v", err))
 	}
 
 	// Create a new encoder configuration

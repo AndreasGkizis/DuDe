@@ -28,7 +28,7 @@ type ExecutionParams struct {
 	ParanoidMode          bool   `json:"paranoidMode"`
 	CPUs                  int    `json:"cpus"`
 	BufSize               int    `json:"bufSize"`
-	KeepLogs              bool   `json:"keepLogs"`
+	DebugMode             bool   `json:"debugMode"`
 	DualFolderModeEnabled bool   `json:"dualFolderModeEnabled"`
 }
 

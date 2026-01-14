@@ -147,6 +147,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 			app.cancelFunc = nil
 		}
 	}()
+	logger.Initialize(app.Args.DebugMode)
 
 	log := logger.Logger
 	timer := time.Now()

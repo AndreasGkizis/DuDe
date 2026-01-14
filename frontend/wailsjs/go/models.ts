@@ -9,7 +9,7 @@ export namespace models {
 	    paranoidMode: boolean;
 	    cpus: number;
 	    bufSize: number;
-	    keepLogs: boolean;
+	    debugMode: boolean;
 	    dualFolderModeEnabled: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -26,7 +26,7 @@ export namespace models {
 	        this.paranoidMode = source["paranoidMode"];
 	        this.cpus = source["cpus"];
 	        this.bufSize = source["bufSize"];
-	        this.keepLogs = source["keepLogs"];
+	        this.debugMode = source["debugMode"];
 	        this.dualFolderModeEnabled = source["dualFolderModeEnabled"];
 	    }
 	}

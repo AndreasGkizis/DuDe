@@ -121,12 +121,12 @@ document.querySelector('#app').innerHTML = `
                             </div>                           
                             
                             <div class="full-width-item checkbox-container">
-                                <input type="checkbox" id="keepLogs" class="checkbox-input">
-                                <label for="keepLogs">
-                                    Keep Logs
+                                <input type="checkbox" id="debugMode" class="checkbox-input">
+                                <label for="debugMode">
+                                    Debug Mode
                                     <span class="tooltip-container tooltip-top">
                                         <span class="info-icon">i</span>
-                                        <span class="tooltip-text">Decides on whether to keep logs of the execution or not (ON by default)</span>
+                                        <span class="tooltip-text">Decides on whether to keep execution logs or not</span>
                                     </span>
                                 </label>
                             </div>                           
@@ -256,7 +256,7 @@ window.startProcess = function () {
         paranoidMode: document.getElementById('paranoidMode').checked,
         cpus: parseInt(document.getElementById('cpus').value) || 0,
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
-        keepLogs: document.getElementById('keepLogs').checked,
+        debugMode: document.getElementById('debugMode').checked,
         dualFolderModeEnabled: false,
     };
 
