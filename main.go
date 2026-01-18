@@ -23,7 +23,7 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "DuDe",
-		Width:     1280, // Baseline for 1080p
+		Width:     1000, // Baseline for 1080p
 		Height:    800,
 		MinWidth:  800,
 		MinHeight: 600,

@@ -12,6 +12,7 @@
 
 ## FIXME
   - Fix status bar
+  - open results active when no results file present
 
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
