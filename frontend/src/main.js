@@ -1,185 +1,9 @@
 import './style.css';
+import htmlTemplate from './template.html?raw';
 
 import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist } from '../wailsjs/go/processing/FrontendApp';
 
-document.querySelector('#app').innerHTML = `
-            <div class="main-content-wrapper">
-                <h2 class="app-title">
-                    <pre class="ascii-art">
-██████╗  ██╗   ██╗        ██████╗  ███████╗ 
-██╔══██╗ ██║   ██║        ██╔══██╗ ██╔════╝ 
-██║  ██║ ██║   ██║ █████╗ ██║  ██║ █████╗   
-██║  ██║ ██║   ██║ ╚════╝ ██║  ██║ ██╔══╝   
-██████╔╝ ╚██████╔╝        ██████╔╝ ███████╗ 
-╚═════╝   ╚═════╝         ╚═════╝  ╚══════╝ 
---------------------------------------------
-    Welcome to Duplicate Detection      
---------------------------------------------
-</pre>
-                </h2>
-
-                <div class="main-container">
-
-                    <!-- 1. CORE CONFIGURATION SECTION (Directories) -->
-                    <div class="input-group mb-6">
-                        <h3>Settings</h3>
-                        
-                        <label for="sourceDir">Source Directory (Mandatory)
-                        <span class="tooltip-container">
-                                <span class="info-icon">i</span>
-                                <span class="tooltip-text">The **primary folder** where files will be scanned for duplicates.</span>
-                            </span></label>
-                        <div class="dir-chooser">
-                            <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
-                            <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
-                        </div>
-                        
-                        <label for="targetDir">Target Directory (Optional)
-                        
-                        <span class="tooltip-container">
-                                <span class="info-icon">i</span>
-                                <span class="tooltip-text">An **additional folder** to scan for duplicates. If used, results will only show duplicates found between Source and Target.</span>
-                            </span>
-                            </label>
-                        <div class="dir-chooser">
-                            <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Nothing selected!  use this button--->">
-                            <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
-                        </div>
-                    </div>
-
-                    <!-- 2. ADVANCED SETTINGS SECTION -->
-                    
-                    <div id="advancedSection" class="advanced-section" data-collapsed="true">
-                        <button id="advancedToggle" class="advanced-toggle" onclick="toggleAdvanced()">
-                            <span>Advanced Settings</span>
-                            <svg id="collapseIndicator" class="toggle-indicator" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </button>
-                        
-                        <div id="advancedContent" class="advanced-content">
-                            
-                            <div>
-                                <label for="cacheDir">Cache Directory
-                                
-                                <span class="tooltip-container tooltip-bottom-left">
-                                        <span class="info-icon">i</span>
-                                        <span class="tooltip-text ">Location to store pre-calculated file hashes. Reusing hashes speeds up subsequent runs. Defaults to OS temp folder.</span>
-                                    </span>
-                                    </label>
-                                <div class="dir-chooser">
-                                    <input class="input dir-input" id="cacheDir" type="text" value="" placeholder="/tmp/cache">
-                                    <button class="btn btn-select" onclick="selectAndSetDir('cacheDir')">Select</button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="resultsDir">Results File Path
-                                
-                                <span class="tooltip-container tooltip-bottom-left">
-                                        <span class="info-icon">i</span>
-                                        <span class="tooltip-text">The full path where the final JSON report will be saved. Defaults to OS temp folder.</span>
-                                    </span>
-                                    </label>
-                                <div class="dir-chooser">
-                                    <input class="input dir-input" id="resultsDir" type="text" value="" placeholder="/tmp/results.json">
-                                    <button class="btn btn-select" onclick="selectAndSetDir('resultsDir')">Select</button>
-                                </div>
-                            </div>
-
-                            <div class="full-width-item stacked-inputs">
-                                
-                                <div>
-                                    <label for="cpus">CPUs
-                                    
-                                    <span class="tooltip-container">
-                                            <span class="info-icon">i</span>
-                                            <span class="tooltip-text">Number of CPU cores to use for parallel hashing. 0 means all available cores.</span>
-                                        </span>
-                                        </label>
-                                    <input class="input" id="cpus" type="number" value="0" min="0" max="512">
-                                </div>
-
-                                <div>
-                                    <label for="bufSize">Buffer Size
-                                    <span class="tooltip-container">
-                                            <span class="info-icon">i</span>
-                                            <span class="tooltip-text">I/O buffer size (in KB) when reading files for hashing. Larger size can improve speed on HDDs.</span>
-                                        </span>
-                                        </label>
-                                    <input class="input" id="bufSize" type="number" value="1024" min="0" max="1048576">
-                                </div>
-                            </div>
-
-                            <div class="full-width-item checkbox-container">
-                                <input type="checkbox" id="paranoidMode" class="checkbox-input">
-                                <label for="paranoidMode">
-                                    Paranoid Mode (Strict Validation)
-                                    <span class="tooltip-container tooltip-top">
-                                        <span class="info-icon">i</span>
-                                        <span class="tooltip-text">Performs additional file size/timestamp checks before hashing to eliminate false positives. Slower!</span>
-                                    </span>
-                                </label>
-                            </div>                           
-                            
-                            <div class="full-width-item checkbox-container">
-                                <input type="checkbox" id="debugMode" class="checkbox-input">
-                                <label for="debugMode">
-                                    Debug Mode
-                                    <span class="tooltip-container tooltip-top">
-                                        <span class="info-icon">i</span>
-                                        <span class="tooltip-text">Decides on whether to keep execution logs or not</span>
-                                    </span>
-                                </label>
-                            </div>                           
-                            
-                            <div class="full-width-item checkbox-container">
-                                <input type="checkbox" id="keepMemory" class="checkbox-input" checked>
-                                <label for="keepMemory">
-                                    Keep Memory of run
-                                    <span class="tooltip-container tooltip-top">
-                                        <span class="info-icon">i</span>
-                                        <span class="tooltip-text">Decides on whether to keep a memory of the run in order to not redo work in case of looking up in the same folders (ON by default, creates a memory.db file which can be safely deleted)</span>
-                                    </span>
-                                </label>
-                            </div>
-   
-                        </div>
-                    </div>
-                    
-                    <!-- EXECUTION BUTTON -->
-                    <div class="execute-box">
-                        <button id="startButton" class="btn btn-execute" onclick="startProcess()">
-                                <span id="startText">Start</span>
-                                <span id="startButtonSpinner" class="spinner-hidden"></span>
-                            </button>
-                        <button id="stopButton" class="btn btn-stop" onclick="cancelProcess()" disabled>
-                            Stop
-                        </button>
-                    </div>
-
-                    <div class="results-button-container">
-                        <button id="showResultsButton" class="btn btn-show-results" onclick="showResults()" disabled>
-                            Open Results File
-                        </button>
-                    </div>
-
-                </div>
-
-                <!-- STATUS AREA -->
-                <div id="status-area">
-                    <div id="progress-title" class="progress-title">Ready to run.</div>
-                    
-                    <div class="progress-container">
-                        <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
-                    </div>
-
-                    <div id="detailed-status" class="detailed-status">
-                        Awaiting configuration and start command.
-                    </div>
-                </div>
-                
-                <footer class="app-footer">Made by Andreas with <3</footer>
-            </div>
-        `;
+document.querySelector('#app').innerHTML = htmlTemplate;
 
 // --- Elements for Status Update ---
 const progressTitle = document.getElementById("progress-title");
@@ -211,9 +35,6 @@ window.selectAndSetDir = function (inputId) {
 };
 
 // --- Collapsible Section Handler ---
-/**
- * Toggles the advanced settings section's collapsed state using max-height transition.
- */
 window.toggleAdvanced = function () {
     const section = document.getElementById('advancedSection');
     const content = document.getElementById('advancedContent');
@@ -346,15 +167,16 @@ function setupStatusListeners() {
             progressBar.innerText = cappedPercent > 5 ? `${displayPercent}%` : '';
             if (cappedPercent >= 100) {
                 progressTitle.innerText = "Process Complete.";
-                showResultsButton.disabled = false;
                 toggleStartSpinner(false);
+                refreshResultsButtonState();
+
             } else {
                 showResultsButton.disabled = true;
             }
         }
     });
 
-    // 2. Detailed Log Event (unchanged)
+    // 2. Detailed Log Event
     runtime.EventsOn("detailedLog", (message) => {
 
         const tolerance = 20;
@@ -363,11 +185,9 @@ function setupStatusListeners() {
         const logEntry = document.createElement('div');
         logEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
 
-        // Use appendChild instead of innerHTML +=
         detailedStatus.appendChild(logEntry);
 
         while (detailedStatus.children.length > MAX_LOG_ROWS) {
-            // detailedStatus.firstChild is the oldest element appended
             detailedStatus.removeChild(detailedStatus.firstChild);
         }
 
@@ -378,7 +198,7 @@ function setupStatusListeners() {
 
     });
 
-    // 3. Error Event (Updated)
+    // 3. Error Event
     runtime.EventsOn("errorUpdate", (message) => {
         progressTitle.innerText = "Error: Process Failed";
         detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] ${message}</div>`;
@@ -392,7 +212,6 @@ function setupStatusListeners() {
 
     runtime.EventsOn("executionFinished", (filePath) => {
     progressTitle.innerText = "Process Complete.";
-    showResultsButton.disabled = false; // ENABLE BUTTON
     toggleStartSpinner(false);
     startButton.disabled = false;
     stopButton.disabled = true;
