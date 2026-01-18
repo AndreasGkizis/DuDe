@@ -90,29 +90,19 @@ body {
     box-sizing: border-box;
 }
 
-.app-title {
-    font-size: 2rem;
-    font-weight: 800;
+.prompt-line {
     margin-bottom: 30px;
-    color: var(--color-accent);
-    text-align: center;
-    letter-spacing: 1px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.ascii-art {
-    margin: 0;
-    padding: 0;
-    font-family: inherit;
-    text-align: center;
+.output-status {
     color: var(--color-ascii-green);
-    font-size: clamp(0.6rem, 1.2vw, 1.1rem);
-    line-height: 1.2;
-    font-weight: normal;
-
-    /* ADDED: Terminal Glow Effect */
-    text-shadow:
-        0 0 20px var(--color-ascii-green),
-        0 0 0px var(--color-ascii-green);
+    font-weight: 700;
+    font-size: clamp(1.4rem, 2.5vw, 2rem);
+    text-shadow: 0 0 12px var(--color-ascii-green);
+    letter-spacing: 2px;
 }
 
 /* -------------------------------------------
