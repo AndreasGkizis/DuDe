@@ -37,6 +37,8 @@
 
 body {
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    /* 1rem is usually 16px. Using 1vw adds a tiny bit of growth on big screens */
+    font-size: clamp(14px, 0.9rem + 0.1vw, 18px);
     background-color: var(--color-bg-primary);
     color: var(--color-text-light);
     margin: 0;
@@ -60,7 +62,7 @@ body {
  * ------------------------------------------- */
 #app {
     flex-grow: 1;
-    padding: 40px 20px 80px 20px;
+    padding: 2vw 2vw 80px 2vw;
     /* Increased bottom padding to clear the fixed footer */
     display: flex;
     flex-direction: column;
@@ -69,9 +71,11 @@ body {
 
 .main-container {
     width: 100%;
-    max-width: 1200px;
+    /* clamp(MIN, PREFERRED, MAX) */
+    /* This ensures it doesn't get too skinny on 1080p or too wide on 4K */
+    max-width: clamp(800px, 85vw, 1600px);
     margin: 0 auto;
-    padding: 25px;
+    padding: clamp(15px, 2vw, 40px);    /* Padding scales too */
     background-color: var(--color-bg-secondary);
     border-radius: 12px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
@@ -93,8 +97,8 @@ body {
     font-family: inherit;
     text-align: center;
     color: var(--color-ascii-green);
-    font-size: 2rem;
-    line-height: 1.25;
+    font-size: clamp(0.6rem, 1.2vw, 1.1rem);
+    line-height: 1.2;
     font-weight: normal;
 
     /* ADDED: Terminal Glow Effect */
@@ -289,13 +293,15 @@ label {
 }
 
 .advanced-content {
-    padding: 15px;
+    padding: 20px;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 15px;
-    transition: none;
+    /* This automatically creates as many columns as fit (min 350px each) */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
     overflow: hidden;
-    max-height: 500px;
+    /* Increase max-height significantly so it doesn't clip on high-res */
+    max-height: 2000px; 
+    transition: max-height 0.3s ease;
 }
 
 .advanced-section[data-collapsed="true"] .advanced-content {
@@ -352,12 +358,23 @@ label {
 /* -------------------------------------------
  * 6. STATUS AREA
  * ------------------------------------------- */
-#status-area {
+/* #status-area {
     margin-top: 40px;
-    width: 100%;
-    max-width: 1200px;
+    width: 95%;
+    Keep it in sync with the main container width
+    max-width: clamp(800px, 85vw, 1600px);
     margin-left: auto;
     margin-right: auto;
+} */
+
+#status-area {
+    margin-top: 30px;
+    width: 100%;
+    /* This MUST match your .main-container max-width to look aligned */
+    max-width: clamp(800px, 85vw, 1200px); 
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* This centers the children inside the status area */
 }
 
 .progress-title {
@@ -390,7 +407,25 @@ label {
 }
 
 .detailed-status {
-    /* Console look */
+    height: clamp(250px, 30vh, 600px);
+    max-height: none;
+    overflow-y: auto;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #0d0d0d;
+    color: var(--color-text-light);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
+}
+
+.detailed-status {
+    width: 100%; /* Take up the full width of the status-area */
+    box-sizing: border-box; /* Ensures padding doesn't push it wider than 100% */
+    
+    /* Center the text inside the console lines if desired */
+    /* text-align: center; */ 
+    
     max-height: 250px;
     overflow-y: auto;
     padding: 15px;
@@ -399,6 +434,7 @@ label {
     color: var(--color-text-light);
     font-size: 0.875rem;
     line-height: 1.4;
+    border: 1px solid var(--color-border); /* Added border to match the top card */
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
 }
 
@@ -454,6 +490,7 @@ label {
         grid-column: span 2;
     }
 }
+
 /* -------------------------------------------
  * 9. TOOLTIP SYSTEM
  * ------------------------------------------- */
@@ -487,7 +524,7 @@ label {
 
 .info-icon:hover {
     /* Use accent hover variable if defined, otherwise keep existing logic */
-    background-color: var(--color-accent-hover, #00a854); 
+    background-color: var(--color-accent-hover, #00a854);
 }
 
 
@@ -513,12 +550,13 @@ label {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
     line-height: 1.3;
     white-space: normal;
-    
+
     /* SCENARIO 1: DEFAULT POSITION (LEFT of icon) */
     top: 50%;
     right: 0;
     left: auto;
-    margin-right: calc(100% + 10px); /* Shifts the box left by icon width + gap */
+    margin-right: calc(100% + 10px);
+    /* Shifts the box left by icon width + gap */
     transform: translateY(-50%);
 }
 
@@ -528,7 +566,7 @@ label {
     position: absolute;
     border-width: 5px;
     border-style: solid;
-    
+
     /* SCENARIO 1: DEFAULT ARROW (Points Right, from the right edge of the tooltip box) */
     top: 50%;
     left: 100%;
@@ -545,26 +583,28 @@ label {
 
 /* -------------------------------------------
  * 9.3 Positioning Overrides
- * ------------------------------------------- */
+ * -------------------------------------------*/
 
 /* --- SCENARIO 2: TOP --- */
 .tooltip-container.tooltip-top .tooltip-text {
     /* Reset horizontal positioning */
     right: auto;
-    margin-right: 0; 
-    
+    margin-right: 0;
+
     /* Vertical positioning */
     bottom: 150%;
     top: auto;
     left: 50%;
-    transform: translateX(-50%); /* Center horizontally */
+    transform: translateX(-50%);
+    /* Center horizontally */
 }
 
 .tooltip-container.tooltip-top .tooltip-text::after {
     /* Arrow points DOWN from the bottom edge of the tooltip box */
     top: 100%;
     left: 50%;
-    margin-top: 0; /* Clear margin */
+    margin-top: 0;
+    /* Clear margin */
     margin-left: -5px;
     border-color: var(--color-accent) transparent transparent transparent;
 }
@@ -574,9 +614,10 @@ label {
 .tooltip-container.tooltip-bottom-left .tooltip-text {
     /* Reset horizontal center positioning */
     right: auto;
-    margin-right: 0; 
-    transform: none; /* Clear previous transform */
-    
+    margin-right: 0;
+    transform: none;
+    /* Clear previous transform */
+
     /* Vertical positioning */
     top: 150%;
     bottom: auto;
@@ -584,16 +625,17 @@ label {
 
     /* Horizontal positioning (Right edge of tooltip aligned to Left side of icon) */
     right: 100%;
-    transform: translateX(5px); /* Small offset from the icon */
+    transform: translateX(5px);
+    /* Small offset from the icon */
 }
 
 .tooltip-container.tooltip-bottom-left .tooltip-text::after {
     /* Arrow points UP-RIGHT (from the top-right corner of the tooltip box) */
     top: 0;
-    left: 100%; 
+    left: 100%;
     margin-top: -5px;
     margin-left: -5px;
-    
+
     /* Create a diagonal arrow by combining borders */
     border-top: 5px solid var(--color-accent);
     border-right: 5px solid var(--color-accent);
@@ -606,13 +648,14 @@ label {
 .tooltip-container.tooltip-bottom .tooltip-text {
     /* Reset horizontal center positioning */
     right: auto;
-    margin-right: 0; 
-    
+    margin-right: 0;
+
     /* Vertical positioning */
     top: 150%;
     bottom: auto;
     left: 50%;
-    transform: translateX(-50%); /* Center horizontally */
+    transform: translateX(-50%);
+    /* Center horizontally */
 }
 
 .tooltip-container.tooltip-bottom .tooltip-text::after {
@@ -633,7 +676,8 @@ label {
 /* Fix for Paranoid Mode checkbox label (ensures text and icon are together) */
 .checkbox-container label {
     margin-bottom: 0;
-    justify-content: unset; /* Override the space-between from general label */
+    justify-content: unset;
+    /* Override the space-between from general label */
     gap: 10px;
 }
 
@@ -642,6 +686,7 @@ label {
     display: inline-flex;
     align-items: center;
 }
+
 /* -------------------------------------------
  * 10. SPINNER STYLES (UPDATED: Terminal Loading Dots)
  * ------------------------------------------- */
@@ -668,19 +713,23 @@ label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    
+
     /* Set up as the first dot */
     width: 6px;
     height: 6px;
     background-color: var(--color-accent);
     border-radius: 50%;
-    margin-right: 12px; /* Space for the next dot */
-    
+    margin-right: 12px;
+    /* Space for the next dot */
+
     /* Animation definition */
-    animation: dot-fade 1.5s infinite; /* 1.5s total cycle time */
-    animation-delay: 0s; /* Start immediately */
-    
-    display: none; /* Initially hidden */
+    animation: dot-fade 1.5s infinite;
+    /* 1.5s total cycle time */
+    animation-delay: 0s;
+    /* Start immediately */
+
+    display: none;
+    /* Initially hidden */
 }
 
 /* Second Dot (using ::before pseudo-element) */
@@ -688,16 +737,17 @@ label {
     content: '';
     position: absolute;
     top: 0;
-    left: -12px; /* Position to the left of the main dot */
-    
+    left: -12px;
+    /* Position to the left of the main dot */
+
     width: 6px;
     height: 6px;
     background-color: var(--color-accent);
     border-radius: 50%;
-    
+
     /* Inherit animation but delay by 0.5s */
     animation: dot-fade 1.5s infinite;
-    animation-delay: 0.5s; 
+    animation-delay: 0.5s;
 }
 
 /* Third Dot (using ::after pseudo-element) */
@@ -705,13 +755,14 @@ label {
     content: '';
     position: absolute;
     top: 0;
-    left: 12px; /* Position to the right of the main dot */
-    
+    left: 12px;
+    /* Position to the right of the main dot */
+
     width: 6px;
     height: 6px;
     background-color: var(--color-accent);
     border-radius: 50%;
-    
+
     /* Inherit animation but delay by 1.0s */
     animation: dot-fade 1.5s infinite;
     animation-delay: 1.0s;
@@ -719,11 +770,17 @@ label {
 
 /* The Keyframe Animation: Fade out/in */
 @keyframes dot-fade {
-    0%, 100% {
-        opacity: 0; /* Hidden state */
+
+    0%,
+    100% {
+        opacity: 0;
+        /* Hidden state */
     }
-    33%, 66% {
-        opacity: 1; /* Visible state */
+
+    33%,
+    66% {
+        opacity: 1;
+        /* Visible state */
     }
 }
 
@@ -736,5 +793,5 @@ label {
 
 #startButton.is-loading #startButtonSpinner {
     /* Ensures the spinner element (and its pseudo-elements) are visible */
-    display: block; 
+    display: block;
 }
