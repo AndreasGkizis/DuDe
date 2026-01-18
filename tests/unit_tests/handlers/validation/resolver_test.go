@@ -231,7 +231,7 @@ func TestResolveBufferSize(t *testing.T) {
 			expected: models.ExecutionParams{BufSize: 2048},
 		},
 		{
-			name:     "Specific valid buffer",
+			name:     "Specific valid buffer, over max",
 			params:   models.ExecutionParams{BufSize: 100000000000},
 			expected: models.ExecutionParams{BufSize: maxValue},
 		},

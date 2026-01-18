@@ -2,14 +2,26 @@ package unit_tests
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 
+	log "DuDe/internal/common/logger"
 	"DuDe/internal/models"
 	"DuDe/internal/processing"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
+
+func TestMain(m *testing.M) {
+	// Setup - runs ONCE before ALL tests in this package
+	log.Initialize(false)
+
+	// Run all tests
+	exitCode := m.Run()
+	// Exit with the test result code
+	os.Exit(exitCode)
+}
 
 func TestFindDuplicatesInMap(t *testing.T) {
 	// ARRANGE
