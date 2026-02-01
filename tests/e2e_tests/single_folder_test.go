@@ -2,6 +2,7 @@ package e2e_tests
 
 import (
 	"DuDe/internal/models"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,7 +78,7 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 
 	if errFinal == nil {
 		t.Errorf("Expected no results file to be produced, but file exists.")
-	} else if !os.IsNotExist(errFinal) {
+	} else if !errors.Is(errFinal, os.ErrNotExist) {
 		t.Errorf("Expected results file to not exist, but got unexpected error: %v", errFinal)
 	}
 }
@@ -318,7 +319,7 @@ func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 
 	if errFinal == nil {
 		t.Errorf("Expected no results file (due to content mismatch in paranoid mode), but file exists.")
-	} else if !os.IsNotExist(errFinal) {
+	} else if !errors.Is(errFinal, os.ErrNotExist) {
 		t.Errorf("Expected results file to not exist, but got unexpected error: %v", errFinal)
 	}
 }

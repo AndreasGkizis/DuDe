@@ -123,7 +123,7 @@ func createTestFilesByteArray(t *testing.T, files map[string][]byte) (string, fu
 // Deletes the directory in which test files were
 func deleteTestFolder(t *testing.T) error {
 	var err error
-	if err := os.Remove(baseDir); err != nil {
+	if err := os.RemoveAll(baseDir); err != nil {
 		t.Errorf("failed to clean up temporary directory %q: %v", baseDir, err)
 	}
 
@@ -134,7 +134,31 @@ func deleteTestFolder(t *testing.T) error {
 // It returns the parsed CSV lines or an error if any operation fails.
 func readResultsFile(t *testing.T, dir string) ([][]string, error) {
 	t.Helper()
-	filePath := filepath.Join(dir, common.ResFilename)
+	var filePath string
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		fmt.Printf("Error reading directory: %v\n", err)
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		// Skip directories to ensure we only process files
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+
+		// Check if file starts with "results" and ends with ".csv"
+		if strings.HasPrefix(name, "results") && strings.HasSuffix(name, ".csv") {
+			filePath = filepath.Join(dir, name)
+		}
+	}
+
+	if filePath == "" {
+		return nil, fmt.Errorf("no results file in %s: %w", dir, os.ErrNotExist)
+	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -146,10 +170,9 @@ func readResultsFile(t *testing.T, dir string) ([][]string, error) {
 
 	defer file.Close()
 
-	bla := csv.NewReader(file)
-
-	bla.Comma = process.GetDelimiterForOS()
-	allCsvLines, err := bla.ReadAll()
+	reader := csv.NewReader(file)
+	reader.Comma = process.GetDelimiterForOS()
+	allCsvLines, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSV data from %q: %w", filePath, err)
 	}
