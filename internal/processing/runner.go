@@ -15,7 +15,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -63,38 +62,36 @@ func (a *FrontendApp) CheckIfResultsExist() bool {
 	} else {
 		resultsDir = a.Args.ResultsDir
 	}
-	return FileExists(resultsDir)
+	return ResultsFileExist(resultsDir)
 }
 
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) ShowResults() error {
-	var resultsFilePath string
+	var resultsDirectory string
 
 	if a.Args.ResultsDir == "" {
-		resultsFilePath = filepath.Join(common.GetExecutableDir(), common.ResFilename)
+		resultsDirectory = common.GetExecutableDir()
 	} else {
-		resultsFilePath = filepath.Join(a.Args.ResultsDir, common.ResFilename)
+		resultsDirectory = a.Args.ResultsDir
 	}
 
-	if resultsFilePath == "" {
+	if resultsDirectory == "" {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Cannot open results: Results file path is not set.")
 		return fmt.Errorf("results file path is empty")
 	}
 
 	var cmd *exec.Cmd
+	platform := runtime.Environment(a.wailsCtx).Platform
 
-	// --- Determine OS-Specific Command ---
-	switch runtime.Environment(a.wailsCtx).Platform {
+	switch platform {
 	case "windows":
-		// Windows: uses 'start' command, which must be run via cmd.exe /C
-		cmd = exec.Command("cmd", "/C", "start", "", resultsFilePath)
+		cmd = exec.Command("explorer", resultsDirectory)
 	case "darwin":
-		// macOS: uses 'open' command
-		cmd = exec.Command("open", resultsFilePath)
+
+		cmd = exec.Command("open", resultsDirectory) // macOS: uses 'open' command
 	case "linux":
-		// Linux: uses 'xdg-open'
-		cmd = exec.Command("xdg-open", resultsFilePath)
+		cmd = exec.Command("xdg-open", resultsDirectory) // Linux: uses 'xdg-open'
 	default:
 		errorMsg := fmt.Sprintf("Unsupported operating system: %s", runtime.Environment(a.wailsCtx).Platform)
 		runtime.EventsEmit(a.wailsCtx, "errorUpdate", errorMsg)
@@ -104,7 +101,7 @@ func (a *FrontendApp) ShowResults() error {
 	// --- Execute Command ---
 	err := cmd.Start()
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsFilePath, err)
+		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsDirectory, err)
 		runtime.EventsEmit(a.wailsCtx, "errorUpdate", errorMsg)
 		return fmt.Errorf("failed to open file: %w", err)
 	}
