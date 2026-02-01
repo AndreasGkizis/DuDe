@@ -6,6 +6,8 @@ import (
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"context"
+	"strings"
+	"time"
 
 	"encoding/csv"
 	"errors"
@@ -81,11 +83,11 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 	log.InfoWithFuncName(fmt.Sprintf("Creating results file in: %s", fulldir))
 
 	if len(data) == 0 {
+		log.WarnWithFuncName("No results file produced, 0 duplicates found")
 		return nil
 	}
-	filepath := filepath.Join(fulldir, common.ResFilename)
 
-	file, err := os.Create(filepath)
+	file, err := createResultFile(fulldir)
 	if err != nil {
 		return err
 	}
@@ -123,11 +125,27 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 	return nil
 }
 
-func FileExists(path string) bool {
-	filepath := filepath.Join(path, common.ResFilename)
+func ResultsFileExist(path string) bool {
 
-	if _, err := os.Stat(filepath); err == nil {
-		return true
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		fmt.Printf("Error reading directory: %v\n", err)
+		return false
+	}
+
+	for _, entry := range entries {
+		// Skip directories to ensure we only process files
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+
+		// Check if file starts with "results" and ends with ".csv"
+		if strings.HasPrefix(name, "results") && strings.HasSuffix(name, ".csv") {
+			fmt.Printf("Found matching file: %s\n", name)
+			return true
+		}
 	}
 	return false
 }
@@ -142,4 +160,18 @@ func GetDelimiterForOS() rune {
 		log.InfoWithFuncName(fmt.Sprintf("Using (%c) delimiter for %s default.", delimiter, runtime.GOOS))
 	}
 	return delimiter
+}
+
+func createResultFile(fulldir string) (*os.File, error) {
+
+	datetime := time.Now()
+	filename := fmt.Sprint(common.Results_file_name, datetime.Format("_2006_01_02_15_04_05"), ".", common.Results_file_extension)
+	filepath := filepath.Join(fulldir, filename)
+
+	file, err := os.Create(filepath)
+	if err != nil {
+		log.ErrorWithFuncName(fmt.Sprintf("Results file with name [%s] already exists", filename))
+		return nil, err
+	}
+	return file, nil
 }

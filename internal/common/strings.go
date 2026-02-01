@@ -3,8 +3,9 @@ package common
 const (
 	Def = "default"
 
-	ResFilename = "results.csv"
-	MemFilename = "memory.db"
+	Results_file_name      = "results"
+	Results_file_extension = "csv"
+	MemFilename            = "memory.db"
 
 	ResultsFileSeperator = "------"
 
