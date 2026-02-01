@@ -8,12 +8,14 @@
   - use must pattern?
   - make file info work for all builds, also test it! 
   
-  - Release v1.0.0 via github packages!
-
 ## FIXME
   - Fix status bar
-  - open results active when no results file present
 
+## Features
+  - Allow multiple result files
+  - Delete alla and reset button
+  - clear cache button
+  
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
   1. use must pattern?
