@@ -151,31 +151,39 @@
         </button>
     </div>
 
-    <div class="results-button-container">
+    <!-- STATUS AREA -->
+    <div id="status-area">
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-row">
+                <span class="status-label">Current Job</span>
+                <span id="status-job" class="status-value">Ready to run.</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Files Checked</span>
+                <span id="status-files" class="status-value">&mdash;</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Duplicates Found</span>
+                <span id="status-duplicates" class="status-value">&mdash;</span>
+            </div>
+            <div id="status-error" class="status-error" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- OPEN RESULTS FOLDER - always visible -->
+    <!-- DUPLICATE RESULTS SECTION -->
+    <div class="results-header">
+        <span id="results-count-label">Results</span>
         <button id="showResultsButton" class="btn btn-show-results" onclick="showResults()" disabled>
             Open Results Folder
         </button>
     </div>
 
-
-    <!-- STATUS AREA -->
-    <div id="status-area">
-        <div id="progress-title" class="progress-title">Ready to run.</div>
-
-        <div class="progress-container">
-            <div id="progress-bar" class="progress-bar" style="width: 0%;"></div>
-        </div>
-
-        <div id="detailed-status" class="detailed-status">
-            Awaiting configuration and start command.
-        </div>
-    </div>
-
-    <!-- DUPLICATE RESULTS SECTION -->
     <div id="results-section" style="display:none;">
-        <div class="results-header">
-            <span id="results-count-label"></span>
-        </div>
         <div class="results-controls" id="results-controls-top">
             <button class="btn btn-page" id="prev-page-top" onclick="goToPage(currentPage - 1)">&#8592; Prev</button>
             <span id="page-indicator-top" class="page-indicator"></span>

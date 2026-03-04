@@ -7,9 +7,11 @@ import { FrontEnd_DuplicateGroup } from './models.js';
 document.querySelector('#app').innerHTML = htmlTemplate;
 
 // --- Elements for Status Update ---
-const progressTitle = document.getElementById("progress-title");
 const progressBar = document.getElementById("progress-bar");
-const detailedStatus = document.getElementById("detailed-status");
+const statusJob = document.getElementById("status-job");
+const statusFiles = document.getElementById("status-files");
+const statusDuplicates = document.getElementById("status-duplicates");
+const statusError = document.getElementById("status-error");
 const showResultsButton = document.getElementById('showResultsButton');
 
 const startButton = document.getElementById('startButton');
@@ -100,8 +102,12 @@ window.startProcess = function () {
     };
 
     // Clear old status/reset bar
-    progressTitle.innerText = "Starting up...";
-    detailedStatus.innerHTML = "";
+    statusJob.textContent = "Starting up...";
+    statusJob.classList.remove('status-value--success');
+    statusFiles.textContent = "\u2014";
+    statusDuplicates.textContent = "\u2014";
+    statusError.textContent = "";
+    statusError.style.display = "none";
     progressBar.style.width = '0%';
     // Reset color to the primary accent color (bright green)
     progressBar.style.backgroundColor = 'var(--color-accent)';
@@ -122,14 +128,15 @@ window.startProcess = function () {
     // 2. Call the Go backend function
     StartExecution(params)
         .then((result) => {
-            detailedStatus.innerHTML += `<div>${result}</div>`;
+            if (result) statusJob.textContent = result;
             startButton.disabled = false; // Enable Start again
             stopButton.disabled = true;   // Disable Stop
             toggleStartSpinner(false);
         })
         .catch((err) => {
-            progressTitle.innerText = `FATAL BINDING ERROR`;
-            detailedStatus.innerHTML = `<div style="color: #E57373;">${err}</div>`;
+            statusJob.textContent = "Fatal Binding Error";
+            statusError.textContent = String(err);
+            statusError.style.display = '';
             // Ensure buttons reset on binding error
             startButton.disabled = false;
             stopButton.disabled = true;
@@ -139,8 +146,7 @@ window.startProcess = function () {
 
 // --- Execution Cancellation Handler ---
 window.cancelProcess = function () {
-    progressTitle.innerText = "Cancellation Requested...";
-    detailedStatus.innerHTML += '<div style="color: #FFB74D; font-weight: bold;">[INFO] Sending cancellation signal to backend...</div>';
+    statusJob.textContent = "Cancellation Requested...";
 
     // Disable the stop button immediately to prevent multiple presses
     stopButton.disabled = true;
@@ -148,14 +154,15 @@ window.cancelProcess = function () {
     CancelExecution()
         .then(() => {
             // Backend received signal. The actual termination will be reflected by the status listener.
-            progressTitle.innerText = "Process Stopped.";
+            statusJob.textContent = "Process Stopped.";
             startButton.disabled = false; // Allow restart
             toggleStartSpinner(false);
         })
         .catch((err) => {
             // Should generally not happen if binding is correct, but good to handle.
-            progressTitle.innerText = `CANCELLATION ERROR`;
-            detailedStatus.innerHTML += `<div style="color: #E57373;">[ERROR] Failed to send cancellation: ${err}</div>`;
+            statusJob.textContent = "Cancellation Error";
+            statusError.textContent = `Failed to send cancellation: ${err}`;
+            statusError.style.display = '';
             startButton.disabled = false;
             toggleStartSpinner(false);
         });
@@ -164,19 +171,18 @@ window.cancelProcess = function () {
 window.showResults = function () {
     ShowResults()
         .catch((err) => {
-            detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] Failed to open results file: ${err}</div>`;
+            statusError.textContent = `Failed to open results file: ${err}`;
+            statusError.style.display = '';
         });
 };
-
-const MAX_LOG_ROWS = 100; // Define your maximum row limit (e.g., 100 rows) [less things on screen less lag]
 
 // --- Status Listener Setup ---
 function setupStatusListeners() {
     const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
     // 1. Progress/Title Update Event
     runtime.EventsOn("progressUpdate", (data) => {
-        if (progressTitle.innerText != data.title) {
-            progressTitle.innerText = data.title;
+        if (statusJob.textContent !== data.title) {
+            statusJob.textContent = data.title;
         }
         if (data.percent !== undefined) {
             // Ensure the value is treated as a number and cap it
@@ -189,7 +195,8 @@ function setupStatusListeners() {
             progressBar.style.width = `${cappedPercent}%`;
             progressBar.innerText = cappedPercent > 5 ? `${displayPercent}%` : '';
             if (cappedPercent >= 100) {
-                progressTitle.innerText = "Process Complete.";
+                statusJob.textContent = "Process Complete.";
+                statusJob.classList.add('status-value--success');
                 toggleStartSpinner(false);
                 refreshResultsButtonState();
 
@@ -199,32 +206,26 @@ function setupStatusListeners() {
         }
     });
 
-    // 2. Detailed Log Event
+    // 2. Detailed log / cancellation messages route to the job field
     runtime.EventsOn("detailedLog", (message) => {
+        statusJob.textContent = message;
+    });
 
-        const tolerance = 20;
-        const isScrolledToBottom = (detailedStatus.scrollHeight - detailedStatus.clientHeight) <= (detailedStatus.scrollTop + tolerance);
-
-        const logEntry = document.createElement('div');
-        logEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
-
-        detailedStatus.appendChild(logEntry);
-
-        while (detailedStatus.children.length > MAX_LOG_ROWS) {
-            detailedStatus.removeChild(detailedStatus.firstChild);
+    // 2a. Files count update
+    runtime.EventsOn("filesCount", (data) => {
+        if (data.total > 0) {
+            statusFiles.textContent = `${data.current} of ${data.total}`;
+        } else {
+            statusFiles.textContent = `${data.current}`;
         }
-
-        // 4. SCROLL: Only scroll to bottom if the user was already at the bottom
-        if (isScrolledToBottom) {
-            detailedStatus.scrollTop = detailedStatus.scrollHeight;
-        }
-
     });
 
     // 3. Error Event
     runtime.EventsOn("errorUpdate", (message) => {
-        progressTitle.innerText = "Error: Process Failed";
-        detailedStatus.innerHTML += `<div style="color: #E57373; font-weight: bold;">[ERROR] ${message}</div>`;
+        statusJob.textContent = "Error: Process Failed";
+        statusJob.classList.remove('status-value--success');
+        statusError.textContent = message;
+        statusError.style.display = '';
         progressBar.style.width = '100%';
         progressBar.style.backgroundColor = '#ff6b6b';
 
@@ -234,7 +235,8 @@ function setupStatusListeners() {
     });
 
     runtime.EventsOn("executionFinished", (filePath) => {
-    progressTitle.innerText = "Process Complete.";
+    statusJob.textContent = "Process Complete.";
+    statusJob.classList.add('status-value--success');
     toggleStartSpinner(false);
     startButton.disabled = false;
     stopButton.disabled = true;
@@ -394,13 +396,18 @@ function renderResults(rawGroups) {
     currentPage = 1;
     window.currentPage = 1;
 
-    if (allGroups.length === 0) {
+    const groupCount = allGroups.length;
+    const totalDups = allGroups.reduce((sum, g) => sum + (g.duplicates ? g.duplicates.length : 0), 0);
+    statusDuplicates.textContent = groupCount === 0 ? '0' : `${totalDups}`;
+
+    if (groupCount === 0) {
+        resultsCountLabel.textContent = 'Results';
         resultsSection.style.display = 'none';
         return;
     }
 
     resultsCountLabel.textContent =
-        `${allGroups.length} duplicate group${allGroups.length !== 1 ? 's' : ''} found`;
+        `Results — ${groupCount} group${groupCount !== 1 ? 's' : ''}, ${totalDups} duplicate${totalDups !== 1 ? 's' : ''}`;
     resultsSection.style.display = 'block';
     renderPage(1);
 }

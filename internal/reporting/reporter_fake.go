@@ -23,6 +23,11 @@ func (l NoOpReporter) LogProgress(ctx context.Context, title string, percent flo
 	// l.T.Logf("E2E Progress: %s - %d%%", title, percent)
 }
 
+// LogFilesCount satisfies the interface contract but executes no Wails code.
+func (l NoOpReporter) LogFilesCount(ctx context.Context, current, total int64) {
+	// l.T.Logf("E2E Files Count: %d / %d", current, total)
+}
+
 // FinishExecution signals the endof execution to the frontend.
 func (l NoOpReporter) FinishExecution(ctx context.Context) {
 }
