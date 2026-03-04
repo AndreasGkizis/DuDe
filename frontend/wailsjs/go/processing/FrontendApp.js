@@ -10,6 +10,14 @@ export function CheckIfResultsExist() {
   return window['go']['processing']['FrontendApp']['CheckIfResultsExist']();
 }
 
+export function GetResults() {
+  return window['go']['processing']['FrontendApp']['GetResults']();
+}
+
+export function RevealInExplorer(arg1) {
+  return window['go']['processing']['FrontendApp']['RevealInExplorer'](arg1);
+}
+
 export function SelectFolder() {
   return window['go']['processing']['FrontendApp']['SelectFolder']();
 }
