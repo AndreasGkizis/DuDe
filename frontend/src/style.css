@@ -3,15 +3,15 @@
  * ------------------------------------------- */
 :root {
     /* --- THEME COLORS (All centralized here) --- */
-    --color-bg-primary: #1e1e2e;
-    /* Deep Charcoal/Navy */
-    --color-bg-secondary: #282a36;
-    /* Container Background */
-    --color-bg-tertiary: #343746;
+    --color-bg-primary: #1a1a1a;
+    /* Asphalt Dark */
+    --color-bg-secondary: #222222;
+    /* Panel Background */
+    --color-bg-tertiary: #2e2e2e;
     /* Input/Tertiary Background */
-    --color-text-light: #f8f8f2;
-    /* Nearly White Text */
-    --color-text-medium: #9b9fae;
+    --color-text-light: #e8e8e8;
+    /* Off-White Text */
+    --color-text-medium: #a4a3a3;
     /* Muted Gray Text/Borders */
     --color-accent: #8be9fd;
     /* Primary Accent: Bright Aqua/Teal */
@@ -23,11 +23,11 @@
     /* Danger/Stop: Pink/Magenta */
     --color-danger-hover: #e56bc4;
     /* Danger Hover (Slightly darker) */
-    --color-border: #44475a;
-    /* Soft Border Color */
-    --color-disabled-bg: #383838;
+    --color-border: #3a3a3a;
+    /* Subtle Border Color */
+    --color-disabled-bg: #2e2e2e;
     /* Disabled Button Background */
-    --color-disabled-border: #555555;
+    --color-disabled-border: #484848;
     /* Disabled Button Border */
     --color-error: #E57373;
     /* Text/Status Error Color */
@@ -65,8 +65,8 @@ body {
  * ------------------------------------------- */
 #app {
     flex-grow: 1;
-    padding: 2vw 2vw 80px 2vw;
-    /* Increased bottom padding to clear the fixed footer */
+    padding: 16px 0 80px 0;
+    /* bottom padding to clear the fixed footer */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -74,24 +74,20 @@ body {
 
 .main-container {
     width: 100%;
-    /* clamp(MIN, PREFERRED, MAX) */
-    /* This ensures it doesn't get too skinny on 1080p or too wide on 4K */
-    max-width: clamp(800px, 85vw, 1600px);
-    /* clamp(MIN, PREFERRED, MAX) */
-    /* This ensures it doesn't get too skinny on 1080p or too wide on 4K */
-    max-width: clamp(800px, 85vw, 1600px);
+    max-width: clamp(800px, 96vw, 1800px);
     margin: 0 auto;
-    padding: clamp(15px, 2vw, 40px);    /* Padding scales too */
-    padding-right: clamp(15px, 2vw, 40px);  /* Ensure right padding matches left */
-    background-color: var(--color-bg-secondary);
-    border-radius: 12px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--color-border);
+    padding: clamp(10px, 1.5vw, 24px) clamp(10px, 1.5vw, 24px);
+    background-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
     box-sizing: border-box;
 }
 
 .prompt-line {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -228,22 +224,25 @@ label {
 }
 
 .btn-select {
-    background-color: var(--color-border);
-    color: var(--color-text-light);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    background-color: transparent;
+    color: var(--color-text-medium);
+    border: 1px solid var(--color-border);
+    box-shadow: none;
 }
 
 .btn-select:hover {
-    background-color: var(--color-text-medium);
+    color: var(--color-text-light);
+    border-color: var(--color-text-medium);
 }
 
 .btn-execute {
     width: 100%;
-    padding: 12px;
-    font-size: 1.125rem;
-    background-color: var(--color-accent);
-    color: var(--color-bg-primary);
-    margin-top: 15px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    background-color: transparent;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    margin-top: 0;
 }
 
 .btn-show-results {
@@ -284,37 +283,42 @@ label {
     cursor: default;
 }
 
-.btn-execute:hover {
-    background-color: var(--color-accent-hover);
-    box-shadow: 0 4px 10px var(--color-accent);
+.btn-execute:hover:not(:disabled) {
+    background-color: var(--color-accent);
+    color: var(--color-bg-primary);
+    box-shadow: none;
 }
 
 .btn-stop {
     width: 100%;
-    padding: 12px;
-    font-size: 1.125rem;
-    background-color: var(--color-danger);
-    color: var(--color-bg-primary);
-    margin-top: 15px;
-    margin-left: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    background-color: transparent;
+    color: #e53935;
+    border: 1px solid #e53935;
+    margin-top: 0;
+    margin-left: 0;
 }
 
-.btn-stop:hover {
-    background-color: var(--color-danger-hover);
-    box-shadow: 0 4px 10px var(--color-danger);
+.btn-stop:hover:not(:disabled) {
+    background-color: #e53935;
+    color: var(--color-bg-primary);
+    box-shadow: none;
 }
 
 .btn-full-reset {
     width: 100%;
-    padding: 12px;
-    font-size: 1.125rem;
-    background-color: #b45309;
-    color: var(--color-bg-primary);
+    padding: 10px 12px;
+    font-size: 1rem;
+    background-color: transparent;
+    color: #b45309;
+    border: 1px solid #b45309;
 }
 
 .btn-full-reset:hover:not(:disabled) {
-    background-color: #92400e;
-    box-shadow: 0 4px 10px #b45309;
+    background-color: #b45309;
+    color: var(--color-bg-primary);
+    box-shadow: none;
 }
 
 .btn:disabled {
@@ -333,9 +337,14 @@ label {
 }
 
 .btn-execute,
-.btn-stop,
+.btn-stop {
+    flex: 2;
+    width: auto;
+    margin-top: 0;
+}
+
 .btn-full-reset {
-    flex-grow: 1;
+    flex: 1;
     width: auto;
     margin-top: 0;
 }
@@ -344,38 +353,44 @@ label {
  * 5. COLLAPSIBLE SECTION
  * ------------------------------------------- */
 .advanced-section {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    margin-bottom: 25px;
+    border: none;
+    border-top: 1px solid var(--color-border);
+    border-radius: 0;
+    margin-bottom: 20px;
+    padding-top: 12px;
 }
 
 .advanced-toggle {
     width: 100%;
-    padding: 15px;
-    background-color: var(--color-bg-tertiary);
-    border: none;
-    border-radius: 8px;
-    text-align: left;
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--color-text-light);
+    padding: 7px 12px;
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-medium);
     display: flex;
-    justify-content: space-between;
+    gap: 6px;
+    justify-content: center;
     align-items: center;
     cursor: pointer;
+    margin-bottom: 0;
+    transition: color 0.15s, border-color 0.15s;
 }
 
 .advanced-toggle:hover {
-    background-color: var(--color-border);
-    /* Using border color for hover */
+    color: var(--color-text-light);
+    border-color: var(--color-text-medium);
+    background-color: transparent;
 }
 
 .toggle-indicator {
-    width: 20px;
-    height: 20px;
+    width: 14px;
+    height: 14px;
     transform: rotate(0deg);
     transition: transform 0.3s ease-in-out;
-    color: var(--color-text-medium);
+    color: currentColor;
 }
 
 .advanced-section[data-collapsed="true"] .toggle-indicator {
@@ -383,14 +398,12 @@ label {
 }
 
 .advanced-content {
-    padding: 20px;
+    padding: 16px 0 4px 0;
     display: grid;
-    /* This automatically creates as many columns as fit (min 250px each) */
     grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
-    gap: 25px;
+    gap: 20px;
     overflow: hidden;
-    /* Increase max-height significantly so it doesn't clip on high-res */
-    max-height: 2000px; 
+    max-height: 2000px;
     transition: max-height 0.3s ease;
 }
 
@@ -460,7 +473,7 @@ label {
     width: 100%;
     background-color: var(--color-bg-tertiary);
     border-radius: 9999px;
-    height: 16px;
+    height: 24px;
     margin-bottom: 16px;
 }
 
