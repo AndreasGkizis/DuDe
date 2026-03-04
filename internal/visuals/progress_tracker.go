@@ -53,22 +53,12 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 				isItTheStart = false
 			}
 			pt.Reporter.LogProgress(pt.Context, name, float64(percentage))
+			pt.Reporter.LogFilesCount(pt.Context, int64(curr), int64(tot))
 
 			progress := int(float64(pt.BarLength) * percentage / 100)
-
-			pt.Reporter.LogDetailedStatus(
-				pt.Context,
-				fmt.Sprintf("%s %.2f%%  ...%d of %d Files", name, percentage, int(curr), int(tot)),
-			)
-
 			pt.lastDisplayedProgress = progress
 
 			if curr == tot && !isItTheStart {
-
-				pt.Reporter.LogDetailedStatus(
-					pt.Context,
-					fmt.Sprintf("%s %.2f%%  ...%d of %d Files | Done.", name, percentage, int(curr), int(tot)),
-				)
 				return
 			}
 		}

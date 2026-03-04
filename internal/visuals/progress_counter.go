@@ -63,18 +63,13 @@ func (pc *ProgressCounter) updateProgressCounterLoop(name string) {
 		case <-ticker.C:
 			// TICK: This is the UI Update trigger.
 			currentCount := atomic.LoadInt64(&pc.currentProgress)
-
-			// Only update the UI if the count has changed since the last tick
-			pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Read %d files", currentCount))
+			pc.Reporter.LogFilesCount(pc.Context, currentCount, 0)
 
 		case _, ok := <-pc.Channel:
 			if !ok {
 				// Channel closed (all senders finished normally): Exit loop
 				currentCount := atomic.LoadInt64(&pc.currentProgress)
-
-				// Final log and 100% progress must be sent immediately upon completion
-				pc.Reporter.LogDetailedStatus(pc.Context, fmt.Sprintf("Finished reading %d files.", currentCount))
-
+				pc.Reporter.LogFilesCount(pc.Context, currentCount, 0)
 				return
 			}
 			// 4. Normal increment of progress

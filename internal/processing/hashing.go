@@ -20,6 +20,7 @@ import (
 
 func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
 
+	time.Sleep(1000 * time.Millisecond)
 	numFilesToHash := com.LenSyncMap(sourceFiles)
 	if numFilesToHash == 0 {
 		mm.SenderFinished()
