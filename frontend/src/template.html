@@ -1,6 +1,6 @@
 
         <div class="prompt-line">
-            <span class="output-status">⫔⫔⫔ Welcome to DuDe! ⫓⫓⫓</span>
+            <span class="output-status">Welcome to DuDe!</span>
         </div>
 
 <div class="main-container">
@@ -144,6 +144,9 @@
         <button id="stopButton" class="btn btn-stop" onclick="cancelProcess()" disabled>
             Stop
         </button>
+        <button id="fullResetButton" class="btn btn-full-reset" onclick="fullReset()">
+            Full Reset
+        </button>
     </div>
 
     <!-- STATUS AREA -->
@@ -173,9 +176,14 @@
     <!-- DUPLICATE RESULTS SECTION -->
     <div class="results-header">
         <span id="results-count-label">Results</span>
-        <button id="showResultsButton" class="btn btn-show-results" onclick="showResults()" disabled>
-            Open Results Folder
-        </button>
+        <div class="results-header-actions">
+            <button id="clearResultsButton" class="btn btn-clear-results" onclick="clearResults()" disabled>
+                Clear Results
+            </button>
+            <button id="showResultsButton" class="btn btn-show-results" onclick="showResults()" disabled>
+                Open Results Folder
+            </button>
+        </div>
     </div>
 
     <div id="results-section" style="display:none;">

@@ -9,8 +9,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// NewDatabase returns a new database connection
-func NewDatabase(dir string) (*sql.DB, error) {
+// InitializeDatabase returns a new database connection
+func InitializeDatabase(dir string) (*sql.DB, error) {
 	dbpath := filepath.Join(dir, common.MemFilename)
 
 	db, err := sql.Open("sqlite", dbpath)
@@ -23,6 +23,15 @@ func NewDatabase(dir string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	return db, nil
+}
+func GetDatabaseConnection(dir string) (*sql.DB, error) {
+	dbpath := filepath.Join(dir, common.MemFilename)
+
+	db, err := sql.Open("sqlite", dbpath)
+	if err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -44,6 +53,11 @@ func AutoMigrate(db *sql.DB) error {
 		return err
 	}
 	return nil
+}
+
+func TruncateDatabase(db *sql.DB) error {
+	_, err := db.Exec("DELETE FROM file_hashes")
+	return err
 }
 
 // Removes db file, currently unsed but maybe useful

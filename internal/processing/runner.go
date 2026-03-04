@@ -4,6 +4,7 @@ import (
 	"DuDe/internal/common"
 	"DuDe/internal/common/fs"
 	log "DuDe/internal/common/logger"
+	database "DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/reporting"
 
@@ -46,6 +47,44 @@ func (app *FrontendApp) CancelExecution() {
 		log.InfoWithFuncName("Execution cancellation requested by user.")
 		app.cancelFunc()
 	}
+}
+
+// FullReset stops any running execution, clears the cache database, and resets
+// all transient application state (Args, lastResults) back to zero values.
+// The Wails context, execution context, cancel func, reporter, and platform are
+// intentionally left untouched.
+// A "fullReset" event is emitted so the frontend can reset its own state.
+func (app *FrontendApp) FullReset() error {
+	// Stop any in-flight execution; the defer inside startExecution owns the nil-out.
+	if app.cancelFunc != nil {
+		log.InfoWithFuncName("FullReset: cancelling in-flight execution.")
+		app.cancelFunc()
+	}
+
+	// Resolve the cache directory — mirror the resolver fallback.
+	cacheDir := app.Args.CacheDir
+	if cacheDir == "" {
+		cacheDir = common.GetSafeResultsDir(app.platform)
+	}
+
+	// Open the DB and truncate all cached hashes.
+	// A missing or un-initialised DB is not a fatal error for a full reset.
+	db, err := database.GetDatabaseConnection(cacheDir)
+	if err != nil {
+		log.WarnWithFuncName(fmt.Sprintf("FullReset: could not open cache DB (may not exist yet): %v", err))
+	} else {
+		if truncErr := database.TruncateDatabase(db); truncErr != nil {
+			log.WarnWithFuncName(fmt.Sprintf("FullReset: could not truncate cache: %v", truncErr))
+		}
+		db.Close()
+	}
+
+	// Reset transient state only.
+	app.Args = models.ExecutionParams{}
+	app.lastResults = nil
+
+	runtime.EventsEmit(app.wailsCtx, "fullReset", nil)
+	return nil
 }
 
 // startup is called when the app starts. The context is saved
