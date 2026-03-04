@@ -4,17 +4,16 @@ import (
 	"DuDe/internal/common"
 	"DuDe/internal/common/fs"
 	log "DuDe/internal/common/logger"
-	"DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/reporting"
-	"database/sql"
+
 	"errors"
 
 	"DuDe/internal/models"
 	"DuDe/internal/visuals"
 	"context"
 	"fmt"
-	"os/exec"
+
 	"sync"
 	"time"
 
@@ -26,9 +25,11 @@ type FrontendApp struct {
 	wailsCtx   context.Context    // PERMANENT: Wails Context (Set once in WailsInit)
 	cancelFunc context.CancelFunc // TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
 
-	execCtx  context.Context
-	Args     models.ExecutionParams
-	reporter reporting.Reporter
+	platform    string
+	execCtx     context.Context
+	Args        models.ExecutionParams
+	reporter    reporting.Reporter
+	lastResults []models.FileHash // duplicate groups from the last completed execution
 }
 
 // NewApp creates a new App application struct
@@ -51,6 +52,7 @@ func (app *FrontendApp) CancelExecution() {
 // so we can call the runtime methods
 func (a *FrontendApp) Startup(ctx context.Context) {
 	a.wailsCtx = ctx
+	a.platform = runtime.Environment(a.wailsCtx).Platform
 }
 
 // CheckIfResultsExist returns true if the results JSON file is found on disk
@@ -58,7 +60,7 @@ func (a *FrontendApp) CheckIfResultsExist() bool {
 	var resultsDir string
 
 	if a.Args.ResultsDir == "" {
-		resultsDir = common.GetExecutableDir()
+		resultsDir = common.GetSafeResultsDir(a.platform)
 	} else {
 		resultsDir = a.Args.ResultsDir
 	}
@@ -71,7 +73,7 @@ func (a *FrontendApp) ShowResults() error {
 	var resultsDirectory string
 
 	if a.Args.ResultsDir == "" {
-		resultsDirectory = common.GetExecutableDir()
+		resultsDirectory = common.GetSafeResultsDir(a.platform)
 	} else {
 		resultsDirectory = a.Args.ResultsDir
 	}
@@ -81,25 +83,15 @@ func (a *FrontendApp) ShowResults() error {
 		return fmt.Errorf("results file path is empty")
 	}
 
-	var cmd *exec.Cmd
-	platform := runtime.Environment(a.wailsCtx).Platform
-
-	switch platform {
-	case "windows":
-		cmd = exec.Command("explorer", resultsDirectory)
-	case "darwin":
-
-		cmd = exec.Command("open", resultsDirectory) // macOS: uses 'open' command
-	case "linux":
-		cmd = exec.Command("xdg-open", resultsDirectory) // Linux: uses 'xdg-open'
-	default:
-		errorMsg := fmt.Sprintf("Unsupported operating system: %s", runtime.Environment(a.wailsCtx).Platform)
-		runtime.EventsEmit(a.wailsCtx, "errorUpdate", errorMsg)
-		return fmt.Errorf("%s", errorMsg)
+	cmd, err := common.GetOpenDirectoryFunc(resultsDirectory, a.platform)
+	if err != nil {
+		a.reporter.LogDetailedStatus(a.wailsCtx, fmt.Sprintf("Cannot open results: %v", err))
+		runtime.EventsEmit(a.wailsCtx, "errorUpdate", err.Error())
+		return fmt.Errorf("%s", err.Error())
 	}
 
 	// --- Execute Command ---
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsDirectory, err)
 		runtime.EventsEmit(a.wailsCtx, "errorUpdate", errorMsg)
@@ -107,6 +99,26 @@ func (a *FrontendApp) ShowResults() error {
 	}
 
 	return nil
+}
+
+// RevealInExplorer opens the OS file manager with the given file path highlighted/selected.
+// It is directly exposed to the JavaScript frontend.
+func (a *FrontendApp) RevealInExplorer(path string) error {
+	cmd, err := common.GetOpenDirectoryFunc(common.GetFileDir(path), a.platform)
+	if err != nil {
+		return fmt.Errorf("unsupported platform: %s", a.platform)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to reveal file in explorer: %w", err)
+	}
+	return nil
+}
+
+// GetResults returns the duplicate groups found in the last completed execution.
+// Each FileHash in the returned slice has DuplicatesFound populated.
+// Returns nil if no execution has completed yet.
+func (a *FrontendApp) GetResults() []models.FileHash {
+	return a.lastResults
 }
 
 // SelectFolder opens a native folder selection dialog and returns the selected path.
@@ -135,7 +147,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		return errors.New("wails application context is not initialized")
 	}
 	a.execCtx, a.cancelFunc = context.WithCancel(a.wailsCtx)
-	executableDir := common.GetExecutableDir()
+	safeDir := common.GetSafeResultsDir(a.platform)
 
 	resolver := validation.Resolver{
 		V: validation.Validator{
@@ -143,7 +155,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		},
 	}
 
-	if err := resolver.ResolveAndValidateArgs(&args, executableDir); err != nil {
+	if err := resolver.ResolveAndValidateArgs(&args, safeDir); err != nil {
 		// Log the failure to the frontend
 		a.reporter.LogDetailedStatus(a.wailsCtx, fmt.Sprintf("Argument Validation Failed: %v", err))
 		// Throw an error back to the frontend to stop execution
@@ -155,6 +167,8 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 }
 
 func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
+	var err error
+
 	// Ensure cleanup of stored context when execution finishes normally
 	defer func() {
 		if app.cancelFunc != nil {
@@ -166,16 +180,6 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	timer := time.Now()
 	log.LogModelArgs(app.Args)
-
-	var localdb *sql.DB
-	var err error
-
-	if app.Args.UseCache {
-		localdb, err = db.NewDatabase(app.Args.CacheDir)
-		if err != nil {
-			log.ErrorWithFuncName(err.Error())
-		}
-	}
 
 	errChan := make(chan error, 100)
 	go func() {
@@ -192,7 +196,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	}
 
 	failedCounter := 0
-	mm := NewMemoryManager(&app.Args, localdb, app.Args.BufSize, 1)
+	mm := NewMemoryManager(&app.Args, app.Args.BufSize, 1)
 	mm.Start()
 
 	rt := visuals.NewProgressCounter(app.execCtx, app.reporter, "Reading", int(senderGroups))
@@ -210,12 +214,10 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	}
 	rt.WaitForSenders()
 
-	len := common.LenSyncMap(&syncSourceDirFileMap)
-	if len == 0 {
-
+	fileCount := common.LenSyncMap(&syncSourceDirFileMap)
+	if fileCount == 0 {
 		app.reporter.LogProgress(app.execCtx, "Error", 0)
 		app.reporter.LogDetailedStatus(app.execCtx, "No files found in directory/directories! Check your paths again")
-
 		return nil
 	}
 
@@ -239,6 +241,17 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	FindDuplicatesInMap(app.execCtx, &syncSourceDirFileMap, findTracker)
 
 	findTracker.Wait()
+
+	// Collect duplicate groups and cache them for GetResults()
+	var groups []models.FileHash
+	syncSourceDirFileMap.Range(func(_, v any) bool {
+		if fh, ok := v.(models.FileHash); ok && len(fh.DuplicatesFound) > 0 {
+			groups = append(groups, fh)
+		}
+		return true
+	})
+	app.lastResults = groups
+
 	length := common.LenSyncMap(&syncSourceDirFileMap)
 
 	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
@@ -254,8 +267,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 			compareTracker.Wait()
 		}
 
-		flattenedDuplicates := GetFlattened(&syncSourceDirFileMap)
-		err = SaveResultsAsCSV(flattenedDuplicates, app.Args.ResultsDir)
+		err = SaveResultsAsCSV(&syncSourceDirFileMap, app.Args.ResultsDir)
 		if err != nil {
 			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
 			return err

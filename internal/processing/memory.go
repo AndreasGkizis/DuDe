@@ -19,11 +19,20 @@ type MemoryManager struct {
 	isActive    bool
 }
 
-func NewMemoryManager(args *models.ExecutionParams, db *sql.DB, bufferSize, senderCount int) *MemoryManager {
+func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int) *MemoryManager {
+	var localdb *sql.DB
+	var err error
+	if args.UseCache {
+		localdb, err = database.NewDatabase(args.CacheDir)
+		if err != nil {
+			log.ErrorWithFuncName(err.Error())
+		}
+	}
+
 	return &MemoryManager{
 		senderCount: int32(senderCount),
 		Channel:     make(chan models.FileHash, bufferSize),
-		repo:        *database.NewFileHashRepository(db),
+		repo:        *database.NewFileHashRepository(localdb),
 		isActive:    args.UseCache}
 }
 

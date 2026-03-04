@@ -78,11 +78,12 @@ func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressC
 	}
 }
 
-func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
-	log.InfoWithFuncName(fmt.Sprintf("Number of duplicates found: %d", len(data)))
+func SaveResultsAsCSV(data *sync.Map, fulldir string) error {
+	flattened_data := GetFlattened(data)
+	log.InfoWithFuncName(fmt.Sprintf("Number of duplicates found: %d", len(flattened_data)))
 	log.InfoWithFuncName(fmt.Sprintf("Creating results file in: %s", fulldir))
 
-	if len(data) == 0 {
+	if len(flattened_data) == 0 {
 		log.WarnWithFuncName("No results file produced, 0 duplicates found")
 		return nil
 	}
@@ -109,7 +110,7 @@ func SaveResultsAsCSV(data []models.ResultEntry, fulldir string) error {
 		return err
 	}
 
-	for _, entry := range data {
+	for _, entry := range flattened_data {
 		err = writer.Write([]string{
 			entry.Filename,
 			entry.FullPath,

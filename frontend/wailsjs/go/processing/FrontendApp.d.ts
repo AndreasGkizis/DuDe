@@ -6,6 +6,10 @@ export function CancelExecution():Promise<void>;
 
 export function CheckIfResultsExist():Promise<boolean>;
 
+export function GetResults():Promise<Array<models.FileHash>>;
+
+export function RevealInExplorer(arg1:string):Promise<void>;
+
 export function SelectFolder():Promise<string>;
 
 export function ShowResults():Promise<void>;

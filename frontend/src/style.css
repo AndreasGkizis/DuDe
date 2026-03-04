@@ -783,3 +783,188 @@ label {
     /* Ensures the spinner element (and its pseudo-elements) are visible */
     display: block;
 }
+
+/* ===========================
+   DUPLICATE RESULTS SECTION
+   =========================== */
+
+#results-section {
+    margin-top: 24px;
+    width: 100%;
+}
+
+.results-header {
+    font-size: 0.88em;
+    color: var(--color-text-medium);
+    margin-bottom: 10px;
+    padding: 0 2px;
+    letter-spacing: 0.02em;
+}
+
+/* --- Pagination Controls --- */
+.results-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 8px 0;
+}
+
+.page-indicator {
+    color: var(--color-text-medium);
+    font-size: 0.85em;
+    min-width: 110px;
+    text-align: center;
+}
+
+.btn-page {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-medium);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-page:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.btn-page:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+/* --- Results List --- */
+.results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* --- Result Card --- */
+.result-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+
+.result-card:hover {
+    border-color: #5a5d72;
+}
+
+.result-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+}
+
+.result-file-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+
+.result-filename {
+    color: var(--color-text-light);
+    font-weight: 600;
+    font-size: 0.88em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-filepath {
+    color: var(--color-text-medium);
+    font-size: 0.76em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.result-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* --- Show Button --- */
+.btn-show {
+    background: transparent;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.78em;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-show:hover {
+    background: var(--color-accent);
+    color: var(--color-bg-primary);
+}
+
+/* --- Toggle Button --- */
+.btn-toggle {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-medium);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.78em;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-toggle:hover {
+    border-color: var(--color-text-light);
+    color: var(--color-text-light);
+}
+
+/* --- Collapsible Card Body --- */
+.result-card-body {
+    display: none;
+    border-top: 1px solid var(--color-border);
+    padding: 6px 14px 10px;
+}
+
+.result-card.is-open .result-card-body {
+    display: block;
+}
+
+/* --- Duplicate Item (inside card body) --- */
+.duplicate-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--color-bg-tertiary);
+}
+
+.duplicate-item:last-child {
+    border-bottom: none;
+}
+
+.duplicate-item .result-file-info {
+    flex: 1;
+}
+
+.duplicate-item .result-filename {
+    font-weight: 400;
+    color: var(--color-text-medium);
+}

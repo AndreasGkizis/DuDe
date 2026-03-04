@@ -1,7 +1,8 @@
 import './style.css';
 import htmlTemplate from './template.html?raw';
 
-import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, RevealInExplorer } from '../wailsjs/go/processing/FrontendApp';
+import { FrontEnd_DuplicateGroup } from './models.js';
 
 document.querySelector('#app').innerHTML = htmlTemplate;
 
@@ -16,6 +17,23 @@ const stopButton = document.getElementById('stopButton');
 
 const startText = document.getElementById('startText');
 const startButtonSpinner = document.getElementById('startButtonSpinner');
+
+// --- Duplicate Results State ---
+const PAGE_SIZE = 3;
+let allGroups = [];
+let currentPage = 1;
+
+const resultsSection = document.getElementById('results-section');
+const resultsList = document.getElementById('results-list');
+const resultsCountLabel = document.getElementById('results-count-label');
+const prevPageTop = document.getElementById('prev-page-top');
+const nextPageTop = document.getElementById('next-page-top');
+const pageIndicatorTop = document.getElementById('page-indicator-top');
+const prevPageBottom = document.getElementById('prev-page-bottom');
+const nextPageBottom = document.getElementById('next-page-bottom');
+const pageIndicatorBottom = document.getElementById('page-indicator-bottom');
+const resultsControlsTop = document.getElementById('results-controls-top');
+const resultsControlsBottom = document.getElementById('results-controls-bottom');
 
 // --- Directory Selection Handler ---
 /**
@@ -87,6 +105,11 @@ window.startProcess = function () {
     progressBar.style.width = '0%';
     // Reset color to the primary accent color (bright green)
     progressBar.style.backgroundColor = 'var(--color-accent)';
+
+    // Hide previous results
+    resultsSection.style.display = 'none';
+    allGroups = [];
+    resultsList.innerHTML = '';
 
 
     // UI State: Running
@@ -215,11 +238,172 @@ function setupStatusListeners() {
     toggleStartSpinner(false);
     startButton.disabled = false;
     stopButton.disabled = true;
+
+    // Fetch and display duplicate groups
+    GetResults()
+        .then(groups => renderResults(groups))
+        .catch(err => console.error('GetResults error:', err));
 });
 }
 // Run setup after DOM load
 setupStatusListeners();
 refreshResultsButtonState();
+
+// --- Results: public page navigation (called from template onclick) ---
+window.currentPage = currentPage; // expose for onclick expressions
+window.goToPage = function (page) {
+    renderPage(page);
+};
+
+// --- Results: reveal a specific file in the OS file manager ---
+window.revealInExplorer = function (path) {
+    RevealInExplorer(path)
+        .catch(err => console.error('RevealInExplorer error:', err));
+};
+
+/**
+ * Builds and returns a single duplicate-group card DOM node.
+ * @param {FrontEnd_DuplicateGroup} group
+ */
+function createResultCard(group) {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+
+    const dupCount = group.duplicates ? group.duplicates.length : 0;
+
+    // --- Header ---
+    const header = document.createElement('div');
+    header.className = 'result-card-header';
+
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'result-file-info';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'result-filename';
+    nameSpan.textContent = group.fileName;
+
+    const pathSpan = document.createElement('span');
+    pathSpan.className = 'result-filepath';
+    pathSpan.textContent = group.filePath;
+    pathSpan.title = group.filePath;
+
+    fileInfo.appendChild(nameSpan);
+    fileInfo.appendChild(pathSpan);
+
+    const actions = document.createElement('div');
+    actions.className = 'result-card-actions';
+
+    const showBtn = document.createElement('button');
+    showBtn.className = 'btn btn-show';
+    showBtn.textContent = 'Show';
+    showBtn.onclick = () => window.revealInExplorer(group.filePath);
+
+    const dupLabel = `${dupCount} duplicate${dupCount !== 1 ? 's' : ''}`;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn btn-toggle';
+    toggleBtn.textContent = `\u25bc ${dupLabel}`;
+    toggleBtn.onclick = () => {
+        const isOpen = card.classList.toggle('is-open');
+        toggleBtn.textContent = isOpen ? `\u25b2 hide` : `\u25bc ${dupLabel}`;
+    };
+
+    actions.appendChild(showBtn);
+    actions.appendChild(toggleBtn);
+    header.appendChild(fileInfo);
+    header.appendChild(actions);
+
+    // --- Body (collapsible duplicates list) ---
+    const body = document.createElement('div');
+    body.className = 'result-card-body';
+
+    if (group.duplicates && group.duplicates.length > 0) {
+        group.duplicates.forEach(dup => {
+            const dupItem = document.createElement('div');
+            dupItem.className = 'duplicate-item';
+
+            const dupInfo = document.createElement('div');
+            dupInfo.className = 'result-file-info';
+
+            const dupName = document.createElement('span');
+            dupName.className = 'result-filename';
+            dupName.textContent = dup.fileName;
+
+            const dupPath = document.createElement('span');
+            dupPath.className = 'result-filepath';
+            dupPath.textContent = dup.filePath;
+            dupPath.title = dup.filePath;
+
+            dupInfo.appendChild(dupName);
+            dupInfo.appendChild(dupPath);
+
+            const dupShowBtn = document.createElement('button');
+            dupShowBtn.className = 'btn btn-show';
+            dupShowBtn.textContent = 'Show';
+            dupShowBtn.onclick = () => window.revealInExplorer(dup.filePath);
+
+            dupItem.appendChild(dupInfo);
+            dupItem.appendChild(dupShowBtn);
+            body.appendChild(dupItem);
+        });
+    }
+
+    card.appendChild(header);
+    card.appendChild(body);
+    return card;
+}
+
+/**
+ * Renders one page of duplicate groups into the results list.
+ * @param {number} page 1-based page number
+ */
+function renderPage(page) {
+    const totalPages = Math.max(1, Math.ceil(allGroups.length / PAGE_SIZE));
+    currentPage = Math.max(1, Math.min(page, totalPages));
+    window.currentPage = currentPage;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, allGroups.length);
+    const pageGroups = allGroups.slice(start, end);
+
+    resultsList.innerHTML = '';
+    pageGroups.forEach(group => resultsList.appendChild(createResultCard(group)));
+
+    const pageText = `Page ${currentPage} of ${totalPages}`;
+    pageIndicatorTop.textContent = pageText;
+    pageIndicatorBottom.textContent = pageText;
+
+    prevPageTop.disabled = currentPage <= 1;
+    prevPageBottom.disabled = currentPage <= 1;
+    nextPageTop.disabled = currentPage >= totalPages;
+    nextPageBottom.disabled = currentPage >= totalPages;
+
+    const showPager = totalPages > 1;
+    resultsControlsTop.style.display = showPager ? 'flex' : 'none';
+    resultsControlsBottom.style.display = showPager ? 'flex' : 'none';
+
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * Populates and shows the results panel from a raw array of backend FileHash objects.
+ * Maps each entry to the frontend DuplicateGroup model before storing.
+ * @param {Array} rawGroups - backend models.FileHash[] from GetResults()
+ */
+function renderResults(rawGroups) {
+    allGroups = (rawGroups || []).map(FrontEnd_DuplicateGroup.fromFileHash);
+    currentPage = 1;
+    window.currentPage = 1;
+
+    if (allGroups.length === 0) {
+        resultsSection.style.display = 'none';
+        return;
+    }
+
+    resultsCountLabel.textContent =
+        `${allGroups.length} duplicate group${allGroups.length !== 1 ? 's' : ''} found`;
+    resultsSection.style.display = 'block';
+    renderPage(1);
+}
 
 // --- Spinner State Handler ---
 /**
