@@ -624,13 +624,11 @@ func Test_DualFolder_NoDuplicates(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2, // New: Specify TargetDir
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true, // Crucial: Enable dual mode
 	}
 
 	// 4. Execute the logic directly
@@ -696,13 +694,11 @@ func Test_DualFolder_WithDuplicates(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -738,13 +734,11 @@ func Test_DualFolder_EmptyFolders(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -785,13 +779,11 @@ func Test_DualFolder_HiddenFiles(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -833,13 +825,11 @@ func Test_DualFolder_SpecialCharacters(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -877,13 +867,11 @@ func Test_DualFolder_OneEmptyFolder_NoDuplicates(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1, // Empty
-		TargetDir:             tempDir2, // Has unique files
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -921,13 +909,11 @@ func Test_DualFolder_OneEmptyFolder_WithDuplicates(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1, // Empty
-		TargetDir:             tempDir2, // Has internal duplicates
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -971,13 +957,11 @@ func Test_DualFolder_NestedStructure(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -1021,13 +1005,11 @@ func Test_DualFolder_SameFilesButDifferentContent(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -1075,13 +1057,11 @@ func Test_DualFolder_ParanoidMode(t *testing.T) {
 
 	// 3. Prepare Arguments: Crucially enable ParanoidMode
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 		ParanoidMode:          true, // <-- Enable full byte-by-byte comparison
 	}
 
@@ -1126,13 +1106,11 @@ func Test_DualFolder_UnicodeNormalization(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic
@@ -1187,13 +1165,11 @@ func Test_DualFolder_PermissionDenied_ShouldNotFail(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:             tempDir1,
-		TargetDir:             tempDir2,
+		Directories: []string{tempDir1, tempDir2},
 		ResultsDir:            testResultsDir,
 		CacheDir:              testCacheDir,
 		CPUs:                  1,
 		BufSize:               1024,
-		DualFolderModeEnabled: true,
 	}
 
 	// 4. Execute the logic

@@ -9,27 +9,22 @@
     <div class="input-group mb-6">
         <h3>Settings</h3>
 
-        <label for="sourceDir">Source Directory (Mandatory)
+        <label>Directories to Scan
             <span class="tooltip-container">
                 <span class="info-icon">i</span>
-                <span class="tooltip-text">The <b>Primary folder</b> where files will be scanned for duplicates.</span>
-            </span></label>
-        <div class="dir-chooser">
-            <input class="input dir-input" id="sourceDir" type="text" value="" readonly placeholder="Nothing selected!">
-            <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
-        </div>
-
-        <label for="targetDir">Target Directory (Optional)
-
-            <span class="tooltip-container">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">An <b>additional folder</b> to scan for duplicates.</span>
+                <span class="tooltip-text">Add one or more folders to scan. Duplicates are found across <b>all</b> supplied directories.</span>
             </span>
         </label>
-        <div class="dir-chooser">
-            <input class="input dir-input" id="targetDir" type="text" value="" readonly placeholder="Nothing selected!">
-            <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
+
+        <div id="dirList">
+            <div class="dir-row" data-index="0">
+                <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
+                <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
+                <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
+            </div>
         </div>
+
+        <button class="btn btn-add-dir" id="addDirBtn" onclick="addDir()">+ Add Directory</button>
     </div>
 
     <!-- 2. ADVANCED SETTINGS SECTION -->

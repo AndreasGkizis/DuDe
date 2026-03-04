@@ -193,12 +193,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		}
 	}()
 
-	var senderGroups int32
-	if app.Args.DualFolderModeEnabled {
-		senderGroups = 2
-	} else {
-		senderGroups = 1
-	}
+	var senderGroups int32 = int32(len(app.Args.Directories))
 
 	failedCounter := 0
 	mm := NewMemoryManager(&app.Args, app.Args.BufSize, 1)
@@ -212,10 +207,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	var syncSourceDirFileMap sync.Map
 
-	go WalkDir(app.execCtx, app.Args.SourceDir, &syncSourceDirFileMap, rt)
-
-	if app.Args.DualFolderModeEnabled {
-		go WalkDir(app.execCtx, app.Args.TargetDir, &syncSourceDirFileMap, rt)
+	for _, dir := range app.Args.Directories {
+		dir := dir // capture loop variable
+		go WalkDir(app.execCtx, dir, &syncSourceDirFileMap, rt)
 	}
 	rt.WaitForSenders()
 

@@ -1,8 +1,7 @@
 export namespace models {
 	
 	export class ExecutionParams {
-	    sourceDir: string;
-	    targetDir: string;
+	    directories: string[];
 	    useCache: boolean;
 	    cacheDir: string;
 	    resultsDir: string;
@@ -10,7 +9,6 @@ export namespace models {
 	    cpus: number;
 	    bufSize: number;
 	    debugMode: boolean;
-	    dualFolderModeEnabled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExecutionParams(source);
@@ -18,8 +16,7 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sourceDir = source["sourceDir"];
-	        this.targetDir = source["targetDir"];
+	        this.directories = source["directories"];
 	        this.useCache = source["useCache"];
 	        this.cacheDir = source["cacheDir"];
 	        this.resultsDir = source["resultsDir"];
@@ -27,7 +24,6 @@ export namespace models {
 	        this.cpus = source["cpus"];
 	        this.bufSize = source["bufSize"];
 	        this.debugMode = source["debugMode"];
-	        this.dualFolderModeEnabled = source["dualFolderModeEnabled"];
 	    }
 	}
 	export class FileHash {

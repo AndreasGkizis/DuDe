@@ -7,4 +7,5 @@ var (
 	ErrPathNotExists    = errors.New("path does not exist")
 	ErrNoReadAccess     = errors.New("no read access")
 	ErrNoWriteAccess    = errors.New("no write access")
+	ErrNoDirectories    = errors.New("at least one directory must be provided")
 )
