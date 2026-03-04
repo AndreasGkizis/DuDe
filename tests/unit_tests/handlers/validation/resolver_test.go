@@ -23,10 +23,9 @@ func TestResolveAndValidateArgs_Success(t *testing.T) {
 	r := setupResolver(t, mockV)
 	exeDir := "/exe/bin"
 	args := &models.ExecutionParams{
-		SourceDir:  "/app/src",
-		TargetDir:  "/app/target",
-		CacheDir:   "", // Should fall back to exeDir
-		ResultsDir: "custom/results",
+		Directories: []string{"/app/src", "/app/target"},
+		CacheDir:    "", // Should fall back to exeDir
+		ResultsDir:  "custom/results",
 	}
 
 	err := r.ResolveAndValidateArgs(args, exeDir)
@@ -53,9 +52,9 @@ func TestResolveAndValidateArgs_Fails_SourceDir(t *testing.T) {
 	}
 	r := setupResolver(t, mockV)
 	args := &models.ExecutionParams{
-		SourceDir:  "/bad/source",
-		CacheDir:   "ok/cache",
-		ResultsDir: "ok/results",
+		Directories: []string{"/bad/source"},
+		CacheDir:    "ok/cache",
+		ResultsDir:  "ok/results",
 	}
 
 	err := r.ResolveAndValidateArgs(args, "/exe")
@@ -67,7 +66,7 @@ func TestResolveAndValidateArgs_Fails_SourceDir(t *testing.T) {
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("Error missing wrapped error. Expected %v, got %v", expectedErr, err)
 	}
-	if expectedPrefix := "SourceDir: "; !errors.Is(err, expectedErr) && err.Error()[:len(expectedPrefix)] != expectedPrefix {
+	if expectedPrefix := "Directories["; !errors.Is(err, expectedErr) && err.Error()[:len(expectedPrefix)] != expectedPrefix {
 		t.Errorf("Error message not wrapped correctly. Got %s", err.Error())
 	}
 }
@@ -85,9 +84,9 @@ func TestResolveAndValidateArgs_Fails_CacheDir(t *testing.T) {
 	}
 	r := setupResolver(t, mockV)
 	args := &models.ExecutionParams{
-		SourceDir:  "ok/src",
-		CacheDir:   "/bad/cache", // Should fail here
-		ResultsDir: "ok/results",
+		Directories: []string{"ok/src"},
+		CacheDir:    "/bad/cache", // Should fail here
+		ResultsDir:  "ok/results",
 	}
 
 	err := r.ResolveAndValidateArgs(args, "/exe")
@@ -104,7 +103,7 @@ func TestResolveAndValidateArgs_Fails_CacheDir(t *testing.T) {
 	}
 }
 
-func TestResolveAndValidateArgs_Fails_TargetDir(t *testing.T) {
+func TestResolveAndValidateArgs_Fails_SecondDir(t *testing.T) {
 	expectedErr := val.ErrNoReadAccess
 	mockV := val.MockValidator{
 		ReadableDirFunc: func(p string) error {
@@ -117,13 +116,78 @@ func TestResolveAndValidateArgs_Fails_TargetDir(t *testing.T) {
 	}
 	r := setupResolver(t, mockV)
 	args := &models.ExecutionParams{
-		SourceDir: "/ok/source",
-		TargetDir: "/bad/target",
+		Directories: []string{"/ok/source", "/bad/target"},
 	}
 
 	err := r.ResolveAndValidateArgs(args, "/exe")
 	if err == nil || !errors.Is(err, expectedErr) {
 		t.Fatalf("Expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestResolveAndValidateArgs_EmptyDirectories(t *testing.T) {
+	mockV := val.MockValidator{
+		ReadableDirFunc: func(p string) error { return nil },
+		WritableDirFunc: func(p string) error { return nil },
+	}
+	r := setupResolver(t, mockV)
+	args := &models.ExecutionParams{
+		Directories: []string{}, // empty — must fail
+		CacheDir:    "ok/cache",
+		ResultsDir:  "ok/results",
+	}
+
+	err := r.ResolveAndValidateArgs(args, "/exe")
+	if err == nil {
+		t.Fatal("Expected error for empty Directories, got nil")
+	}
+	if !errors.Is(err, val.ErrNoDirectories) {
+		t.Errorf("Expected ErrNoDirectories, got: %v", err)
+	}
+}
+
+func TestResolveAndValidateArgs_ThreeDirs(t *testing.T) {
+	mockV := val.MockValidator{
+		ReadableDirFunc: func(p string) error { return nil },
+		WritableDirFunc: func(p string) error { return nil },
+	}
+	r := setupResolver(t, mockV)
+	args := &models.ExecutionParams{
+		Directories: []string{"/dir/one", "/dir/two", "/dir/three"},
+		CacheDir:    "ok/cache",
+		ResultsDir:  "ok/results",
+	}
+
+	err := r.ResolveAndValidateArgs(args, "/exe")
+	if err != nil {
+		t.Fatalf("Expected nil error for three valid dirs, got %v", err)
+	}
+}
+
+func TestResolveAndValidateArgs_ThreeDirs_OneInvalid(t *testing.T) {
+	expectedErr := val.ErrNoReadAccess
+	mockV := val.MockValidator{
+		ReadableDirFunc: func(p string) error {
+			if p == "/dir/bad" {
+				return expectedErr
+			}
+			return nil
+		},
+		WritableDirFunc: func(p string) error { return nil },
+	}
+	r := setupResolver(t, mockV)
+	args := &models.ExecutionParams{
+		Directories: []string{"/dir/one", "/dir/bad", "/dir/three"},
+		CacheDir:    "ok/cache",
+		ResultsDir:  "ok/results",
+	}
+
+	err := r.ResolveAndValidateArgs(args, "/exe")
+	if err == nil {
+		t.Fatal("Expected error for invalid directory, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("Expected ErrNoReadAccess, got: %v", err)
 	}
 }
 
@@ -140,8 +204,8 @@ func TestResolveAndValidateArgs_Fails_ResultsDir(t *testing.T) {
 	}
 	r := setupResolver(t, mockV)
 	args := &models.ExecutionParams{
-		SourceDir:  "/ok/source",
-		ResultsDir: "/bad/results",
+		Directories: []string{"/ok/source"},
+		ResultsDir:  "/bad/results",
 	}
 
 	err := r.ResolveAndValidateArgs(args, "/exe")
@@ -166,22 +230,22 @@ func TestResolveWorkers(t *testing.T) {
 	}{
 		{
 			name:     "Zero value defaults to Max",
-			params:   models.ExecutionParams{CPUs: 0},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: 0},
 			expected: models.ExecutionParams{CPUs: maxCPUs},
 		},
 		{
 			name:     "Negative value defaults to Max",
-			params:   models.ExecutionParams{CPUs: -5},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: -5},
 			expected: models.ExecutionParams{CPUs: maxCPUs},
 		},
 		{
 			name:     "Valid value within range",
-			params:   models.ExecutionParams{CPUs: 2},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: 2},
 			expected: models.ExecutionParams{CPUs: 2},
 		},
 		{
 			name:     "Value exceeding Max is capped",
-			params:   models.ExecutionParams{CPUs: maxCPUs + 1},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: maxCPUs + 1},
 			expected: models.ExecutionParams{CPUs: maxCPUs},
 		},
 	}
@@ -217,22 +281,22 @@ func TestResolveBufferSize(t *testing.T) {
 	}{
 		{
 			name:     "Zero value defaults",
-			params:   models.ExecutionParams{BufSize: 0},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 0},
 			expected: models.ExecutionParams{BufSize: defaultBuf},
 		},
 		{
 			name:     "Negative value defaults",
-			params:   models.ExecutionParams{BufSize: -1},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: -1},
 			expected: models.ExecutionParams{BufSize: defaultBuf},
 		},
 		{
 			name:     "Specific valid buffer",
-			params:   models.ExecutionParams{BufSize: 2048},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 2048},
 			expected: models.ExecutionParams{BufSize: 2048},
 		},
 		{
 			name:     "Specific valid buffer, over max",
-			params:   models.ExecutionParams{BufSize: 100000000000},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 100000000000},
 			expected: models.ExecutionParams{BufSize: maxValue},
 		},
 	}

@@ -40,19 +40,64 @@ const resultsControlsBottom = document.getElementById('results-controls-bottom')
 // --- Directory Selection Handler ---
 /**
  * Opens a folder selection dialog and sets the input field's value.
- * @param {string} inputId The ID of the input field to update.
+ * Accepts either a string input-element ID (legacy, for cacheDir/resultsDir)
+ * or a button element (for dir-row rows — finds the sibling input).
+ * @param {string|HTMLElement} target The ID of the input field or the button element.
  */
-window.selectAndSetDir = function (inputId) {
+window.selectAndSetDir = function (target) {
     SelectFolder()
         .then((path) => {
-            if (path) {
-                document.getElementById(inputId).value = path;
+            if (!path) return;
+            if (typeof target === 'string') {
+                document.getElementById(target).value = path;
+            } else {
+                // target is the Select button inside a .dir-row; find the sibling input
+                target.closest('.dir-row').querySelector('input').value = path;
             }
         })
         .catch((err) => {
             console.error("Directory selection error:", err);
         });
 };
+
+// --- Dynamic Directory List Handlers ---
+
+/**
+ * Appends a new directory row to #dirList and updates remove-button visibility.
+ */
+window.addDir = function () {
+    const list = document.getElementById('dirList');
+    const index = list.children.length;
+    const row = document.createElement('div');
+    row.className = 'dir-row';
+    row.dataset.index = index;
+    row.innerHTML = `
+        <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
+        <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
+        <button class="btn btn-remove-dir" onclick="removeDir(this)" title="Remove directory">−</button>
+    `;
+    list.appendChild(row);
+    _updateRemoveButtons();
+};
+
+/**
+ * Removes a directory row and updates remove-button visibility.
+ * @param {HTMLElement} btn The remove button that was clicked.
+ */
+window.removeDir = function (btn) {
+    const row = btn.closest('.dir-row');
+    row.remove();
+    _updateRemoveButtons();
+};
+
+/** Disables the remove button when only one row remains. */
+function _updateRemoveButtons() {
+    const rows = document.querySelectorAll('#dirList .dir-row');
+    rows.forEach(row => {
+        const btn = row.querySelector('.btn-remove-dir');
+        if (btn) btn.disabled = rows.length <= 1;
+    });
+}
 
 // --- Collapsible Section Handler ---
 window.toggleAdvanced = function () {
@@ -88,9 +133,13 @@ window.toggleAdvanced = function () {
 // --- Execution Start Handler ---
 window.startProcess = function () {
     // 1. Gather data
+    const dirInputs = document.querySelectorAll('#dirList .dir-row input');
+    const directories = Array.from(dirInputs)
+        .map(input => input.value.trim())
+        .filter(v => v !== '');
+
     const params = {
-        sourceDir: document.getElementById('sourceDir').value,
-        targetDir: document.getElementById('targetDir').value,
+        directories: directories,
         useCache: document.getElementById('keepMemory').checked,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
@@ -98,7 +147,6 @@ window.startProcess = function () {
         cpus: parseInt(document.getElementById('cpus').value) || 0,
         bufSize: parseInt(document.getElementById('bufSize').value) || 0,
         debugMode: document.getElementById('debugMode').checked,
-        dualFolderModeEnabled: false,
     };
 
     // Clear old status/reset bar

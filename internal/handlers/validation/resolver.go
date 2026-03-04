@@ -14,15 +14,15 @@ func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir st
 	args.CacheDir = resolveDir(args.CacheDir, exeDir)
 	args.ResultsDir = resolveDir(args.ResultsDir, exeDir)
 
-	// SourceDir (must exist + read)
-	if err := r.V.ReadableDir(args.SourceDir); err != nil {
-		return fmt.Errorf("SourceDir: %w", err)
+	// At least one directory must be provided
+	if len(args.Directories) == 0 {
+		return fmt.Errorf("Directories: %w", ErrNoDirectories)
 	}
 
-	// TargetDir optional
-	if args.TargetDir != "" {
-		if err := r.V.ReadableDir(args.TargetDir); err != nil {
-			return fmt.Errorf("TargetDir: %w", err)
+	// Validate every supplied directory is readable
+	for i, dir := range args.Directories {
+		if err := r.V.ReadableDir(dir); err != nil {
+			return fmt.Errorf("Directories[%d] (%q): %w", i, dir, err)
 		}
 	}
 
@@ -40,8 +40,6 @@ func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir st
 	args.CPUs = resolveWorkers(&args.CPUs)
 
 	args.BufSize = resolveBufferSize(&args.BufSize)
-
-	// resolve the buffersize
 
 	return nil
 }

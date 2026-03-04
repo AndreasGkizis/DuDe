@@ -23,7 +23,7 @@ func Test_SingleFolder_EmptyFolder(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -63,7 +63,7 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -107,7 +107,7 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 
 	// 4. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -150,7 +150,7 @@ func Test_SingleFolder_HiddenFiles(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -194,7 +194,7 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -238,7 +238,7 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
-		SourceDir:  tempDir,
+		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
 		CPUs:       1,
@@ -300,7 +300,7 @@ func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 
 	// 3. Prepare Arguments: Crucially enable ParanoidMode
 	args := models.ExecutionParams{
-		SourceDir:    tempDir,
+		Directories: []string{tempDir},
 		ResultsDir:   testResultsDir,
 		CacheDir:     testCacheDir,
 		CPUs:         1,
