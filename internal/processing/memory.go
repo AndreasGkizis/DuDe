@@ -23,7 +23,7 @@ func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int)
 	var localdb *sql.DB
 	var err error
 	if args.UseCache {
-		localdb, err = database.NewDatabase(args.CacheDir)
+		localdb, err = database.InitializeDatabase(args.CacheDir)
 		if err != nil {
 			log.ErrorWithFuncName(err.Error())
 		}

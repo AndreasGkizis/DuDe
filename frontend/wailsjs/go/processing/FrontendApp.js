@@ -10,6 +10,10 @@ export function CheckIfResultsExist() {
   return window['go']['processing']['FrontendApp']['CheckIfResultsExist']();
 }
 
+export function FullReset() {
+  return window['go']['processing']['FrontendApp']['FullReset']();
+}
+
 export function GetResults() {
   return window['go']['processing']['FrontendApp']['GetResults']();
 }

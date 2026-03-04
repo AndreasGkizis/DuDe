@@ -1,7 +1,7 @@
 import './style.css';
 import htmlTemplate from './template.html?raw';
 
-import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, RevealInExplorer } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, RevealInExplorer, FullReset } from '../wailsjs/go/processing/FrontendApp';
 import { FrontEnd_DuplicateGroup } from './models.js';
 
 document.querySelector('#app').innerHTML = htmlTemplate;
@@ -13,9 +13,11 @@ const statusFiles = document.getElementById("status-files");
 const statusDuplicates = document.getElementById("status-duplicates");
 const statusError = document.getElementById("status-error");
 const showResultsButton = document.getElementById('showResultsButton');
+const clearResultsButton = document.getElementById('clearResultsButton');
 
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
+const fullResetButton = document.getElementById('fullResetButton');
 
 const startText = document.getElementById('startText');
 const startButtonSpinner = document.getElementById('startButtonSpinner');
@@ -154,11 +156,11 @@ window.startProcess = function () {
     statusJob.classList.remove('status-value--success');
     statusFiles.textContent = "\u2014";
     statusDuplicates.textContent = "\u2014";
+    statusDuplicates.classList.remove('status-value--orange');
     statusError.textContent = "";
     statusError.style.display = "none";
     progressBar.style.width = '0%';
-    // Reset color to the primary accent color (bright green)
-    progressBar.style.backgroundColor = 'var(--color-accent)';
+    progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
 
     // Hide previous results
     resultsSection.style.display = 'none';
@@ -170,6 +172,8 @@ window.startProcess = function () {
     startButton.disabled = true;
     stopButton.disabled = false;
     showResultsButton.disabled = true;
+    clearResultsButton.disabled = true;
+    fullResetButton.disabled = true;
 
     toggleStartSpinner(true);
 
@@ -177,17 +181,18 @@ window.startProcess = function () {
     StartExecution(params)
         .then((result) => {
             if (result) statusJob.textContent = result;
-            startButton.disabled = false; // Enable Start again
-            stopButton.disabled = true;   // Disable Stop
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            fullResetButton.disabled = false;
             toggleStartSpinner(false);
         })
         .catch((err) => {
             statusJob.textContent = "Fatal Binding Error";
             statusError.textContent = String(err);
             statusError.style.display = '';
-            // Ensure buttons reset on binding error
             startButton.disabled = false;
             stopButton.disabled = true;
+            fullResetButton.disabled = false;
             toggleStartSpinner(false);
         });
 };
@@ -224,6 +229,79 @@ window.showResults = function () {
         });
 };
 
+// --- Full Reset Handler ---
+
+/**
+ * Resets all form inputs, results, and status UI back to their initial defaults.
+ * Called both from window.fullReset() and from the backend "fullReset" Wails event.
+ */
+function _applyUIReset() {
+    // Reset directory list to a single empty row
+    const dirList = document.getElementById('dirList');
+    dirList.innerHTML = `
+        <div class="dir-row" data-index="0">
+            <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
+            <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
+            <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
+        </div>`;
+
+    // Reset advanced settings
+    document.getElementById('cacheDir').value = '';
+    document.getElementById('resultsDir').value = '';
+    document.getElementById('cpus').value = '0';
+    document.getElementById('bufSize').value = '1024';
+    document.getElementById('paranoidMode').checked = false;
+    document.getElementById('debugMode').checked = false;
+    document.getElementById('keepMemory').checked = true;
+
+    // Reset results panel and status area
+    clearResults();
+
+    // Restore button states
+    startButton.disabled = false;
+    stopButton.disabled = true;
+    fullResetButton.disabled = false;
+    toggleStartSpinner(false);
+}
+
+window.fullReset = function () {
+    fullResetButton.disabled = true;
+
+    // UI reset is driven by the "fullReset" Wails event emitted by the backend,
+    // so the .then() only needs to handle unexpected binding-level errors.
+    FullReset()
+        .catch((err) => {
+            statusError.textContent = `Full Reset failed: ${err}`;
+            statusError.style.display = '';
+            fullResetButton.disabled = false;
+        });
+};
+
+window.clearResults = function () {
+    // Reset in-memory state
+    allGroups = [];
+    currentPage = 1;
+    window.currentPage = 1;
+
+    // Clear results panel
+    resultsList.innerHTML = '';
+    resultsSection.style.display = 'none';
+    resultsCountLabel.textContent = 'Results';
+    clearResultsButton.disabled = true;
+
+    // Reset status area to clean slate
+    statusJob.textContent = 'Ready to run.';
+    statusJob.classList.remove('status-value--success');
+    statusFiles.textContent = '\u2014';
+    statusDuplicates.textContent = '\u2014';
+    statusDuplicates.classList.remove('status-value--orange');
+    statusError.textContent = '';
+    statusError.style.display = 'none';
+    progressBar.style.width = '0%';
+    progressBar.textContent = '';
+    progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
+};
+
 // --- Status Listener Setup ---
 function setupStatusListeners() {
     const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
@@ -243,12 +321,14 @@ function setupStatusListeners() {
             progressBar.style.width = `${cappedPercent}%`;
             progressBar.innerText = cappedPercent > 5 ? `${displayPercent}%` : '';
             if (cappedPercent >= 100) {
+                progressBar.classList.add('progress-bar--success');
                 statusJob.textContent = "Process Complete.";
                 statusJob.classList.add('status-value--success');
                 toggleStartSpinner(false);
                 refreshResultsButtonState();
 
             } else {
+                progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
                 showResultsButton.disabled = true;
             }
         }
@@ -275,9 +355,10 @@ function setupStatusListeners() {
         statusError.textContent = message;
         statusError.style.display = '';
         progressBar.style.width = '100%';
-        progressBar.style.backgroundColor = '#ff6b6b';
+        progressBar.classList.add('progress-bar--error');
 
         showResultsButton.disabled = true;
+        fullResetButton.disabled = false;
 
         toggleStartSpinner(false);
     });
@@ -288,12 +369,20 @@ function setupStatusListeners() {
     toggleStartSpinner(false);
     startButton.disabled = false;
     stopButton.disabled = true;
+    fullResetButton.disabled = false;
 
     // Fetch and display duplicate groups
     GetResults()
         .then(groups => renderResults(groups))
         .catch(err => console.error('GetResults error:', err));
 });
+
+    // fullReset event: backend notifies the frontend after FullReset() completes
+    // (safety net — e.g. reset triggered mid-execution from an external source).
+    // Calls _applyUIReset() directly to avoid re-invoking the backend.
+    runtime.EventsOn("fullReset", () => {
+        _applyUIReset();
+    });
 }
 // Run setup after DOM load
 setupStatusListeners();
@@ -447,6 +536,7 @@ function renderResults(rawGroups) {
     const groupCount = allGroups.length;
     const totalDups = allGroups.reduce((sum, g) => sum + (g.duplicates ? g.duplicates.length : 0), 0);
     statusDuplicates.textContent = groupCount === 0 ? '0' : `${totalDups}`;
+    statusDuplicates.classList.toggle('status-value--orange', totalDups > 0);
 
     if (groupCount === 0) {
         resultsCountLabel.textContent = 'Results';
@@ -457,6 +547,7 @@ function renderResults(rawGroups) {
     resultsCountLabel.textContent =
         `Results — ${groupCount} group${groupCount !== 1 ? 's' : ''}, ${totalDups} duplicate${totalDups !== 1 ? 's' : ''}`;
     resultsSection.style.display = 'block';
+    clearResultsButton.disabled = false;
     renderPage(1);
 }
 
