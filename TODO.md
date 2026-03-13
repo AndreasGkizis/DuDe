@@ -9,12 +9,9 @@
   - make file info work for all builds, also test it! 
   
 ## FIXME
-  - Fix status bar
-
+  - Mac build(needs permissions to execute and write results, need a mac user)
 ## Features
-  - Allow multiple result files
-  - Delete alla and reset button
-  - clear cache button
+  - to do or not to do ( delete file feature.)
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
