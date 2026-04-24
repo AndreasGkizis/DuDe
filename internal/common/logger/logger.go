@@ -106,7 +106,7 @@ func FatalWithFuncName(message string) {
 	}
 	funcName := runtime.FuncForPC(pc).Name()
 
-	logger.Error(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
+	logger.Fatal(fmt.Sprintf("%s()(line:%d)-> [%s]", funcName, lineNum, message))
 }
 
 func LogModelArgs(args models.ExecutionParams) {
