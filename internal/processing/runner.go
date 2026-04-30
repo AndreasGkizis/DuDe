@@ -242,7 +242,11 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
-	hashMemory := mm.LoadMemory()
+	hashMemory, err := mm.LoadMemory()
+	if err != nil {
+		log.ErrorWithFuncName(fmt.Sprintf("Failed to load cache: %v", err))
+		return err
+	}
 
 	var syncSourceDirFileMap sync.Map
 

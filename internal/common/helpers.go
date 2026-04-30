@@ -51,13 +51,6 @@ func GetOpenDirectoryFunc(path, platform string) (*exec.Cmd, error) {
 	}
 }
 
-func Must[T any](value T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return value
-}
-
 func LenSyncMap(m *sync.Map) int {
 	var count int
 	m.Range(func(key, value interface{}) bool {

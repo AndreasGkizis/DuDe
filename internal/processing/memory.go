@@ -1,11 +1,11 @@
 package processing
 
 import (
-	"DuDe/internal/common"
 	log "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
 	"database/sql"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -36,6 +36,17 @@ func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int)
 		isActive:    args.UseCache}
 }
 
+// NewMemoryManagerWithDB creates a MemoryManager using an already-open *sql.DB.
+// Intended for testing, where the caller controls the DB lifecycle.
+func NewMemoryManagerWithDB(args *models.ExecutionParams, bufferSize, senderCount int, db *sql.DB) *MemoryManager {
+	return &MemoryManager{
+		senderCount: int32(senderCount),
+		Channel:     make(chan models.FileHash, bufferSize),
+		repo:        *database.NewFileHashRepository(db),
+		isActive:    args.UseCache,
+	}
+}
+
 func (mm *MemoryManager) Start() {
 	if !mm.isActive {
 		return
@@ -46,20 +57,22 @@ func (mm *MemoryManager) Start() {
 	go mm.updateMemory()
 }
 
-func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
-	result := make(map[string]models.FileHash)
-
-	if !mm.isActive { // return empty memory
-		return make(map[string]models.FileHash)
+func (mm *MemoryManager) LoadMemory() (map[string]models.FileHash, error) {
+	if !mm.isActive {
+		return make(map[string]models.FileHash), nil
 	}
 
-	records := common.Must(mm.repo.GetAll())
+	records, err := mm.repo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load memory from cache: %w", err)
+	}
 
+	result := make(map[string]models.FileHash)
 	for _, val := range records {
 		result[val.FilePath] = MapToServiceDTO(val)
 	}
 
-	return result
+	return result, nil
 }
 
 func (mm *MemoryManager) Wait() {

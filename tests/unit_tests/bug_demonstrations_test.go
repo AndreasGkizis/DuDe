@@ -11,14 +11,12 @@ package unit_tests
 import (
 	"bytes"
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
-	"DuDe/internal/common"
 	database "DuDe/internal/db"
 	"DuDe/internal/models"
 	"DuDe/internal/models/db_models"
@@ -154,40 +152,33 @@ func TestBug_EnsureDuplicates_ReturnsBeforeGoroutinesFinish(t *testing.T) {
 }
 
 // =============================================================================
-// Bug 3 — common.Must: panics the entire process instead of propagating errors
+// Bug 3 — LoadMemory: panics the entire process instead of propagating errors
 //
-// common.Must is called in MemoryManager.LoadMemory to unwrap the result of
-// mm.repo.GetAll().  If the database operation fails (e.g. DB closed, corrupt
-// file), Must panics — crashing the whole application — instead of returning
-// the error to the caller so it can be handled gracefully.
+// LoadMemory called common.Must(mm.repo.GetAll()) to unwrap DB results.
+// If the database operation fails (e.g. DB closed, corrupt file), the process
+// panicked — crashing the whole application — instead of returning the error
+// to the caller so it can be handled gracefully.
+// common.Must has been removed; LoadMemory now returns (map, error).
 //
-// Behaviour:  FAILS with current code (panic is caught by recover + t.Errorf),
-//             passes after fix (no panic).
+// Behaviour:  FAILS with current code (panic crashes the test process),
+//             passes after fix (error is returned gracefully).
 // =============================================================================
 
-func TestBug_CommonMust_PanicsInsteadOfReturningError(t *testing.T) {
-	panicked := false
+func TestBug_LoadMemory_ReturnsErrorInsteadOfPanicking(t *testing.T) {
+	db, err := database.InitializeDatabase(t.TempDir())
+	if err != nil {
+		t.Fatalf("InitializeDatabase: %v", err)
+	}
+	db.Close() // force all subsequent DB operations to fail
 
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				panicked = true
-				t.Errorf(
-					"BUG CONFIRMED — common.Must panicked with: %v\n"+
-						"  Called from MemoryManager.LoadMemory on a DB error.\n"+
-						"  A single DB failure crashes the entire app instead of returning an error.",
-					r,
-				)
-			}
-		}()
+	args := &models.ExecutionParams{UseCache: true, CPUs: 1, BufSize: 100}
+	mm := processing.NewMemoryManagerWithDB(args, 100, 1, db)
 
-		simulatedDBErr := errors.New("sql: database is closed")
-		// This mirrors: common.Must(mm.repo.GetAll()) in memory.go
-		_ = common.Must("", simulatedDBErr)
-	}()
-
-	if !panicked {
-		t.Log("common.Must did not panic — bug appears fixed (error returned gracefully).")
+	_, loadErr := mm.LoadMemory()
+	if loadErr == nil {
+		t.Error("BUG CONFIRMED — LoadMemory returned nil error on a closed DB; expected an error")
+	} else {
+		t.Logf("LoadMemory correctly returned error: %v", loadErr)
 	}
 }
 
