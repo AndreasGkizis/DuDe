@@ -88,6 +88,15 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 	var result sql.Result
 	existingFH, err := r.GetByPath(fh.FilePath)
 
+	if err != nil {
+		// GetByPath translates sql.ErrNoRows to "no record found"; propagate
+		// any real DB error directly and only return "not found" for missing records.
+		if err.Error() == "no record found" {
+			return errors.New("not found")
+		}
+		return err
+	}
+
 	if existingFH == nil {
 		return errors.New("not found")
 	}
@@ -98,10 +107,6 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 		fh.ModTime == existingFH.ModTime {
 		//do nothing
 		return nil
-	}
-
-	if err != nil {
-		return err
 	}
 
 	result, err = r.Db.Exec(`UPDATE file_hashes SET 
