@@ -224,6 +224,8 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 					item.DuplicatesFound = append(item.DuplicatesFound[:dupIndex], item.DuplicatesFound[dupIndex+1:]...)
 					if len(item.DuplicatesFound) == 0 {
 						input.Delete(itemHash)
+					} else {
+						input.Store(itemHash, item)
 					}
 				} else {
 					dupIndex++
