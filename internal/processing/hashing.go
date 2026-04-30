@@ -235,6 +235,8 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 		}(itemHash.(string), item.(models.FileHash))
 		return true
 	})
+
+	wg.Wait()
 }
 
 func filesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error) {

@@ -106,8 +106,8 @@ func TestBug_EnsureDuplicates_FalsePositivesNotRemovedFromMap(t *testing.T) {
 // Callers rely on the progress tracker as an implicit sync point, which is
 // an invisible coupling and masks the missing wait.
 //
-// This test demonstrates the non-blocking return with large files.
-// Behaviour:  documentation (always passes; logs the timing observation).
+// Behaviour:  FAILS with current code (elapsed < 5ms for 8 MB comparison),
+//             passes after fix (wg.Wait() blocks until goroutines finish).
 // Run with -race to surface any concurrent-access warnings.
 // =============================================================================
 
@@ -135,18 +135,22 @@ func TestBug_EnsureDuplicates_ReturnsBeforeGoroutinesFinish(t *testing.T) {
 	processing.EnsureDuplicates(context.Background(), m, tracker, 1)
 	elapsed := time.Since(start)
 
-	// If wg.Wait() were present, the function would block until the goroutine finishes
-	// comparing 8 MB of file data — measurably longer than a few microseconds.
-	// Without wg.Wait(), it returns almost immediately after launching the goroutine.
-	t.Logf(
-		"BUG DOCUMENTED — EnsureDuplicates returned in %v.\n"+
-			"  Comparing 8 MB of file data should take >0 ms if the call were blocking.\n"+
-			"  The internal wg.Wait() is never called, so the function is fire-and-forget.\n"+
-			"  Callers must rely on the progress tracker as a workaround synchronisation point.",
-		elapsed,
-	)
-
 	tracker.Wait() // wait for goroutines to actually finish via tracker
+
+	// If wg.Wait() is present the function blocks until the goroutine finishes
+	// comparing 8 MB of data — measurably longer than a few milliseconds.
+	// Without wg.Wait() it returns almost immediately after launching the goroutine.
+	const minExpected = 5 * time.Millisecond
+	if elapsed < minExpected {
+		t.Errorf(
+			"BUG CONFIRMED — EnsureDuplicates returned in %v (too fast).\n"+
+				"  Comparing 8 MB of file data should take >%v if the call were blocking.\n"+
+				"  Root cause: wg.Wait() is never called, so the function returns before\n"+
+				"  goroutines finish — fire-and-forget instead of blocking.",
+			elapsed,
+			minExpected,
+		)
+	}
 }
 
 // =============================================================================
