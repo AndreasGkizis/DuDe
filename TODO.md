@@ -13,6 +13,15 @@
 ## Features
   - to do or not to do ( delete file feature.)
   - user can change how many results per page dynamically
+
+## Done
+  - handle file read errors during hashing
+  - distinguish missing cache records from database errors
+  - add SQL repository and database lifecycle tests
+  - collect file metadata during directory walking
+  - skip uniquely sized files before hashing
+  - test same-size files with different contents
+  - add production hashing benchmarks and comparison workflow
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
