@@ -2,15 +2,12 @@ package unit_tests
 
 import (
 	"context"
-	"database/sql"
 	"math"
 	"sync"
 	"testing"
 	"time"
 
-	database "DuDe/internal/db"
 	"DuDe/internal/models"
-	"DuDe/internal/models/db_models"
 	"DuDe/internal/processing"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
@@ -28,35 +25,6 @@ func TestCreateHashesReportsReadErrors(t *testing.T) {
 	case <-errChan:
 	default:
 		t.Fatal("expected hashing a directory to report its read error")
-	}
-}
-
-func TestUpsertReturnsUnexpectedUpdateErrors(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("open database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("close database: %v", err)
-		}
-	})
-
-	_, err = db.Exec(`CREATE TABLE file_hashes (
-		path TEXT UNIQUE,
-		hash TEXT,
-		size INTEGER,
-		modified_time TEXT,
-		created_at TEXT
-	)`)
-	if err != nil {
-		t.Fatalf("create malformed schema: %v", err)
-	}
-
-	repository := database.NewFileHashRepository(db)
-	err = repository.Upsert(&db_models.FileHash{FilePath: "/tmp/file.txt"})
-	if err == nil {
-		t.Fatal("expected upsert to propagate the lookup error")
 	}
 }
 

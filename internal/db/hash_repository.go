@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var ErrFileHashNotFound = errors.New("file hash not found")
+
 type FileHashRepo interface {
 	GetByPath(path string) (*db_models.FileHash, error)
 	GetAll() ([]*db_models.FileHash, error)
@@ -56,7 +58,7 @@ func (r *FileHashRepository) GetByPath(path string) (*db_models.FileHash, error)
 	err := row.Scan(&filehash.ID, &filehash.FilePath, &filehash.Hash, &filehash.FileSize, &filehash.ModTime, &filehash.UpdatedAt, &filehash.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no record found")
+			return nil, ErrFileHashNotFound
 		}
 		return nil, err
 	}
@@ -88,8 +90,12 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 	var result sql.Result
 	existingFH, err := r.GetByPath(fh.FilePath)
 
+	if err != nil {
+		return err
+	}
+
 	if existingFH == nil {
-		return errors.New("not found")
+		return ErrFileHashNotFound
 	}
 
 	if fh.FilePath == existingFH.FilePath &&
@@ -98,10 +104,6 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 		fh.ModTime == existingFH.ModTime {
 		//do nothing
 		return nil
-	}
-
-	if err != nil {
-		return err
 	}
 
 	result, err = r.Db.Exec(`UPDATE file_hashes SET 
@@ -127,17 +129,13 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 
 func (r *FileHashRepository) Upsert(fh *db_models.FileHash) error {
 	err := r.Update(fh)
-
-	if err != nil && err.Error() == "not found" {
-		err := r.Create(fh)
-		if err != nil {
-			return err
-		}
-	}
-	if err != nil && err.Error() == "did not save" {
-		return err
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	if errors.Is(err, ErrFileHashNotFound) {
+		return r.Create(fh)
+	}
 
+	return err
 }
