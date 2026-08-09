@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-var ErrFileHashNotFound = errors.New("file hash not found")
-
 type FileHashRepo interface {
 	GetByPath(path string) (*db_models.FileHash, error)
 	GetAll() ([]*db_models.FileHash, error)

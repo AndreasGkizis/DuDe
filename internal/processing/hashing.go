@@ -20,7 +20,6 @@ import (
 
 func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
 
-	time.Sleep(1000 * time.Millisecond)
 	numFilesToHash := com.LenSyncMap(sourceFiles)
 	if numFilesToHash == 0 {
 		mm.SenderFinished()
@@ -54,7 +53,6 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 			currentFilePath := key.(string)
 
 			// Acquire a slot
-			// --- 2. Check for Cancellation while waiting for Semaphore ---
 			select {
 			case <-ctx.Done():
 				// Context canceled while waiting for the semaphore
@@ -64,7 +62,6 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 				// Slot acquired, proceed
 			}
 			defer func() { <-sem }() // Release the slots
-			// --- 3. Check for Cancellation after acquiring slot (optional but good) ---
 			if ctx.Err() != nil {
 				log.DebugWithFuncName(fmt.Sprintf("Worker skipped file. context canceled immediately after semaphore acquisition. | filepath: %s", currentFilePath))
 				return
@@ -135,13 +132,11 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) {
 	num := 0
 
-	// Check 1: Cancellation before starting any work (and before the first Range loop)
 	if ctx.Err() != nil {
 		log.DebugWithFuncName("EnsureDuplicates skipped due to context cancellation.")
 		return
 	}
 
-	// This is usually quick, so no cancellation check needed here.
 	input.Range(func(key, value any) bool {
 		num += len(value.(models.FileHash).DuplicatesFound)
 		return true
