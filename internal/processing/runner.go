@@ -254,8 +254,24 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	fileCount := common.LenSyncMap(&syncSourceDirFileMap)
 	if fileCount == 0 {
+		mm.SenderFinished()
+		mm.Wait()
+		close(errChan)
 		app.reporter.LogProgress(app.execCtx, "Error", 0)
 		app.reporter.LogDetailedStatus(app.execCtx, "No files found in directory/directories! Check your paths again")
+		return nil
+	}
+
+	candidateCount, skippedCount := FilterHashCandidatesBySize(&syncSourceDirFileMap)
+	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
+	if candidateCount == 0 {
+		mm.SenderFinished()
+		mm.Wait()
+		close(errChan)
+		app.lastResults = nil
+		app.reporter.LogDetailedStatus(app.execCtx, "No possible duplicates found: every file has a unique size")
+		app.reporter.LogProgress(app.execCtx, "Done", 100)
+		app.reporter.FinishExecution(app.execCtx)
 		return nil
 	}
 

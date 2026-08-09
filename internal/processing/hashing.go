@@ -76,7 +76,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 			}
 
 			currentFileDiskSize := currentFileDiskStats.Size()
-			currentFileDiskModTime := currentFileDiskStats.ModTime().Format(time.RFC3339)
+			currentFileDiskModTime := currentFileDiskStats.ModTime().Format(com.TimeFrmt)
 
 			memoryOfFile, memoryExists := (*memory)[currentFilePath]
 

@@ -42,8 +42,8 @@ func WalkDir(ctx context.Context, path string, result *sync.Map, pt *visuals.Pro
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
 }
 
-func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter) func(path string, d fs.DirEntry, err error) error {
-	return func(path string, d fs.DirEntry, err error) error {
+func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter) func(path string, dirEntry fs.DirEntry, err error) error {
+	return func(path string, dirEntry fs.DirEntry, err error) error {
 
 		// --- 1. Cancellation Check ---
 		select {
@@ -69,13 +69,46 @@ func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressC
 			// return err
 		}
 
-		if !d.IsDir() {
+		if !dirEntry.IsDir() {
+			var info, err = dirEntry.Info()
+			if err != nil {
+				return err
+			}
 
-			result.Store(path, models.FileHash{FilePath: path})
+			result.Store(path, models.FileHash{
+				FileName: dirEntry.Name(),
+				FilePath: path,
+				FileSize: info.Size(),
+				ModTime:  info.ModTime().Format(common.TimeFrmt),
+			})
+
 			pt.Channel <- 1
 		}
 		return nil
 	}
+}
+
+func FilterHashCandidatesBySize(files *sync.Map) (candidateCount, skippedCount int) {
+	sizeCounts := make(map[int64]int)
+	files.Range(func(_, value any) bool {
+		file := value.(models.FileHash)
+		sizeCounts[file.FileSize]++
+		return true
+	})
+
+	files.Range(func(key, value any) bool {
+		file := value.(models.FileHash)
+		if sizeCounts[file.FileSize] == 1 {
+			files.Delete(key)
+			skippedCount++
+			return true
+		}
+
+		candidateCount++
+		return true
+	})
+
+	return candidateCount, skippedCount
 }
 
 func SaveResultsAsCSV(data *sync.Map, fulldir string) error {

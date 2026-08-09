@@ -1,6 +1,7 @@
 package db
 
 import (
+	common "DuDe/internal/common"
 	"DuDe/internal/models/db_models"
 	"database/sql"
 	"errors"
@@ -65,7 +66,7 @@ func (r *FileHashRepository) GetByPath(path string) (*db_models.FileHash, error)
 
 func (r *FileHashRepository) Create(fh *db_models.FileHash) error {
 	result, err := r.Db.Exec("INSERT INTO file_hashes (path, hash, size, modified_time, created_at) VALUES (?, ?, ?, ?, ?)",
-		fh.FilePath, fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(time.RFC3339))
+		fh.FilePath, fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFrmt))
 
 	if err != nil {
 		return err
@@ -106,7 +107,7 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 
 	result, err = r.Db.Exec(`UPDATE file_hashes SET 
 		hash = ?, 	size = ?, 		modified_time = ? ,updated_at =?		WHERE 	id = ?`,
-		fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(time.RFC3339), existingFH.ID)
+		fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFrmt), existingFH.ID)
 
 	if err != nil {
 		return err
