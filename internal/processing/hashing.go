@@ -313,8 +313,9 @@ func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error)
 	// 💡 Performance Note: For cancellation during long reads,
 	// you would need a custom Reader that checks ctx.Done() periodically.
 	// For now, we assume the open/close is the main blocking point.
-	io.Copy(hasherMD5, f)
-	// TODO: add blob suffix for uniquness
+	if _, err := io.Copy(hasherMD5, f); err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	} // TODO: add blob suffix for uniquness
 	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
 }
 

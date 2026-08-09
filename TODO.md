@@ -4,6 +4,9 @@
   - check logs. levels and details
   - test with large files to provoke buffer overflow ( kinda overkill )
   - unit test more
+  - handle hash read errors properly
+  - clean up cache/upsert error handling
+  - simplify frontend state flow
 
   - use must pattern?
   - make file info work for all builds, also test it! 
