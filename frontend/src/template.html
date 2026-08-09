@@ -176,6 +176,16 @@
     <div class="results-header">
         <span id="results-count-label">Results</span>
         <div class="results-header-actions">
+            <label class="results-page-size-control" for="resultsPageSize">
+                Groups per page
+                <select id="resultsPageSize" class="input results-page-size-select" onchange="changeResultsPageSize(this.value)" disabled>
+                    <option value="3" selected>3</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+            </label>
             <button id="clearResultsButton" class="btn btn-clear-results" onclick="clearResults()" disabled>
                 Clear Results
             </button>

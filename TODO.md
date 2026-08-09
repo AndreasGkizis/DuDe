@@ -12,7 +12,6 @@
 
 ## Features
   - to do or not to do ( delete file feature.)
-  - user can change how many results per page dynamically
 
 ## Done
   - handle file read errors during hashing
@@ -22,6 +21,7 @@
   - skip uniquely sized files before hashing
   - test same-size files with different contents
   - add production hashing benchmarks and comparison workflow
+  - allow users to change result groups per page dynamically
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?

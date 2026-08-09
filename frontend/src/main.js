@@ -23,13 +23,16 @@ const startText = document.getElementById('startText');
 const startButtonSpinner = document.getElementById('startButtonSpinner');
 
 // --- Duplicate Results State ---
-const PAGE_SIZE = 3;
+const DEFAULT_PAGE_SIZE = 3;
+const PAGE_SIZE_OPTIONS = [3, 5, 10, 25, 50];
 let allGroups = [];
 let currentPage = 1;
+let pageSize = DEFAULT_PAGE_SIZE;
 
 const resultsSection = document.getElementById('results-section');
 const resultsList = document.getElementById('results-list');
 const resultsCountLabel = document.getElementById('results-count-label');
+const resultsPageSize = document.getElementById('resultsPageSize');
 const prevPageTop = document.getElementById('prev-page-top');
 const nextPageTop = document.getElementById('next-page-top');
 const pageIndicatorTop = document.getElementById('page-indicator-top');
@@ -165,7 +168,10 @@ window.startProcess = function () {
     // Hide previous results
     resultsSection.style.display = 'none';
     allGroups = [];
+    currentPage = 1;
+    window.currentPage = 1;
     resultsList.innerHTML = '';
+    resultsPageSize.disabled = true;
 
 
     // UI State: Running
@@ -288,6 +294,7 @@ window.clearResults = function () {
     resultsSection.style.display = 'none';
     resultsCountLabel.textContent = 'Results';
     clearResultsButton.disabled = true;
+    resultsPageSize.disabled = true;
 
     // Reset status area to clean slate
     statusJob.textContent = 'Ready to run.';
@@ -394,6 +401,23 @@ window.goToPage = function (page) {
     renderPage(page);
 };
 
+window.changeResultsPageSize = function (value) {
+    const nextPageSize = Number.parseInt(value, 10);
+    if (!PAGE_SIZE_OPTIONS.includes(nextPageSize) || nextPageSize === pageSize) {
+        resultsPageSize.value = String(pageSize);
+        return;
+    }
+
+    const firstVisibleGroupIndex = (currentPage - 1) * pageSize;
+    pageSize = nextPageSize;
+    currentPage = Math.floor(firstVisibleGroupIndex / pageSize) + 1;
+    window.currentPage = currentPage;
+
+    if (allGroups.length > 0) {
+        renderPage(currentPage, false);
+    }
+};
+
 // --- Results: reveal a specific file in the OS file manager ---
 window.revealInExplorer = function (path) {
     RevealInExplorer(path)
@@ -494,14 +518,15 @@ function createResultCard(group) {
 /**
  * Renders one page of duplicate groups into the results list.
  * @param {number} page 1-based page number
+ * @param {boolean} scrollToResults whether to scroll the result section into view
  */
-function renderPage(page) {
-    const totalPages = Math.max(1, Math.ceil(allGroups.length / PAGE_SIZE));
+function renderPage(page, scrollToResults = true) {
+    const totalPages = Math.max(1, Math.ceil(allGroups.length / pageSize));
     currentPage = Math.max(1, Math.min(page, totalPages));
     window.currentPage = currentPage;
 
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const end = Math.min(start + PAGE_SIZE, allGroups.length);
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, allGroups.length);
     const pageGroups = allGroups.slice(start, end);
 
     resultsList.innerHTML = '';
@@ -520,7 +545,9 @@ function renderPage(page) {
     resultsControlsTop.style.display = showPager ? 'flex' : 'none';
     resultsControlsBottom.style.display = showPager ? 'flex' : 'none';
 
-    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scrollToResults) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 /**
@@ -541,6 +568,7 @@ function renderResults(rawGroups) {
     if (groupCount === 0) {
         resultsCountLabel.textContent = 'Results';
         resultsSection.style.display = 'none';
+        resultsPageSize.disabled = true;
         return;
     }
 
@@ -548,6 +576,8 @@ function renderResults(rawGroups) {
         `Results — ${groupCount} group${groupCount !== 1 ? 's' : ''}, ${totalDups} duplicate${totalDups !== 1 ? 's' : ''}`;
     resultsSection.style.display = 'block';
     clearResultsButton.disabled = false;
+    resultsPageSize.disabled = false;
+    resultsPageSize.value = String(pageSize);
     renderPage(1);
 }
 

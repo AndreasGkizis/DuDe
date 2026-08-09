@@ -1,5 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
+  "build:tags": "webkit2_41",
   "name": "DuDe",
   "outputfilename": "DuDe",
   "frontend:install": "npm install",
