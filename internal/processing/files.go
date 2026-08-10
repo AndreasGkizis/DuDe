@@ -12,6 +12,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -138,35 +139,48 @@ func SaveResultsAsCSV(data *sync.Map, fulldir string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	writer.Comma = GetDelimiterForOS()
-
-	// Write the UTF-8 BOM bytes at the very beginning of the file to force stupid excel to recognise the encoding.
-	_, err = file.Write([]byte{0xEF, 0xBB, 0xBF})
-	if err != nil {
-		return fmt.Errorf("failed to write UTF-8 BOM: %v", err)
-	}
-
-	err = writer.Write(common.ResultsHeader)
-	if err != nil {
+	if err := WriteResultsCSV(file, flattened_data); err != nil {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
 		return err
 	}
 
-	for _, entry := range flattened_data {
-		err = writer.Write([]string{
+	if err := file.Close(); err != nil {
+		_ = os.Remove(file.Name())
+		return fmt.Errorf("failed to close results file: %w", err)
+	}
+
+	return nil
+}
+
+func WriteResultsCSV(output io.Writer, entries []models.ResultEntry) error {
+	// Write the UTF-8 BOM bytes at the very beginning of the file to force stupid excel to recognise the encoding.
+	if _, err := output.Write([]byte{0xEF, 0xBB, 0xBF}); err != nil {
+		return fmt.Errorf("failed to write UTF-8 BOM: %w", err)
+	}
+
+	writer := csv.NewWriter(output)
+	writer.Comma = GetDelimiterForOS()
+
+	if err := writer.Write(common.ResultsHeader); err != nil {
+		return fmt.Errorf("failed to write results header: %w", err)
+	}
+
+	for _, entry := range entries {
+		if err := writer.Write([]string{
 			entry.Filename,
 			entry.FullPath,
 			entry.DuplicateFilename,
 			entry.DuplicateFullPath,
-		})
-
-		if err != nil {
-			return err
+		}); err != nil {
+			return fmt.Errorf("failed to write results row: %w", err)
 		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return fmt.Errorf("failed to flush results file: %w", err)
 	}
 
 	return nil
