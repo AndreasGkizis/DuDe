@@ -56,23 +56,26 @@ func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressC
 		default:
 			// Continue if not cancelled
 		}
+
 		if err != nil {
-			if os.IsNotExist(err) {
-				// visuals.DirDoesNotExistMessage(path)
-			} else if errors.Is(err, os.ErrPermission) {
-				log.WarnWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
-				return filepath.SkipDir                                                                        // Skip without failing
-			} else {
-				log.ErrorWithFuncName(fmt.Sprintf("skipping from err check: %s reason: %s", path, err.Error())) // wont work?
-				return filepath.SkipDir                                                                         // Skip without failing
+			reportSkippedWalkEntry(ctx, pt, path, err)
+			if dirEntry != nil && dirEntry.IsDir() {
+				return filepath.SkipDir
 			}
-			// return err
+			return nil
+		}
+
+		if dirEntry == nil {
+			err := fmt.Errorf("directory entry is unavailable")
+			reportSkippedWalkEntry(ctx, pt, path, err)
+			return nil
 		}
 
 		if !dirEntry.IsDir() {
-			var info, err = dirEntry.Info()
+			info, err := dirEntry.Info()
 			if err != nil {
-				return err
+				reportSkippedWalkEntry(ctx, pt, path, err)
+				return nil
 			}
 
 			result.Store(path, models.FileHash{
@@ -86,6 +89,16 @@ func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressC
 		}
 		return nil
 	}
+}
+
+func reportSkippedWalkEntry(ctx context.Context, pt *visuals.ProgressCounter, path string, err error) {
+	message := fmt.Sprintf("Skipped %s: %v", path, err)
+	if errors.Is(err, os.ErrPermission) || os.IsNotExist(err) {
+		log.WarnWithFuncName(message)
+	} else {
+		log.ErrorWithFuncName(message)
+	}
+	pt.Reporter.LogDetailedStatus(ctx, message)
 }
 
 func FilterHashCandidatesBySize(files *sync.Map) (candidateCount, skippedCount int) {
