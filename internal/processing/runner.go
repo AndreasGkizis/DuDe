@@ -303,7 +303,22 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	findTracker.Wait()
 
-	// Collect duplicate groups and cache them for GetResults()
+	length := common.LenSyncMap(&syncSourceDirFileMap)
+
+	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
+	if length != 0 && app.Args.ParanoidMode {
+		compareTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Comparing")
+		compareTracker.Start()
+
+		compareErr := EnsureDuplicates(app.execCtx, &syncSourceDirFileMap, compareTracker, app.Args.CPUs)
+		compareTracker.Wait()
+		if compareErr != nil {
+			app.lastResults = nil
+			return fmt.Errorf("verify duplicates: %w", compareErr)
+		}
+	}
+
+	// Collect verified duplicate groups and cache them for GetResults()
 	groupsToCollect := common.LenSyncMap(&syncSourceDirFileMap)
 	app.reporter.LogProgress(app.execCtx, "Collecting", 0)
 	app.reporter.LogFilesCount(app.execCtx, 0, int64(groupsToCollect))
@@ -320,20 +335,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	app.reporter.LogProgress(app.execCtx, "Collecting", 100)
 	app.reporter.LogFilesCount(app.execCtx, int64(collectedGroups), int64(groupsToCollect))
 
-	length := common.LenSyncMap(&syncSourceDirFileMap)
-
-	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
+	length = common.LenSyncMap(&syncSourceDirFileMap)
 	if length != 0 {
 		timer1 := time.Now()
-
-		if app.Args.ParanoidMode {
-			compareTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Comparing")
-			compareTracker.Start()
-
-			EnsureDuplicates(app.execCtx, &syncSourceDirFileMap, compareTracker, app.Args.CPUs)
-
-			compareTracker.Wait()
-		}
 
 		err = SaveResultsAsCSV(&syncSourceDirFileMap, app.Args.ResultsDir)
 		if err != nil {

@@ -129,15 +129,19 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 	return ctx.Err()
 }
 
-func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) {
+func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) error {
 	num := 0
 
 	if ctx.Err() != nil {
 		log.DebugWithFuncName("EnsureDuplicates skipped due to context cancellation.")
-		return
+		return ctx.Err()
+	}
+	if maxWorkers < 1 {
+		return fmt.Errorf("max workers must be at least 1")
 	}
 
-	input.Range(func(key, value any) bool {
+	// Count every file comparison so progress has an accurate total.
+	input.Range(func(_, value any) bool {
 		num += len(value.(models.FileHash).DuplicatesFound)
 		return true
 	})
@@ -148,36 +152,40 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 
 	pt.AddTotal(int64(num))
 
+	// Limit concurrent groups and collect errors safely from all workers.
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers)
+	var errorMu sync.Mutex
+	comparisonErrors := make([]error, 0)
+	recordError := func(err error) {
+		errorMu.Lock()
+		comparisonErrors = append(comparisonErrors, err)
+		errorMu.Unlock()
+	}
 
+	// Each map entry is one hash group with a primary file and its matches.
 	input.Range(func(itemHash, item any) bool {
-
 		select {
 		case <-ctx.Done():
-
 			log.DebugWithFuncName("stopped spawning workers due to context cancellation.")
-
-			return false // Stop outer Range loop
+			return false
 		default:
-			// Continue spawning worker
 		}
 
 		wg.Add(1)
 		go func(itemHash string, item models.FileHash) {
 			defer wg.Done()
 
-			// Check 3: Cancellation while waiting for semaphore
+			// Wait until this group has an available worker slot.
 			select {
 			case <-ctx.Done():
 				log.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled while waiting for semaphore.", itemHash))
-				return // Exit worker goroutine
+				return
 			case sem <- struct{}{}:
-				// Slot acquired, proceed
 			}
 			defer func() { <-sem }()
 
-			// Check 3b: Cancellation immediately after semaphore acquisition
+			// Cancellation may happen while waiting for the worker slot.
 			if ctx.Err() != nil {
 				log.DebugWithFuncName(fmt.Sprintf("Worker for hash %s skipped: context canceled immediately after semaphore acquisition.", itemHash))
 				return
@@ -187,50 +195,81 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 				return
 			}
 
+			// Open the primary file once and compare every candidate against it.
 			mainFile, err := os.Open(item.FilePath)
-
 			if err != nil {
-				log.WarnWithFuncName(fmt.Sprintf("skipping | Error opening file %s : %v.", item.FilePath, err))
+				recordError(fmt.Errorf("open primary file %q: %w", item.FilePath, err))
+				input.Delete(itemHash)
+				for range item.DuplicatesFound {
+					pt.Increment()
+				}
 				return
 			}
 
-			defer mainFile.Close()
+			// Build a fresh list containing only byte-for-byte matches.
+			confirmedDuplicates := make([]models.FileHash, 0, len(item.DuplicatesFound))
 
-			for dupIndex := 0; dupIndex < len(item.DuplicatesFound); {
-
-				// Check 4: Cancellation inside the innermost loop
+			for duplicateIndex, duplicate := range item.DuplicatesFound {
+				// Stop comparing this group when the execution is cancelled.
 				select {
 				case <-ctx.Done():
 					log.WarnWithFuncName(fmt.Sprintf("Worker for hash %s stopped mid-comparison loop due to cancellation.", itemHash))
-					return // Exit worker goroutine
+					for range item.DuplicatesFound[duplicateIndex:] {
+						pt.Increment()
+					}
+					if err := mainFile.Close(); err != nil {
+						recordError(fmt.Errorf("close primary file %q: %w", item.FilePath, err))
+					}
+					return
 				default:
-					// Continue
 				}
 
-				dup := item.DuplicatesFound[dupIndex]
-
-				eq, err := filesEqual(ctx, mainFile, dup.FilePath)
+				// Comparison errors are recorded and never treated as matches.
+				equal, err := filesEqual(ctx, mainFile, duplicate.FilePath)
+				pt.Increment()
 
 				if err != nil {
-					log.WarnWithFuncName(fmt.Sprintf("Error comparing files %s and %s: %v. Considering as equal.", item.FilePath, dup.FilePath, err))
-					eq = true
+					recordError(fmt.Errorf("compare %q with %q: %w", item.FilePath, duplicate.FilePath, err))
+					continue
 				}
 
-				if !eq {
-					item.DuplicatesFound = append(item.DuplicatesFound[:dupIndex], item.DuplicatesFound[dupIndex+1:]...)
-					if len(item.DuplicatesFound) == 0 {
-						input.Delete(itemHash)
-					}
-				} else {
-					dupIndex++
+				if equal {
+					confirmedDuplicates = append(confirmedDuplicates, duplicate)
 				}
-				// reset readers
-				_, _ = mainFile.Seek(0, io.SeekStart)
-				pt.Increment()
+
+				// Rewind the primary file before comparing the next candidate.
+				if _, err := mainFile.Seek(0, io.SeekStart); err != nil {
+					recordError(fmt.Errorf("reset primary file %q: %w", item.FilePath, err))
+					for range item.DuplicatesFound[duplicateIndex+1:] {
+						pt.Increment()
+					}
+					break
+				}
 			}
+
+			// Closing errors also make the verification phase fail visibly.
+			if err := mainFile.Close(); err != nil {
+				recordError(fmt.Errorf("close primary file %q: %w", item.FilePath, err))
+			}
+
+			if len(confirmedDuplicates) == 0 {
+				input.Delete(itemHash)
+				return
+			}
+
+			// Replace the original group with its verified matches.
+			item.DuplicatesFound = confirmedDuplicates
+			input.Store(itemHash, item)
 		}(itemHash.(string), item.(models.FileHash))
 		return true
 	})
+
+	// Do not return until every comparison worker has finished.
+	wg.Wait()
+	if ctx.Err() != nil {
+		comparisonErrors = append(comparisonErrors, ctx.Err())
+	}
+	return errors.Join(comparisonErrors...)
 }
 
 func filesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error) {
