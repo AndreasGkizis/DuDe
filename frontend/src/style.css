@@ -474,6 +474,7 @@ label {
     background-color: var(--color-bg-tertiary);
     border-radius: 9999px;
     height: 24px;
+    overflow: hidden;
     margin-bottom: 16px;
 }
 
@@ -497,6 +498,21 @@ label {
 
 .progress-bar--error {
     background-color: #ff6b6b;
+}
+
+.progress-bar--indeterminate {
+    width: 35% !important;
+    animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(286%);
+    }
 }
 
 .status-panel {

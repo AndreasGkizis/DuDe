@@ -247,6 +247,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		go WalkDir(app.execCtx, dir, &syncSourceDirFileMap, rt)
 	}
 	rt.WaitForSenders()
+	app.reporter.LogProgress(app.execCtx, "Reading", 100)
 
 	fileCount := common.LenSyncMap(&syncSourceDirFileMap)
 	if fileCount == 0 {
@@ -258,7 +259,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		return nil
 	}
 
+	app.reporter.LogProgress(app.execCtx, "Filtering", 0)
 	candidateCount, skippedCount := FilterHashCandidatesBySize(&syncSourceDirFileMap)
+	app.reporter.LogProgress(app.execCtx, "Filtering", 100)
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
 	if candidateCount == 0 {
 		mm.SenderFinished()
@@ -281,7 +284,11 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	}
 
 	pt.Wait()
-	mm.Wait()
+	mm.WaitForCache(app.execCtx, func(completed, total int64) {
+		percentage := float64(completed) / float64(total) * 100
+		app.reporter.LogProgress(app.execCtx, "Caching", percentage)
+		app.reporter.LogFilesCount(app.execCtx, completed, total)
+	})
 
 	close(errChan)
 
@@ -293,6 +300,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	findTracker.Wait()
 
 	// Collect duplicate groups and cache them for GetResults()
+	app.reporter.LogProgress(app.execCtx, "Collecting", 0)
 	var groups []models.FileHash
 	syncSourceDirFileMap.Range(func(_, v any) bool {
 		if fh, ok := v.(models.FileHash); ok && len(fh.DuplicatesFound) > 0 {
@@ -301,6 +309,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		return true
 	})
 	app.lastResults = groups
+	app.reporter.LogProgress(app.execCtx, "Collecting", 100)
 
 	length := common.LenSyncMap(&syncSourceDirFileMap)
 

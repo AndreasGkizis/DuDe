@@ -46,7 +46,7 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 			tot := float64(atomic.LoadInt64(&pt.totalFiles))
 
 			isItTheStart := curr == 0
-			if curr == 0 {
+			if curr == 0 || tot <= 0 {
 				percentage = 0
 			} else {
 				percentage = curr / tot * 100
@@ -85,6 +85,7 @@ func (pt *ProgressTracker) Start() {
 	pt.wg.Add(1)
 	pt.BarLength = 100
 	pt.lastDisplayedProgress = 0
+	pt.Reporter.LogProgress(pt.Context, pt.Name, 0)
 
 	go pt.updateProgressBarLoop(pt.Name)
 }

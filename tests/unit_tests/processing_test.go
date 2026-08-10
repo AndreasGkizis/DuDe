@@ -216,3 +216,47 @@ func loadFileHash(t *testing.T, files *sync.Map, path string) models.FileHash {
 	}
 	return value.(models.FileHash)
 }
+
+func TestMemoryManagerTracksCompletedCacheWrites(t *testing.T) {
+	args := models.ExecutionParams{
+		UseCache: true,
+		CacheDir: t.TempDir(),
+	}
+	memoryManager := processing.NewMemoryManager(&args, 2, 1)
+	memoryManager.Start()
+
+	memoryManager.Push(models.FileHash{
+		FileName: "first.txt",
+		FilePath: "/files/first.txt",
+		Hash:     "first-hash",
+		FileSize: 10,
+		ModTime:  "2026-08-10T12:00:00Z",
+	})
+	memoryManager.Push(models.FileHash{
+		FileName: "second.txt",
+		FilePath: "/files/second.txt",
+		Hash:     "second-hash",
+		FileSize: 20,
+		ModTime:  "2026-08-10T12:00:00Z",
+	})
+	memoryManager.SenderFinished()
+
+	reported := false
+	memoryManager.WaitForCache(context.Background(), func(completed, total int64) {
+		reported = true
+		if completed > total {
+			t.Fatalf("cache progress exceeded total: %d > %d", completed, total)
+		}
+	})
+
+	completed, total, enabled := memoryManager.CacheProgress()
+	if !enabled {
+		t.Fatal("expected cache to be enabled")
+	}
+	if completed != 2 || total != 2 {
+		t.Fatalf("expected 2 completed cache writes, got %d of %d", completed, total)
+	}
+	if !reported && completed != total {
+		t.Fatal("expected pending cache writes to report progress")
+	}
+}

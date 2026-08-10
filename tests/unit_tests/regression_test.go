@@ -30,14 +30,15 @@ func TestCreateHashesReportsReadErrors(t *testing.T) {
 
 func TestProgressTrackerNeverReportsNonFinitePercentage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	reporter := capturingReporter{progress: make(chan float64, 1)}
+	reporter := capturingReporter{progress: make(chan progressEvent, 2)}
 	tracker := visuals.NewProgressTracker(ctx, reporter, "test")
 	tracker.Start()
+	<-reporter.progress
 	tracker.Increment()
 
-	var percentage float64
+	var update progressEvent
 	select {
-	case percentage = <-reporter.progress:
+	case update = <-reporter.progress:
 	case <-time.After(time.Second):
 		cancel()
 		tracker.Wait()
@@ -47,8 +48,26 @@ func TestProgressTrackerNeverReportsNonFinitePercentage(t *testing.T) {
 	cancel()
 	tracker.Wait()
 
-	if math.IsInf(percentage, 0) || math.IsNaN(percentage) {
-		t.Fatalf("expected a finite progress percentage, got %v", percentage)
+	if math.IsInf(update.percent, 0) || math.IsNaN(update.percent) {
+		t.Fatalf("expected a finite progress percentage, got %v", update.percent)
+	}
+}
+
+func TestProgressTrackerReportsPhaseImmediately(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	reporter := capturingReporter{progress: make(chan progressEvent, 1)}
+	tracker := visuals.NewProgressTracker(ctx, reporter, "Finding")
+
+	tracker.Start()
+	update := <-reporter.progress
+	cancel()
+	tracker.Wait()
+
+	if update.title != "Finding" {
+		t.Fatalf("expected Finding phase, got %q", update.title)
+	}
+	if update.percent != 0 {
+		t.Fatalf("expected phase to start at 0%%, got %v", update.percent)
 	}
 }
 
@@ -76,11 +95,16 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 }
 
 type capturingReporter struct {
-	progress chan float64
+	progress chan progressEvent
 }
 
-func (reporter capturingReporter) LogProgress(_ context.Context, _ string, percent float64) {
-	reporter.progress <- percent
+type progressEvent struct {
+	title   string
+	percent float64
+}
+
+func (reporter capturingReporter) LogProgress(_ context.Context, title string, percent float64) {
+	reporter.progress <- progressEvent{title: title, percent: percent}
 }
 
 func (capturingReporter) LogDetailedStatus(context.Context, string)   {}

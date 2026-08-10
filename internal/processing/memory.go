@@ -5,9 +5,11 @@ import (
 	log "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
+	"context"
 	"database/sql"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type MemoryManager struct {
@@ -17,6 +19,8 @@ type MemoryManager struct {
 	senderWg    sync.WaitGroup
 	senderCount int32
 	isActive    bool
+	queued      int64
+	completed   int64
 }
 
 func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int) *MemoryManager {
@@ -86,7 +90,43 @@ func (mm *MemoryManager) Push(fh models.FileHash) {
 	if !mm.isActive {
 		return
 	}
+	atomic.AddInt64(&mm.queued, 1)
 	mm.Channel <- fh
+}
+
+func (mm *MemoryManager) WaitForCache(ctx context.Context, progress func(completed, total int64)) bool {
+	if !mm.isActive {
+		return false
+	}
+
+	total := atomic.LoadInt64(&mm.queued)
+	completed := atomic.LoadInt64(&mm.completed)
+	if total == 0 || completed >= total {
+		mm.Wait()
+		return false
+	}
+
+	progress(completed, total)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for completed < total {
+		select {
+		case <-ctx.Done():
+			mm.Wait()
+			return true
+		case <-ticker.C:
+			completed = atomic.LoadInt64(&mm.completed)
+			progress(completed, total)
+		}
+	}
+
+	mm.Wait()
+	return true
+}
+
+func (mm *MemoryManager) CacheProgress() (completed, total int64, enabled bool) {
+	return atomic.LoadInt64(&mm.completed), atomic.LoadInt64(&mm.queued), mm.isActive
 }
 
 func (mm *MemoryManager) updateMemory() {
@@ -99,6 +139,7 @@ func (mm *MemoryManager) updateMemory() {
 		if err != nil {
 			log.FatalWithFuncName(err.Error())
 		}
+		atomic.AddInt64(&mm.completed, 1)
 	}
 
 	log.DebugWithFuncName("finished")

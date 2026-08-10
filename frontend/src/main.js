@@ -28,6 +28,7 @@ const PAGE_SIZE_OPTIONS = [3, 5, 10, 25, 50];
 let allGroups = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
+let activePhase = '';
 
 const resultsSection = document.getElementById('results-section');
 const resultsList = document.getElementById('results-list');
@@ -162,8 +163,7 @@ window.startProcess = function () {
     statusDuplicates.classList.remove('status-value--orange');
     statusError.textContent = "";
     statusError.style.display = "none";
-    progressBar.style.width = '0%';
-    progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
+    resetProgressBar();
 
     // Hide previous results
     resultsSection.style.display = 'none';
@@ -304,40 +304,75 @@ window.clearResults = function () {
     statusDuplicates.classList.remove('status-value--orange');
     statusError.textContent = '';
     statusError.style.display = 'none';
-    progressBar.style.width = '0%';
-    progressBar.textContent = '';
-    progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
+    resetProgressBar();
 };
+
+function resetProgressBar() {
+    activePhase = '';
+    progressBar.style.width = '0%';
+    progressBar.style.transform = '';
+    progressBar.textContent = '';
+    progressBar.classList.remove(
+        'progress-bar--indeterminate',
+        'progress-bar--success',
+        'progress-bar--error',
+    );
+}
+
+function updatePhaseProgress(title, percent) {
+    if (title === 'Done' || title === 'Error' || !Number.isFinite(percent)) {
+        return;
+    }
+
+    if (activePhase !== title) {
+        resetProgressBar();
+        activePhase = title;
+    }
+
+    const cappedPercent = Math.min(100, Math.max(0, percent));
+    progressBar.classList.remove('progress-bar--error');
+
+    if (cappedPercent === 0) {
+        progressBar.style.width = '0%';
+        progressBar.textContent = '';
+        progressBar.classList.remove('progress-bar--success');
+        progressBar.classList.add('progress-bar--indeterminate');
+        return;
+    }
+
+    progressBar.classList.remove('progress-bar--indeterminate');
+    progressBar.style.transform = '';
+    progressBar.style.width = `${cappedPercent}%`;
+    progressBar.textContent = cappedPercent > 5 ? `${cappedPercent.toFixed(2)}%` : '';
+    progressBar.classList.toggle('progress-bar--success', cappedPercent >= 100);
+}
+
+function markActivePhaseFailed() {
+    if (!activePhase) {
+        return;
+    }
+
+    progressBar.classList.remove('progress-bar--indeterminate', 'progress-bar--success');
+    progressBar.classList.add('progress-bar--error');
+    progressBar.style.transform = '';
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Error';
+}
 
 // --- Status Listener Setup ---
 function setupStatusListeners() {
     const showResultsButton = document.getElementById('showResultsButton'); // Get the element again
     // 1. Progress/Title Update Event
     runtime.EventsOn("progressUpdate", (data) => {
-        if (statusJob.textContent !== data.title) {
+        const phaseChanged = statusJob.textContent !== data.title;
+        if (phaseChanged) {
             statusJob.textContent = data.title;
+            statusJob.classList.remove('status-value--success');
         }
         if (data.percent !== undefined) {
-            // Ensure the value is treated as a number and cap it
             const rawPercent = parseFloat(data.percent);
-            const cappedPercent = Math.min(100, Math.max(0, rawPercent));
-
-
-            const displayPercent = cappedPercent.toFixed(2);
-
-            progressBar.style.width = `${cappedPercent}%`;
-            progressBar.innerText = cappedPercent > 5 ? `${displayPercent}%` : '';
-            if (cappedPercent >= 100) {
-                progressBar.classList.add('progress-bar--success');
-                statusJob.textContent = "Process Complete.";
-                statusJob.classList.add('status-value--success');
-                toggleStartSpinner(false);
-                refreshResultsButtonState();
-
-            } else {
-                progressBar.classList.remove('progress-bar--success', 'progress-bar--error');
-                showResultsButton.disabled = true;
-            }
+            updatePhaseProgress(data.title, rawPercent);
+            showResultsButton.disabled = true;
         }
     });
 
@@ -361,8 +396,7 @@ function setupStatusListeners() {
         statusJob.classList.remove('status-value--success');
         statusError.textContent = message;
         statusError.style.display = '';
-        progressBar.style.width = '100%';
-        progressBar.classList.add('progress-bar--error');
+        markActivePhaseFailed();
 
         showResultsButton.disabled = true;
         fullResetButton.disabled = false;
