@@ -212,18 +212,13 @@ window.cancelProcess = function () {
 
     CancelExecution()
         .then(() => {
-            // Backend received signal. The actual termination will be reflected by the status listener.
-            statusJob.textContent = "Process Stopped.";
-            startButton.disabled = false; // Allow restart
-            toggleStartSpinner(false);
+            statusJob.textContent = "Stopping process...";
         })
         .catch((err) => {
-            // Should generally not happen if binding is correct, but good to handle.
             statusJob.textContent = "Cancellation Error";
             statusError.textContent = `Failed to send cancellation: ${err}`;
             statusError.style.display = '';
-            startButton.disabled = false;
-            toggleStartSpinner(false);
+            stopButton.disabled = false;
         });
 };
 

@@ -23,8 +23,10 @@ import (
 
 // FrontendApp struct
 type FrontendApp struct {
-	wailsCtx   context.Context    // PERMANENT: Wails Context (Set once in WailsInit)
-	cancelFunc context.CancelFunc // TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
+	wailsCtx    context.Context    // PERMANENT: Wails Context (Set once in WailsInit)
+	cancelFunc  context.CancelFunc // TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
+	executionMu sync.Mutex
+	running     bool
 
 	platform    string
 	execCtx     context.Context
@@ -43,9 +45,13 @@ func NewApp(reporter reporting.Reporter) *FrontendApp {
 // CancelExecution attempts to stop the currently running process.
 // This function will be exposed to the Wails frontend.
 func (app *FrontendApp) CancelExecution() {
-	if app.cancelFunc != nil {
+	app.executionMu.Lock()
+	cancel := app.cancelFunc
+	app.executionMu.Unlock()
+
+	if cancel != nil {
 		log.InfoWithFuncName("Execution cancellation requested by user.")
-		app.cancelFunc()
+		cancel()
 	}
 }
 
@@ -185,7 +191,6 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		// Safety check, though WailsInit should handle this
 		return errors.New("wails application context is not initialized")
 	}
-	a.execCtx, a.cancelFunc = context.WithCancel(a.wailsCtx)
 	safeDir := common.GetSafeResultsDir(a.platform)
 
 	resolver := validation.Resolver{
@@ -201,21 +206,42 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
+	a.executionMu.Lock()
+	if a.running {
+		a.executionMu.Unlock()
+		return errors.New("execution already running")
+	}
+	a.execCtx, a.cancelFunc = context.WithCancel(a.wailsCtx)
 	a.Args = args
+	a.running = true
+	a.executionMu.Unlock()
 
-	return runSelectedExecution(a, a.reporter)
+	defer a.finishExecution()
+
+	err := runSelectedExecution(a, a.reporter)
+	if errors.Is(err, context.Canceled) {
+		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
+		return nil
+	}
+	return err
+}
+
+func (a *FrontendApp) finishExecution() {
+	a.executionMu.Lock()
+	cancel := a.cancelFunc
+	a.cancelFunc = nil
+	a.execCtx = nil
+	a.running = false
+	a.executionMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	var err error
 
-	// Ensure cleanup of stored context when execution finishes normally
-	defer func() {
-		if app.cancelFunc != nil {
-			app.cancelFunc()
-			app.cancelFunc = nil
-		}
-	}()
 	log.Initialize(app.Args.DebugMode)
 
 	timer := time.Now()
