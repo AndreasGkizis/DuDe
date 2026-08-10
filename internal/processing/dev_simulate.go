@@ -26,7 +26,9 @@ func simulateExecution(ctx context.Context, reporter reporting.Reporter) {
 	reporter.LogProgress(ctx, "Reading", 100)
 
 	reporter.LogProgress(ctx, "Filtering", 0)
+	reporter.LogFilesCount(ctx, 0, total)
 	time.Sleep(500 * time.Millisecond)
+	reporter.LogFilesCount(ctx, total, total)
 	reporter.LogProgress(ctx, "Filtering", 100)
 
 	// Phase 2: Hashing
@@ -68,7 +70,9 @@ func simulateExecution(ctx context.Context, reporter reporting.Reporter) {
 	}
 
 	reporter.LogProgress(ctx, "Collecting", 0)
+	reporter.LogFilesCount(ctx, 0, total)
 	time.Sleep(500 * time.Millisecond)
+	reporter.LogFilesCount(ctx, total, total)
 	reporter.LogProgress(ctx, "Collecting", 100)
 
 	reporter.LogProgress(ctx, "Comparing", 0)
@@ -84,6 +88,7 @@ func simulateExecution(ctx context.Context, reporter reporting.Reporter) {
 	}
 
 	// Done
+	reporter.LogFilesCount(ctx, total, total)
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)
 }

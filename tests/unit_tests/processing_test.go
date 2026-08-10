@@ -96,6 +96,52 @@ func TestWalkDirStoresFileMetadata(t *testing.T) {
 	}
 }
 
+func TestWalkDirCountsFilesButNotDirectories(t *testing.T) {
+	directory := t.TempDir()
+	nestedDirectory := filepath.Join(directory, "nested")
+	emptyDirectory := filepath.Join(directory, "empty")
+	hiddenDirectory := filepath.Join(directory, ".hidden")
+
+	for _, path := range []string{nestedDirectory, emptyDirectory, hiddenDirectory} {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			t.Fatalf("create directory %q: %v", path, err)
+		}
+	}
+
+	filePaths := []string{
+		filepath.Join(directory, "root.txt"),
+		filepath.Join(nestedDirectory, "nested.txt"),
+		filepath.Join(hiddenDirectory, "hidden.txt"),
+	}
+	for _, path := range filePaths {
+		if err := os.WriteFile(path, []byte("contents"), 0o600); err != nil {
+			t.Fatalf("write file %q: %v", path, err)
+		}
+	}
+
+	files := &sync.Map{}
+	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "test", 1)
+	counter.Start()
+	processing.WalkDir(context.Background(), directory, files, counter)
+	counter.WaitForSenders()
+	counter.Wg.Wait()
+
+	fileCount := 0
+	files.Range(func(_, _ any) bool {
+		fileCount++
+		return true
+	})
+
+	if fileCount != len(filePaths) {
+		t.Fatalf("expected %d files and no directories, got %d entries", len(filePaths), fileCount)
+	}
+	for _, path := range filePaths {
+		if _, exists := files.Load(path); !exists {
+			t.Errorf("expected walked files to contain %q", path)
+		}
+	}
+}
+
 func TestFilterHashCandidatesBySize(t *testing.T) {
 	tests := []struct {
 		name             string
