@@ -1,13 +1,12 @@
 ## Before Release
 
-1. Handle cache initialization, reads, writes, and connection cleanup without panics.
-2. Prevent concurrent executions and state races during cancellation and full reset.
-3. Make CSV output atomic and check flush, close, and filename-collision errors.
-4. Replace inferred progress completion with an explicit phase lifecycle.
-5. Add failure-path tests for file changes, permissions, cache errors, cancellation, symlinks, and output failures.
-6. Add pull-request CI for tests, race detection, vet, frontend builds, and platform compilation.
-7. Pin release tooling, add checksums, test packages, and sign supported release builds.
-8. Clean release metadata and document cache, logs, output, and platform requirements.
+1. Prevent concurrent executions and state races during cancellation and full reset.
+2. Make CSV output atomic and check flush, close, and filename-collision errors.
+3. Replace inferred progress completion with an explicit phase lifecycle.
+4. Add failure-path tests for file changes, permissions, cache errors, cancellation, symlinks, and output failures.
+5. Add pull-request CI for tests, race detection, vet, frontend builds, and platform compilation.
+6. Pin release tooling, add checksums, test packages, and sign supported release builds.
+7. Clean release metadata and document cache, logs, output, and platform requirements.
 
 ## Later
 
@@ -19,6 +18,7 @@
 - Consider a duplicate-file deletion feature.
 
 ## Done
+  - handle cache initialization, reads, writes, and connection cleanup without panics
   - report directory-walk permission and filesystem errors without silently skipping files
   - fix Paranoid Mode correctness, worker completion, and comparison error handling
   - handle file read errors during hashing

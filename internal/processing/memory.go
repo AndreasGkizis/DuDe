@@ -1,12 +1,12 @@
 package processing
 
 import (
-	"DuDe/internal/common"
 	log "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	models "DuDe/internal/models"
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,50 +14,72 @@ import (
 
 type MemoryManager struct {
 	Channel     chan models.FileHash
-	repo        database.FileHashRepository
+	db          *sql.DB
+	repo        *database.FileHashRepository
 	wg          sync.WaitGroup
 	senderWg    sync.WaitGroup
 	senderCount int32
-	isActive    bool
+	isActive    atomic.Bool
+	started     atomic.Bool
 	queued      int64
 	completed   int64
+	processed   int64
+	errorMu     sync.Mutex
+	cacheErr    error
+	closeOnce   sync.Once
 }
 
 func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int) *MemoryManager {
-	var localdb *sql.DB
-	var err error
-	if args.UseCache {
-		localdb, err = database.InitializeDatabase(args.CacheDir)
-		if err != nil {
-			log.ErrorWithFuncName(err.Error())
-		}
-	}
-
-	return &MemoryManager{
+	manager := &MemoryManager{
 		senderCount: int32(senderCount),
 		Channel:     make(chan models.FileHash, bufferSize),
-		repo:        *database.NewFileHashRepository(localdb),
-		isActive:    args.UseCache}
+	}
+	if !args.UseCache {
+		return manager
+	}
+
+	localDB, err := database.InitializeDatabase(args.CacheDir)
+	if err != nil {
+		manager.recordCacheFailure(fmt.Errorf("initialize cache: %w", err))
+		return manager
+	}
+
+	manager.db = localDB
+	manager.repo = database.NewFileHashRepository(localDB)
+	manager.isActive.Store(true)
+	return manager
+}
+
+func (mm *MemoryManager) CacheError() error {
+	mm.errorMu.Lock()
+	defer mm.errorMu.Unlock()
+	return mm.cacheErr
 }
 
 func (mm *MemoryManager) Start() {
-	if !mm.isActive {
+	if !mm.isActive.Load() || mm.started.Load() {
 		return
 	}
 
 	mm.wg.Add(1)
 	mm.senderWg.Add(int(mm.senderCount))
+	mm.started.Store(true)
 	go mm.updateMemory()
 }
 
 func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 	result := make(map[string]models.FileHash)
 
-	if !mm.isActive { // return empty memory
-		return make(map[string]models.FileHash)
+	if !mm.isActive.Load() {
+		return result
 	}
 
-	records := common.Must(mm.repo.GetAll())
+	records, err := mm.repo.GetAll()
+	if err != nil {
+		mm.recordCacheFailure(fmt.Errorf("load cache: %w", err))
+		mm.closeDatabase()
+		return result
+	}
 
 	for _, val := range records {
 		result[val.FilePath] = MapToServiceDTO(val)
@@ -67,8 +89,7 @@ func (mm *MemoryManager) LoadMemory() map[string]models.FileHash {
 }
 
 func (mm *MemoryManager) Wait() {
-
-	if !mm.isActive {
+	if !mm.started.Load() {
 		return
 	}
 	mm.wg.Wait()
@@ -76,7 +97,7 @@ func (mm *MemoryManager) Wait() {
 }
 
 func (mm *MemoryManager) SenderFinished() {
-	if !mm.isActive {
+	if !mm.started.Load() {
 		return
 	}
 
@@ -87,7 +108,7 @@ func (mm *MemoryManager) SenderFinished() {
 }
 
 func (mm *MemoryManager) Push(fh models.FileHash) {
-	if !mm.isActive {
+	if !mm.isActive.Load() {
 		return
 	}
 	atomic.AddInt64(&mm.queued, 1)
@@ -95,29 +116,29 @@ func (mm *MemoryManager) Push(fh models.FileHash) {
 }
 
 func (mm *MemoryManager) WaitForCache(ctx context.Context, progress func(completed, total int64)) bool {
-	if !mm.isActive {
+	if !mm.started.Load() {
 		return false
 	}
 
 	total := atomic.LoadInt64(&mm.queued)
-	completed := atomic.LoadInt64(&mm.completed)
-	if total == 0 || completed >= total {
+	processed := atomic.LoadInt64(&mm.processed)
+	if total == 0 || processed >= total {
 		mm.Wait()
 		return false
 	}
 
-	progress(completed, total)
+	progress(processed, total)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
-	for completed < total {
+	for processed < total {
 		select {
 		case <-ctx.Done():
 			mm.Wait()
 			return true
 		case <-ticker.C:
-			completed = atomic.LoadInt64(&mm.completed)
-			progress(completed, total)
+			processed = atomic.LoadInt64(&mm.processed)
+			progress(processed, total)
 		}
 	}
 
@@ -126,21 +147,46 @@ func (mm *MemoryManager) WaitForCache(ctx context.Context, progress func(complet
 }
 
 func (mm *MemoryManager) CacheProgress() (completed, total int64, enabled bool) {
-	return atomic.LoadInt64(&mm.completed), atomic.LoadInt64(&mm.queued), mm.isActive
+	return atomic.LoadInt64(&mm.completed), atomic.LoadInt64(&mm.queued), mm.isActive.Load()
 }
 
 func (mm *MemoryManager) updateMemory() {
 	log.DebugWithFuncName("started")
 	defer mm.wg.Done()
+	defer mm.closeDatabase()
 
 	for fh := range mm.Channel {
-		db_fh := MapToDomainDTO(fh)
-		err := mm.repo.Upsert(&db_fh)
-		if err != nil {
-			log.FatalWithFuncName(err.Error())
+		if mm.isActive.Load() {
+			databaseFileHash := MapToDomainDTO(fh)
+			if err := mm.repo.Upsert(&databaseFileHash); err != nil {
+				mm.recordCacheFailure(fmt.Errorf("write cache: %w", err))
+			} else {
+				atomic.AddInt64(&mm.completed, 1)
+			}
 		}
-		atomic.AddInt64(&mm.completed, 1)
+		atomic.AddInt64(&mm.processed, 1)
 	}
 
 	log.DebugWithFuncName("finished")
+}
+
+func (mm *MemoryManager) recordCacheFailure(err error) {
+	mm.errorMu.Lock()
+	if mm.cacheErr == nil {
+		mm.cacheErr = err
+		log.WarnWithFuncName(fmt.Sprintf("Cache unavailable; continuing without cache: %v", err))
+	}
+	mm.errorMu.Unlock()
+	mm.isActive.Store(false)
+}
+
+func (mm *MemoryManager) closeDatabase() {
+	mm.closeOnce.Do(func() {
+		if mm.db == nil {
+			return
+		}
+		if err := mm.db.Close(); err != nil {
+			mm.recordCacheFailure(fmt.Errorf("close cache: %w", err))
+		}
+	})
 }

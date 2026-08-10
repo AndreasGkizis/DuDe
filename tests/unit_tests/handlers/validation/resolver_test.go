@@ -71,13 +71,12 @@ func TestResolveAndValidateArgs_Fails_SourceDir(t *testing.T) {
 	}
 }
 
-func TestResolveAndValidateArgs_Fails_CacheDir(t *testing.T) {
-	expectedErr := val.ErrPathNotDirectory
+func TestResolveAndValidateArgs_AllowsUnavailableOptionalCache(t *testing.T) {
 	mockV := val.MockValidator{
 		ReadableDirFunc: func(p string) error { return nil },
 		WritableDirFunc: func(p string) error {
 			if p == "/bad/cache" {
-				return expectedErr
+				return val.ErrPathNotDirectory
 			}
 			return nil
 		},
@@ -85,21 +84,14 @@ func TestResolveAndValidateArgs_Fails_CacheDir(t *testing.T) {
 	r := setupResolver(t, mockV)
 	args := &models.ExecutionParams{
 		Directories: []string{"ok/src"},
-		CacheDir:    "/bad/cache", // Should fail here
+		UseCache:    true,
+		CacheDir:    "/bad/cache",
 		ResultsDir:  "ok/results",
 	}
 
 	err := r.ResolveAndValidateArgs(args, "/exe")
-	if err == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	// Check for correct error wrapping
-	if !errors.Is(err, expectedErr) {
-		t.Errorf("Error missing wrapped error. Expected %v, got %v", expectedErr, err)
-	}
-	if expectedPrefix := "CacheDir: "; !errors.Is(err, expectedErr) && err.Error()[:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("Error message not wrapped correctly. Got %s", err.Error())
+	if err != nil {
+		t.Fatalf("expected unavailable optional cache not to block execution, got %v", err)
 	}
 }
 

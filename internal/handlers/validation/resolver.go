@@ -26,11 +26,6 @@ func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir st
 		}
 	}
 
-	// CacheDir (writable, parent fallback)
-	if err := r.V.WritableDir(args.CacheDir); err != nil {
-		return fmt.Errorf("CacheDir: %w", err)
-	}
-
 	// ResultsDir (writable, parent fallback)
 	if err := r.V.WritableDir(args.ResultsDir); err != nil {
 		return fmt.Errorf("ResultsDir: %w", err)

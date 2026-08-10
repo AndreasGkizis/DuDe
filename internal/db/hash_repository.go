@@ -127,14 +127,15 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 }
 
 func (r *FileHashRepository) Upsert(fh *db_models.FileHash) error {
-	err := r.Update(fh)
-	if err == nil {
-		return nil
-	}
-
-	if errors.Is(err, ErrFileHashNotFound) {
-		return r.Create(fh)
-	}
-
+	now := time.Now().UTC().Format(common.TimeFrmt)
+	_, err := r.Db.Exec(`
+		INSERT INTO file_hashes (path, hash, size, modified_time, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			hash = excluded.hash,
+			size = excluded.size,
+			modified_time = excluded.modified_time,
+			updated_at = ?
+	`, fh.FilePath, fh.Hash, fh.FileSize, fh.ModTime, now, now)
 	return err
 }

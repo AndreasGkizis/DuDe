@@ -232,13 +232,18 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	failedCounter := 0
 	mm := NewMemoryManager(&app.Args, app.Args.BufSize, 1)
-	mm.Start()
 
 	rt := visuals.NewProgressCounter(app.execCtx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
 	hashMemory := mm.LoadMemory()
+	cacheWarningReported := false
+	if cacheErr := mm.CacheError(); cacheErr != nil {
+		app.reporter.LogDetailedStatus(app.execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
+		cacheWarningReported = true
+	}
+	mm.Start()
 
 	var syncSourceDirFileMap sync.Map
 
@@ -293,6 +298,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		app.reporter.LogProgress(app.execCtx, "Caching", percentage)
 		app.reporter.LogFilesCount(app.execCtx, completed, total)
 	})
+	if cacheErr := mm.CacheError(); cacheErr != nil && !cacheWarningReported {
+		app.reporter.LogDetailedStatus(app.execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
+	}
 
 	close(errChan)
 
