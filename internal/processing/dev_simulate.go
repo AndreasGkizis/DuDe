@@ -1,6 +1,6 @@
-package processing
+//go:build debug_progress
 
-// DEV ONLY - delete this file before shipping
+package processing
 
 import (
 	"DuDe/internal/reporting"

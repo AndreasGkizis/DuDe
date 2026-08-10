@@ -203,11 +203,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 
 	a.Args = args
 
-	// DEV: simulate execution - remove before shipping
-	// go simulateExecution(a.execCtx, a.reporter)
-	// return nil
-
-	return startExecution(a, a.reporter)
+	return runSelectedExecution(a, a.reporter)
 }
 
 func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
