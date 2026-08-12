@@ -247,12 +247,9 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	timer := time.Now()
 	log.LogModelArgs(app.Args)
 
-	errChan := make(chan error, 100)
-	go func() {
-		for err := range errChan {
-			log.WarnWithFuncName(err.Error())
-		}
-	}()
+	errorLogger := newExecutionErrorLogger(100)
+	defer errorLogger.CloseAndWait()
+	errChan := errorLogger.channel
 
 	var senderGroups int32 = int32(len(app.Args.Directories))
 
@@ -270,6 +267,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		cacheWarningReported = true
 	}
 	mm.Start()
+	defer mm.CloseAndWait()
 
 	var syncSourceDirFileMap sync.Map
 
@@ -277,15 +275,12 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		dir := dir // capture loop variable
 		go WalkDir(app.execCtx, dir, &syncSourceDirFileMap, rt)
 	}
-	rt.WaitForSenders()
+	rt.Wait()
 
 	fileCount := common.LenSyncMap(&syncSourceDirFileMap)
 	app.reporter.LogProgress(app.execCtx, "Reading", 100)
 	app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
 	if fileCount == 0 {
-		mm.SenderFinished()
-		mm.Wait()
-		close(errChan)
 		app.reporter.LogProgress(app.execCtx, "Error", 0)
 		app.reporter.LogDetailedStatus(app.execCtx, "No files found in directory/directories! Check your paths again")
 		return nil
@@ -298,9 +293,6 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
 	if candidateCount == 0 {
-		mm.SenderFinished()
-		mm.Wait()
-		close(errChan)
 		app.lastResults = nil
 		app.reporter.LogDetailedStatus(app.execCtx, "No possible duplicates found: every file has a unique size")
 		app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
@@ -327,8 +319,6 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	if cacheErr := mm.CacheError(); cacheErr != nil && !cacheWarningReported {
 		app.reporter.LogDetailedStatus(app.execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
 	}
-
-	close(errChan)
 
 	findTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Finding")
 	findTracker.Start()
@@ -391,4 +381,31 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	app.reporter.FinishExecution(app.wailsCtx)
 
 	return nil
+}
+
+type executionErrorLogger struct {
+	channel chan error
+	wg      sync.WaitGroup
+	once    sync.Once
+}
+
+func newExecutionErrorLogger(bufferSize int) *executionErrorLogger {
+	logger := &executionErrorLogger{
+		channel: make(chan error, bufferSize),
+	}
+	logger.wg.Add(1)
+	go func() {
+		defer logger.wg.Done()
+		for err := range logger.channel {
+			log.WarnWithFuncName(err.Error())
+		}
+	}()
+	return logger
+}
+
+func (logger *executionErrorLogger) CloseAndWait() {
+	logger.once.Do(func() {
+		close(logger.channel)
+	})
+	logger.wg.Wait()
 }

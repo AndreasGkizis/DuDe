@@ -27,6 +27,7 @@ type MemoryManager struct {
 	errorMu     sync.Mutex
 	cacheErr    error
 	closeOnce   sync.Once
+	channelOnce sync.Once
 }
 
 func NewMemoryManager(args *models.ExecutionParams, bufferSize, senderCount int) *MemoryManager {
@@ -101,10 +102,34 @@ func (mm *MemoryManager) SenderFinished() {
 		return
 	}
 
-	if atomic.AddInt32(&mm.senderCount, -1) == 0 {
-		close(mm.Channel)
+	for {
+		remaining := atomic.LoadInt32(&mm.senderCount)
+		if remaining <= 0 {
+			return
+		}
+		if !atomic.CompareAndSwapInt32(&mm.senderCount, remaining, remaining-1) {
+			continue
+		}
+
+		mm.senderWg.Done()
+		if remaining == 1 {
+			mm.channelOnce.Do(func() {
+				close(mm.Channel)
+			})
+		}
+		return
 	}
-	mm.senderWg.Done()
+}
+
+func (mm *MemoryManager) CloseAndWait() {
+	if !mm.started.Load() {
+		return
+	}
+
+	for atomic.LoadInt32(&mm.senderCount) > 0 {
+		mm.SenderFinished()
+	}
+	mm.Wait()
 }
 
 func (mm *MemoryManager) Push(fh models.FileHash) {

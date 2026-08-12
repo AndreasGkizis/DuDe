@@ -110,6 +110,24 @@ func TestDisabledMemoryManagerPerformsNoCacheWork(t *testing.T) {
 	}
 }
 
+func TestMemoryManagerCloseAndWaitDrainsWritesAndIsIdempotent(t *testing.T) {
+	manager := processing.NewMemoryManager(&models.ExecutionParams{
+		UseCache: true,
+		CacheDir: t.TempDir(),
+	}, 2, 1)
+	manager.Start()
+	manager.Push(cacheTestFile("/files/first.txt", "first-hash"))
+	manager.Push(cacheTestFile("/files/second.txt", "second-hash"))
+
+	manager.CloseAndWait()
+	manager.CloseAndWait()
+
+	completed, total, _ := manager.CacheProgress()
+	if completed != 2 || total != 2 {
+		t.Fatalf("expected cleanup to drain 2 cache writes, got %d of %d", completed, total)
+	}
+}
+
 func dropCacheTable(t *testing.T, cacheDirectory string) {
 	t.Helper()
 

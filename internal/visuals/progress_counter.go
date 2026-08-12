@@ -86,6 +86,11 @@ func (pc *ProgressCounter) WaitForSenders() {
 	pc.senderWg.Wait()
 }
 
+func (pc *ProgressCounter) Wait() {
+	pc.senderWg.Wait()
+	pc.Wg.Wait()
+}
+
 func (pc *ProgressCounter) Start() {
 	pc.Wg.Add(1)
 	pc.senderWg.Add(int(pc.senderCount))

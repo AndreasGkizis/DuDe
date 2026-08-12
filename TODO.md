@@ -1,7 +1,8 @@
 ## Before Release
 
-1. Centralize execution cleanup, synchronize reset state, close background workers, and report execution errors clearly.
-2. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
+1. Synchronize Full Reset so it cancels and waits for active execution before clearing shared state.
+2. Report processing failures clearly instead of presenting them as fatal Wails binding errors.
+3. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
 ## Later
 
@@ -28,6 +29,7 @@
   - detect CSV flush and close errors and remove incomplete result files
   - validate writable directories without modifying existing user files
   - complete progress phases explicitly, including zero-work and all-failed phases
+  - close and await every execution-owned channel and worker on all exit paths
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?

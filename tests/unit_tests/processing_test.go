@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	log "DuDe/internal/common/logger"
 	"DuDe/internal/models"
@@ -139,6 +140,25 @@ func TestWalkDirCountsFilesButNotDirectories(t *testing.T) {
 		if _, exists := files.Load(path); !exists {
 			t.Errorf("expected walked files to contain %q", path)
 		}
+	}
+}
+
+func TestProgressCounterWaitReturnsAfterAllSendersFinish(t *testing.T) {
+	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "Reading", 1)
+	counter.Start()
+	counter.Channel <- 1
+	counter.SenderFinished()
+
+	done := make(chan struct{})
+	go func() {
+		counter.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("progress counter did not finish after all senders completed")
 	}
 }
 
