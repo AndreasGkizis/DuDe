@@ -38,6 +38,8 @@ wails build
 
 Build output is written to `build/bin`.
 
+Supported release targets are Linux AMD64 and Windows AMD64. macOS validation and packaging remain future work.
+
 To validate only the frontend:
 
 ```bash

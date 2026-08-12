@@ -2,12 +2,18 @@
 
 # Configuration
 APP_NAME="DuDe"
-VERSION="1.0.0" # You can sync this with your wails.json
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null)}"
+VERSION="${VERSION#v}"
 DIST_DIR="./dist"
 BIN_DIR="./build/bin"
 
 # Exit on error
 set -e
+
+if [ -z "$VERSION" ]; then
+    echo "Set VERSION or create a Git tag before packaging."
+    exit 1
+fi
 
 echo "🚀 Starting High-Performance Build for $APP_NAME v$VERSION..."
 
@@ -28,12 +34,6 @@ echo "📦 Building Linux..."
 wails build -platform linux/amd64 -ldflags "-s -w"
 mv "$BIN_DIR/$APP_NAME" "$DIST_DIR/${APP_NAME}"
 
-# 3. macOS Build (Universal)
-# echo "📦 Building macOS Universal..."
-# wails build -platform darwin/universal -ldflags "-s -w"
-# # Wails creates a .app bundle for macOS
-# mv "$BIN_DIR/$APP_NAME.app" "$DIST_DIR/$APP_NAME.app"
-
 # --- ARCHIVING PHASE ---
 echo "📦 Packaging binaries for distribution..."
 
@@ -44,12 +44,6 @@ zip -q "${APP_NAME}_v${VERSION}_windows.zip" "${APP_NAME}.exe"
 
 # Tar Linux
 tar -czf "${APP_NAME}_v${VERSION}_linux.tar.gz" "${APP_NAME}"
-
-# Zip macOS App Bundle
-# zip -r -q "${APP_NAME}_v${VERSION}_macOS_universal.zip" "$APP_NAME.app"
-
-# Cleanup raw binaries if you only want the archives
-# rm -rf "$APP_NAME.app"
 
 echo "------------------------------------------------"
 echo "✅ Build and Packaging Complete!"

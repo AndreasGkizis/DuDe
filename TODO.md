@@ -1,7 +1,3 @@
-## Before Release
-
-1. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
-
 ## Later
 
 - Remove unused code.
@@ -31,6 +27,7 @@
   - close and await every execution-owned channel and worker on all exit paths
   - synchronize Full Reset with active execution cleanup and shared state
   - report processing failures clearly in the UI
+  - correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
