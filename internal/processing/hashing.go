@@ -19,6 +19,7 @@ import (
 )
 
 func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
+	defer pt.Complete()
 
 	numFilesToHash := com.LenSyncMap(sourceFiles)
 	if numFilesToHash == 0 {
@@ -130,6 +131,8 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 }
 
 func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) error {
+	defer pt.Complete()
+
 	num := 0
 
 	if ctx.Err() != nil {
@@ -354,6 +357,8 @@ func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error)
 }
 
 func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *visuals.ProgressTracker) {
+	defer tracker.Complete()
+
 	timer := time.Now()
 	initialCount := com.LenSyncMap(fileHashes)
 

@@ -20,10 +20,18 @@ type ProgressTracker struct {
 	currentProgress       int64
 	lastDisplayedProgress int
 	wg                    sync.WaitGroup
+	completeOnce          sync.Once
+	completed             chan struct{}
 }
 
 func NewProgressTracker(ctx context.Context, reporter reporting.Reporter, name string) *ProgressTracker {
-	return &ProgressTracker{Reporter: reporter, Context: ctx, Name: name, BarLength: 100}
+	return &ProgressTracker{
+		Reporter:  reporter,
+		Context:   ctx,
+		Name:      name,
+		BarLength: 100,
+		completed: make(chan struct{}),
+	}
 }
 
 func (pt *ProgressTracker) updateProgressBarLoop(name string) {
@@ -41,26 +49,26 @@ func (pt *ProgressTracker) updateProgressBarLoop(name string) {
 			curr := atomic.LoadInt64(&pt.currentProgress)
 			log.DebugWithFuncName(fmt.Sprintf("'%s' stopped due to context cancellation after processing %d files.", name, curr))
 			return
+		case <-pt.completed:
+			curr := atomic.LoadInt64(&pt.currentProgress)
+			tot := atomic.LoadInt64(&pt.totalFiles)
+			pt.Reporter.LogProgress(pt.Context, name, 100)
+			pt.Reporter.LogFilesCount(pt.Context, curr, tot)
+			return
 		case <-ticker.C:
 			curr := float64(atomic.LoadInt64(&pt.currentProgress))
 			tot := float64(atomic.LoadInt64(&pt.totalFiles))
 
-			isItTheStart := curr == 0
 			if curr == 0 || tot <= 0 {
 				percentage = 0
 			} else {
 				percentage = curr / tot * 100
-				isItTheStart = false
 			}
 			pt.Reporter.LogProgress(pt.Context, name, float64(percentage))
 			pt.Reporter.LogFilesCount(pt.Context, int64(curr), int64(tot))
 
 			progress := int(float64(pt.BarLength) * percentage / 100)
 			pt.lastDisplayedProgress = progress
-
-			if curr == tot && !isItTheStart {
-				return
-			}
 		}
 	}
 }
@@ -75,6 +83,12 @@ func (pt *ProgressTracker) Increment() {
 
 func (pt *ProgressTracker) DecrementFromTotal() {
 	atomic.AddInt64(&pt.totalFiles, -1)
+}
+
+func (pt *ProgressTracker) Complete() {
+	pt.completeOnce.Do(func() {
+		close(pt.completed)
+	})
 }
 
 func (pt *ProgressTracker) Wait() {

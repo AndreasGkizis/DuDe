@@ -1,8 +1,7 @@
 ## Before Release
 
-1. Add explicit progress completion so zero-work and all-failed phases cannot deadlock.
-2. Centralize execution cleanup, synchronize reset state, close background workers, and report execution errors clearly.
-3. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
+1. Centralize execution cleanup, synchronize reset state, close background workers, and report execution errors clearly.
+2. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
 ## Later
 
@@ -28,6 +27,7 @@
   - allow users to change result groups per page dynamically
   - detect CSV flush and close errors and remove incomplete result files
   - validate writable directories without modifying existing user files
+  - complete progress phases explicitly, including zero-work and all-failed phases
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?

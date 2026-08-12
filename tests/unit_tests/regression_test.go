@@ -71,6 +71,68 @@ func TestProgressTrackerReportsPhaseImmediately(t *testing.T) {
 	}
 }
 
+func TestFindDuplicatesCompletesProgressWhenThereIsNoWork(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Finding")
+	tracker.Start()
+	processing.FindDuplicatesInMap(ctx, &sync.Map{}, tracker)
+
+	waitForTrackerToFinish(t, tracker, cancel)
+}
+
+func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sourceFiles := &sync.Map{}
+	for range 2 {
+		directory := t.TempDir()
+		sourceFiles.Store(directory, models.FileHash{FilePath: directory})
+	}
+
+	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Hashing")
+	tracker.Start()
+	memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	memory := make(map[string]models.FileHash)
+	failedCount := 0
+	errChan := make(chan error, 2)
+
+	if err := processing.CreateHashes(
+		ctx,
+		sourceFiles,
+		1,
+		tracker,
+		memoryManager,
+		&memory,
+		&failedCount,
+		errChan,
+	); err != nil {
+		t.Fatalf("create hashes: %v", err)
+	}
+
+	waitForTrackerToFinish(t, tracker, cancel)
+}
+
+func waitForTrackerToFinish(t *testing.T, tracker *visuals.ProgressTracker, cancel context.CancelFunc) {
+	t.Helper()
+
+	done := make(chan struct{})
+	go func() {
+		tracker.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		cancel()
+		<-done
+		t.Fatal("progress tracker did not finish after its processing phase returned")
+	}
+}
+
 func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 	t.Helper()
 
