@@ -104,6 +104,7 @@ type walkErrorReporter struct {
 
 func (*walkErrorReporter) LogProgress(context.Context, string, float64) {}
 func (*walkErrorReporter) LogFilesCount(context.Context, int64, int64)  {}
+func (*walkErrorReporter) ReportError(context.Context, string)          {}
 func (*walkErrorReporter) FinishExecution(context.Context)              {}
 
 func (reporter *walkErrorReporter) LogDetailedStatus(_ context.Context, message string) {

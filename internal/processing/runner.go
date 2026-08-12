@@ -195,6 +195,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 
 	execCtx, err := a.gate.Start(a.wailsCtx)
 	if err != nil {
+		a.reporter.ReportError(a.wailsCtx, err.Error())
 		return err
 	}
 	defer a.finishExecution()
@@ -208,10 +209,9 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	}
 
 	if err := resolver.ResolveAndValidateArgs(&args, safeDir); err != nil {
-		// Log the failure to the frontend
-		a.reporter.LogDetailedStatus(a.wailsCtx, fmt.Sprintf("Argument Validation Failed: %v", err))
-		// Throw an error back to the frontend to stop execution
-		return fmt.Errorf("validation failed: %w", err)
+		executionErr := fmt.Errorf("validation failed: %w", err)
+		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
+		return executionErr
 	}
 
 	a.stateMu.Lock()
@@ -223,6 +223,9 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	if errors.Is(err, context.Canceled) {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		return nil
+	}
+	if err != nil {
+		a.reporter.ReportError(a.wailsCtx, err.Error())
 	}
 	return err
 }

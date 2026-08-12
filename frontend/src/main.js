@@ -193,9 +193,12 @@ window.startProcess = function () {
             toggleStartSpinner(false);
         })
         .catch((err) => {
-            statusJob.textContent = "Fatal Binding Error";
+            statusJob.textContent = "Process Failed";
+            statusJob.classList.remove('status-value--success');
             statusError.textContent = String(err);
             statusError.style.display = '';
+            markActivePhaseFailed();
+            showResultsButton.disabled = true;
             startButton.disabled = false;
             stopButton.disabled = true;
             fullResetButton.disabled = false;

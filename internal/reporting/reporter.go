@@ -8,6 +8,7 @@ type Reporter interface {
 	LogProgress(ctx context.Context, title string, percent float64)
 	LogDetailedStatus(ctx context.Context, message string)
 	LogFilesCount(ctx context.Context, current, total int64)
+	ReportError(ctx context.Context, message string)
 	FinishExecution(ctx context.Context)
 }
 

@@ -28,6 +28,8 @@ func (l NoOpReporter) LogFilesCount(ctx context.Context, current, total int64) {
 	// l.T.Logf("E2E Files Count: %d / %d", current, total)
 }
 
+func (l NoOpReporter) ReportError(context.Context, string) {}
+
 // FinishExecution signals the endof execution to the frontend.
 func (l NoOpReporter) FinishExecution(ctx context.Context) {
 }

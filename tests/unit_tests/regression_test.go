@@ -71,6 +71,26 @@ func TestProgressTrackerReportsPhaseImmediately(t *testing.T) {
 	}
 }
 
+func TestStartExecutionReportsValidationFailures(t *testing.T) {
+	reporter := capturingReporter{failures: make(chan string, 1)}
+	app := processing.NewApp(reporter)
+	app.Startup(context.Background())
+
+	err := app.StartExecution(models.ExecutionParams{})
+	if err == nil {
+		t.Fatal("expected invalid execution arguments to fail")
+	}
+
+	select {
+	case message := <-reporter.failures:
+		if message == "" {
+			t.Fatal("expected a useful failure message")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected validation failure to be reported to the UI")
+	}
+}
+
 func TestFindDuplicatesCompletesProgressWhenThereIsNoWork(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -158,6 +178,7 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 
 type capturingReporter struct {
 	progress chan progressEvent
+	failures chan string
 }
 
 type progressEvent struct {
@@ -166,9 +187,16 @@ type progressEvent struct {
 }
 
 func (reporter capturingReporter) LogProgress(_ context.Context, title string, percent float64) {
-	reporter.progress <- progressEvent{title: title, percent: percent}
+	if reporter.progress != nil {
+		reporter.progress <- progressEvent{title: title, percent: percent}
+	}
 }
 
 func (capturingReporter) LogDetailedStatus(context.Context, string)   {}
 func (capturingReporter) LogFilesCount(context.Context, int64, int64) {}
 func (capturingReporter) FinishExecution(context.Context)             {}
+func (reporter capturingReporter) ReportError(_ context.Context, message string) {
+	if reporter.failures != nil {
+		reporter.failures <- message
+	}
+}

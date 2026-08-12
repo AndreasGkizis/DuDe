@@ -33,6 +33,10 @@ func (a *WailsReporter) LogFilesCount(ctx context.Context, current, total int64)
 	runtime.EventsEmit(ctx, "filesCount", update)
 }
 
+func (a *WailsReporter) ReportError(ctx context.Context, message string) {
+	runtime.EventsEmit(ctx, "errorUpdate", message)
+}
+
 // FinishExecution signals the endof execution to the frontend.
 func (a *WailsReporter) FinishExecution(ctx context.Context) {
 	runtime.EventsEmit(ctx, "executionFinished")

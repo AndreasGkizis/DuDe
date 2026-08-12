@@ -1,13 +1,13 @@
 ## Before Release
 
-1. Report processing failures clearly instead of presenting them as fatal Wails binding errors.
-2. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
+1. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
 ## Later
 
 - Remove unused code.
 - Review log levels and details.
 - Test with large files and constrained buffers.
+- Throttle or summarize repeated filesystem errors before sending them to the UI.
 - Simplify frontend state flow.
 - Validate macOS permissions, packaging, signing, notarization, and runtime behavior on real hardware.
 - Consider a duplicate-file deletion feature.
@@ -30,6 +30,7 @@
   - complete progress phases explicitly, including zero-work and all-failed phases
   - close and await every execution-owned channel and worker on all exit paths
   - synchronize Full Reset with active execution cleanup and shared state
+  - report processing failures clearly in the UI
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?
