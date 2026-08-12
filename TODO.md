@@ -1,11 +1,8 @@
 ## Before Release
 
-1. Make CSV output atomic and check flush, close, and filename-collision errors.
-2. Replace inferred progress completion with an explicit phase lifecycle.
-3. Add failure-path tests for file changes, permissions, cache errors, cancellation, symlinks, and output failures.
-4. Add pull-request CI for tests, race detection, vet, frontend builds, and platform compilation.
-5. Pin release tooling, add checksums, test packages, and sign supported release builds.
-6. Clean release metadata and document cache, logs, output, and platform requirements.
+1. Add explicit progress completion so zero-work and all-failed phases cannot deadlock.
+2. Centralize execution cleanup, synchronize reset state, close background workers, and report execution errors clearly.
+3. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
 ## Later
 
@@ -29,6 +26,8 @@
   - test same-size files with different contents
   - add production hashing benchmarks and comparison workflow
   - allow users to change result groups per page dynamically
+  - detect CSV flush and close errors and remove incomplete result files
+  - validate writable directories without modifying existing user files
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?

@@ -23,14 +23,14 @@ func (OS) CanRead(p string) bool {
 }
 
 func (OS) CanWrite(p string) bool {
-	test := filepath.Join(p, ".tmp_write_test")
-	f, err := os.Create(test)
+	testFile, err := os.CreateTemp(p, ".dude-write-test-*")
 	if err != nil {
 		return false
 	}
-	f.Close()
-	_ = os.Remove(test)
-	return true
+
+	closeErr := testFile.Close()
+	removeErr := os.Remove(testFile.Name())
+	return closeErr == nil && removeErr == nil
 }
 
 func (OS) Parent(p string) string {
