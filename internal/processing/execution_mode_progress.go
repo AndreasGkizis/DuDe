@@ -5,7 +5,7 @@ package processing
 import "DuDe/internal/reporting"
 
 func runSelectedExecution(app *FrontendApp, reporter reporting.Reporter) error {
-	app.lastResults = nil
-	simulateExecution(app.execCtx, reporter)
+	app.setLastResults(nil)
+	simulateExecution(app.executionContext(), reporter)
 	return nil
 }

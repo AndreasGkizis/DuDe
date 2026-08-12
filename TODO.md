@@ -1,8 +1,7 @@
 ## Before Release
 
-1. Synchronize Full Reset so it cancels and waits for active execution before clearing shared state.
-2. Report processing failures clearly instead of presenting them as fatal Wails binding errors.
-3. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
+1. Report processing failures clearly instead of presenting them as fatal Wails binding errors.
+2. Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
 ## Later
 
@@ -30,6 +29,7 @@
   - validate writable directories without modifying existing user files
   - complete progress phases explicitly, including zero-work and all-failed phases
   - close and await every execution-owned channel and worker on all exit paths
+  - synchronize Full Reset with active execution cleanup and shared state
   
 ## Notes
   1. merge time and size and the rest to a single blob and work with the blob after?

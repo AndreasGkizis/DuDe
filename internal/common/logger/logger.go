@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger *zap.SugaredLogger
+var logger = zap.NewNop().Sugar()
 
 func Initialize(enabled bool) {
 	if !enabled {

@@ -23,13 +23,12 @@ import (
 
 // FrontendApp struct
 type FrontendApp struct {
-	wailsCtx    context.Context    // PERMANENT: Wails Context (Set once in WailsInit)
-	cancelFunc  context.CancelFunc // TEMPORARY: Execution Context (Set in StartExecution, Cleared in defer)
-	executionMu sync.Mutex
-	running     bool
+	wailsCtx context.Context
+	execCtx  context.Context
+	gate     *ExecutionGate
+	stateMu  sync.RWMutex
 
 	platform    string
-	execCtx     context.Context
 	Args        models.ExecutionParams
 	reporter    reporting.Reporter
 	lastResults []models.FileHash // duplicate groups from the last completed execution
@@ -39,36 +38,31 @@ type FrontendApp struct {
 func NewApp(reporter reporting.Reporter) *FrontendApp {
 	return &FrontendApp{
 		reporter: reporter,
+		gate:     NewExecutionGate(),
 	}
 }
 
 // CancelExecution attempts to stop the currently running process.
 // This function will be exposed to the Wails frontend.
 func (app *FrontendApp) CancelExecution() {
-	app.executionMu.Lock()
-	cancel := app.cancelFunc
-	app.executionMu.Unlock()
-
-	if cancel != nil {
-		log.InfoWithFuncName("Execution cancellation requested by user.")
-		cancel()
-	}
+	log.InfoWithFuncName("Execution cancellation requested by user.")
+	app.gate.Cancel()
 }
 
 // FullReset stops any running execution, clears the cache database, and resets
 // all transient application state (Args, lastResults) back to zero values.
-// The Wails context, execution context, cancel func, reporter, and platform are
-// intentionally left untouched.
+// The Wails context, reporter, and platform are intentionally left untouched.
 // A "fullReset" event is emitted so the frontend can reset its own state.
 func (app *FrontendApp) FullReset() error {
-	// Stop any in-flight execution; the defer inside startExecution owns the nil-out.
-	if app.cancelFunc != nil {
-		log.InfoWithFuncName("FullReset: cancelling in-flight execution.")
-		app.cancelFunc()
+	if !app.gate.BeginResetAndWait() {
+		return nil
 	}
 
+	log.InfoWithFuncName("FullReset: active execution stopped before resetting state.")
+
 	// Resolve the cache directory — mirror the resolver fallback.
-	cacheDir := app.Args.CacheDir
+	args := app.executionArgs()
+	cacheDir := args.CacheDir
 	if cacheDir == "" {
 		cacheDir = common.GetSafeResultsDir(app.platform)
 	}
@@ -86,9 +80,12 @@ func (app *FrontendApp) FullReset() error {
 	}
 
 	// Reset transient state only.
+	app.stateMu.Lock()
 	app.Args = models.ExecutionParams{}
 	app.lastResults = nil
+	app.stateMu.Unlock()
 
+	app.gate.EndReset()
 	runtime.EventsEmit(app.wailsCtx, "fullReset", nil)
 	return nil
 }
@@ -103,11 +100,12 @@ func (a *FrontendApp) Startup(ctx context.Context) {
 // CheckIfResultsExist returns true if the results JSON file is found on disk
 func (a *FrontendApp) CheckIfResultsExist() bool {
 	var resultsDir string
+	args := a.executionArgs()
 
-	if a.Args.ResultsDir == "" {
+	if args.ResultsDir == "" {
 		resultsDir = common.GetSafeResultsDir(a.platform)
 	} else {
-		resultsDir = a.Args.ResultsDir
+		resultsDir = args.ResultsDir
 	}
 	return ResultsFileExist(resultsDir)
 }
@@ -116,11 +114,12 @@ func (a *FrontendApp) CheckIfResultsExist() bool {
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) ShowResults() error {
 	var resultsDirectory string
+	args := a.executionArgs()
 
-	if a.Args.ResultsDir == "" {
+	if args.ResultsDir == "" {
 		resultsDirectory = common.GetSafeResultsDir(a.platform)
 	} else {
-		resultsDirectory = a.Args.ResultsDir
+		resultsDirectory = args.ResultsDir
 	}
 
 	if resultsDirectory == "" {
@@ -163,7 +162,9 @@ func (a *FrontendApp) RevealInExplorer(path string) error {
 // Each FileHash in the returned slice has DuplicatesFound populated.
 // Returns nil if no execution has completed yet.
 func (a *FrontendApp) GetResults() []models.FileHash {
-	return a.lastResults
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return append([]models.FileHash(nil), a.lastResults...)
 }
 
 // SelectFolder opens a native folder selection dialog and returns the selected path.
@@ -191,6 +192,13 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		// Safety check, though WailsInit should handle this
 		return errors.New("wails application context is not initialized")
 	}
+
+	execCtx, err := a.gate.Start(a.wailsCtx)
+	if err != nil {
+		return err
+	}
+	defer a.finishExecution()
+
 	safeDir := common.GetSafeResultsDir(a.platform)
 
 	resolver := validation.Resolver{
@@ -206,19 +214,12 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	a.executionMu.Lock()
-	if a.running {
-		a.executionMu.Unlock()
-		return errors.New("execution already running")
-	}
-	a.execCtx, a.cancelFunc = context.WithCancel(a.wailsCtx)
+	a.stateMu.Lock()
+	a.execCtx = execCtx
 	a.Args = args
-	a.running = true
-	a.executionMu.Unlock()
+	a.stateMu.Unlock()
 
-	defer a.finishExecution()
-
-	err := runSelectedExecution(a, a.reporter)
+	err = runSelectedExecution(a, a.reporter)
 	if errors.Is(err, context.Canceled) {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		return nil
@@ -227,43 +228,57 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 }
 
 func (a *FrontendApp) finishExecution() {
-	a.executionMu.Lock()
-	cancel := a.cancelFunc
-	a.cancelFunc = nil
+	a.stateMu.Lock()
 	a.execCtx = nil
-	a.running = false
-	a.executionMu.Unlock()
+	a.stateMu.Unlock()
+	a.gate.Finish()
+}
 
-	if cancel != nil {
-		cancel()
-	}
+func (a *FrontendApp) executionArgs() models.ExecutionParams {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.Args
+}
+
+func (a *FrontendApp) executionContext() context.Context {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.execCtx
+}
+
+func (a *FrontendApp) setLastResults(results []models.FileHash) {
+	a.stateMu.Lock()
+	a.lastResults = results
+	a.stateMu.Unlock()
 }
 
 func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	var err error
+	args := app.executionArgs()
+	execCtx := app.executionContext()
 
-	log.Initialize(app.Args.DebugMode)
+	log.Initialize(args.DebugMode)
 
 	timer := time.Now()
-	log.LogModelArgs(app.Args)
+	log.LogModelArgs(args)
 
 	errorLogger := newExecutionErrorLogger(100)
 	defer errorLogger.CloseAndWait()
 	errChan := errorLogger.channel
 
-	var senderGroups int32 = int32(len(app.Args.Directories))
+	var senderGroups int32 = int32(len(args.Directories))
 
 	failedCounter := 0
-	mm := NewMemoryManager(&app.Args, app.Args.BufSize, 1)
+	mm := NewMemoryManager(&args, args.BufSize, 1)
 
-	rt := visuals.NewProgressCounter(app.execCtx, app.reporter, "Reading", int(senderGroups))
+	rt := visuals.NewProgressCounter(execCtx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
 	// ^^^ slightly hacky and dump but works for now.
 
 	hashMemory := mm.LoadMemory()
 	cacheWarningReported := false
 	if cacheErr := mm.CacheError(); cacheErr != nil {
-		app.reporter.LogDetailedStatus(app.execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
+		app.reporter.LogDetailedStatus(execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
 		cacheWarningReported = true
 	}
 	mm.Start()
@@ -271,81 +286,81 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	var syncSourceDirFileMap sync.Map
 
-	for _, dir := range app.Args.Directories {
+	for _, dir := range args.Directories {
 		dir := dir // capture loop variable
-		go WalkDir(app.execCtx, dir, &syncSourceDirFileMap, rt)
+		go WalkDir(execCtx, dir, &syncSourceDirFileMap, rt)
 	}
 	rt.Wait()
 
 	fileCount := common.LenSyncMap(&syncSourceDirFileMap)
-	app.reporter.LogProgress(app.execCtx, "Reading", 100)
-	app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
+	app.reporter.LogProgress(execCtx, "Reading", 100)
+	app.reporter.LogFilesCount(execCtx, int64(fileCount), int64(fileCount))
 	if fileCount == 0 {
-		app.reporter.LogProgress(app.execCtx, "Error", 0)
-		app.reporter.LogDetailedStatus(app.execCtx, "No files found in directory/directories! Check your paths again")
+		app.reporter.LogProgress(execCtx, "Error", 0)
+		app.reporter.LogDetailedStatus(execCtx, "No files found in directory/directories! Check your paths again")
 		return nil
 	}
 
-	app.reporter.LogProgress(app.execCtx, "Filtering", 0)
-	app.reporter.LogFilesCount(app.execCtx, 0, int64(fileCount))
+	app.reporter.LogProgress(execCtx, "Filtering", 0)
+	app.reporter.LogFilesCount(execCtx, 0, int64(fileCount))
 	candidateCount, skippedCount := FilterHashCandidatesBySize(&syncSourceDirFileMap)
-	app.reporter.LogProgress(app.execCtx, "Filtering", 100)
-	app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
+	app.reporter.LogProgress(execCtx, "Filtering", 100)
+	app.reporter.LogFilesCount(execCtx, int64(fileCount), int64(fileCount))
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
 	if candidateCount == 0 {
-		app.lastResults = nil
-		app.reporter.LogDetailedStatus(app.execCtx, "No possible duplicates found: every file has a unique size")
-		app.reporter.LogFilesCount(app.execCtx, int64(fileCount), int64(fileCount))
-		app.reporter.LogProgress(app.execCtx, "Done", 100)
-		app.reporter.FinishExecution(app.execCtx)
+		app.setLastResults(nil)
+		app.reporter.LogDetailedStatus(execCtx, "No possible duplicates found: every file has a unique size")
+		app.reporter.LogFilesCount(execCtx, int64(fileCount), int64(fileCount))
+		app.reporter.LogProgress(execCtx, "Done", 100)
+		app.reporter.FinishExecution(execCtx)
 		return nil
 	}
 
-	pt := visuals.NewProgressTracker(app.execCtx, reporter, "Hashing")
+	pt := visuals.NewProgressTracker(execCtx, reporter, "Hashing")
 	pt.Start()
 
-	err = CreateHashes(app.execCtx, &syncSourceDirFileMap, app.Args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
+	err = CreateHashes(execCtx, &syncSourceDirFileMap, args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
 	}
 
 	pt.Wait()
-	mm.WaitForCache(app.execCtx, func(completed, total int64) {
+	mm.WaitForCache(execCtx, func(completed, total int64) {
 		percentage := float64(completed) / float64(total) * 100
-		app.reporter.LogProgress(app.execCtx, "Caching", percentage)
-		app.reporter.LogFilesCount(app.execCtx, completed, total)
+		app.reporter.LogProgress(execCtx, "Caching", percentage)
+		app.reporter.LogFilesCount(execCtx, completed, total)
 	})
 	if cacheErr := mm.CacheError(); cacheErr != nil && !cacheWarningReported {
-		app.reporter.LogDetailedStatus(app.execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
+		app.reporter.LogDetailedStatus(execCtx, fmt.Sprintf("Cache unavailable; continuing without cache: %v", cacheErr))
 	}
 
-	findTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Finding")
+	findTracker := visuals.NewProgressTracker(execCtx, reporter, "Finding")
 	findTracker.Start()
 
-	FindDuplicatesInMap(app.execCtx, &syncSourceDirFileMap, findTracker)
+	FindDuplicatesInMap(execCtx, &syncSourceDirFileMap, findTracker)
 
 	findTracker.Wait()
 
 	length := common.LenSyncMap(&syncSourceDirFileMap)
 
 	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
-	if length != 0 && app.Args.ParanoidMode {
-		compareTracker := visuals.NewProgressTracker(app.execCtx, reporter, "Comparing")
+	if length != 0 && args.ParanoidMode {
+		compareTracker := visuals.NewProgressTracker(execCtx, reporter, "Comparing")
 		compareTracker.Start()
 
-		compareErr := EnsureDuplicates(app.execCtx, &syncSourceDirFileMap, compareTracker, app.Args.CPUs)
+		compareErr := EnsureDuplicates(execCtx, &syncSourceDirFileMap, compareTracker, args.CPUs)
 		compareTracker.Wait()
 		if compareErr != nil {
-			app.lastResults = nil
+			app.setLastResults(nil)
 			return fmt.Errorf("verify duplicates: %w", compareErr)
 		}
 	}
 
 	// Collect verified duplicate groups and cache them for GetResults()
 	groupsToCollect := common.LenSyncMap(&syncSourceDirFileMap)
-	app.reporter.LogProgress(app.execCtx, "Collecting", 0)
-	app.reporter.LogFilesCount(app.execCtx, 0, int64(groupsToCollect))
+	app.reporter.LogProgress(execCtx, "Collecting", 0)
+	app.reporter.LogFilesCount(execCtx, 0, int64(groupsToCollect))
 	var groups []models.FileHash
 	collectedGroups := 0
 	syncSourceDirFileMap.Range(func(_, v any) bool {
@@ -355,15 +370,15 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		collectedGroups++
 		return true
 	})
-	app.lastResults = groups
-	app.reporter.LogProgress(app.execCtx, "Collecting", 100)
-	app.reporter.LogFilesCount(app.execCtx, int64(collectedGroups), int64(groupsToCollect))
+	app.setLastResults(groups)
+	app.reporter.LogProgress(execCtx, "Collecting", 100)
+	app.reporter.LogFilesCount(execCtx, int64(collectedGroups), int64(groupsToCollect))
 
 	length = common.LenSyncMap(&syncSourceDirFileMap)
 	if length != 0 {
 		timer1 := time.Now()
 
-		err = SaveResultsAsCSV(&syncSourceDirFileMap, app.Args.ResultsDir)
+		err = SaveResultsAsCSV(&syncSourceDirFileMap, args.ResultsDir)
 		if err != nil {
 			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
 			return err
@@ -374,7 +389,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		log.InfoWithFuncName("No duplicates were found")
 	}
 
-	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), app.Args.BufSize))
+	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufSize))
 	log.InfoWithFuncName(fmt.Sprintf("Failed %d times to send to memoryChan", failedCounter))
 	app.reporter.LogFilesCount(app.wailsCtx, int64(fileCount), int64(fileCount))
 	app.reporter.LogProgress(app.wailsCtx, "Done", 100)
