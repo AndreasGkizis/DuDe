@@ -18,6 +18,18 @@ const clearResultsButton = document.getElementById('clearResultsButton');
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const fullResetButton = document.getElementById('fullResetButton');
+const modeInputs = Array.from(document.querySelectorAll('input[name="operationMode"]'));
+const duplicateFolders = document.getElementById('duplicateFolders');
+const coverageFolders = document.getElementById('coverageFolders');
+const sourceDir = document.getElementById('sourceDir');
+const targetDir = document.getElementById('targetDir');
+const folderRelationshipWarning = document.getElementById('folderRelationshipWarning');
+const coverageSummary = document.getElementById('coverage-summary');
+const coverageOutcome = document.getElementById('coverage-outcome');
+const coverageCovered = document.getElementById('coverage-covered');
+const coverageMissing = document.getElementById('coverage-missing');
+const statusMetricLabel = document.getElementById('status-metric-label');
+const pageSizeLabel = document.getElementById('page-size-label');
 
 const startText = document.getElementById('startText');
 const startButtonSpinner = document.getElementById('startButtonSpinner');
@@ -29,6 +41,8 @@ let allGroups = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let activePhase = '';
+let currentMode = 'duplicates';
+let executionActive = false;
 
 const resultsSection = document.getElementById('results-section');
 const resultsList = document.getElementById('results-list');
@@ -56,6 +70,9 @@ window.selectAndSetDir = function (target) {
             if (!path) return;
             if (typeof target === 'string') {
                 document.getElementById(target).value = path;
+                if (target === 'sourceDir' || target === 'targetDir') {
+                    updateFolderRelationshipWarning();
+                }
             } else {
                 // target is the Select button inside a .dir-row; find the sibling input
                 target.closest('.dir-row').querySelector('input').value = path;
@@ -64,6 +81,74 @@ window.selectAndSetDir = function (target) {
         .catch((err) => {
             console.error("Directory selection error:", err);
         });
+};
+
+// --- Operation Mode Handlers ---
+
+function resetFolderSelections() {
+    const dirList = document.getElementById('dirList');
+    dirList.innerHTML = `
+        <div class="dir-row" data-index="0">
+            <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
+            <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
+            <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
+        </div>`;
+    sourceDir.value = '';
+    targetDir.value = '';
+    updateFolderRelationshipWarning();
+}
+
+function normalizeFolderPath(path) {
+    let normalized = path.trim().replace(/\\/g, '/');
+    if (normalized !== '/' && !/^[a-z]:\/$/i.test(normalized)) {
+        normalized = normalized.replace(/\/+$/, '');
+    }
+    return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized;
+}
+
+function foldersOverlap(sourcePath, targetPath) {
+    const source = normalizeFolderPath(sourcePath);
+    const target = normalizeFolderPath(targetPath);
+    if (!source || !target) return false;
+    const sourcePrefix = source.endsWith('/') ? source : `${source}/`;
+    const targetPrefix = target.endsWith('/') ? target : `${target}/`;
+    return source === target || source.startsWith(targetPrefix) || target.startsWith(sourcePrefix);
+}
+
+function updateFolderRelationshipWarning() {
+    folderRelationshipWarning.hidden = !foldersOverlap(sourceDir.value, targetDir.value);
+}
+
+function updateModePresentation() {
+    const isCoverage = currentMode === 'coverage';
+    duplicateFolders.hidden = isCoverage;
+    coverageFolders.hidden = !isCoverage;
+    coverageSummary.hidden = !isCoverage;
+    statusMetricLabel.textContent = isCoverage ? 'Source Coverage' : 'Duplicates Found';
+    pageSizeLabel.textContent = isCoverage ? 'Missing files per page' : 'Groups per page';
+    resultsCountLabel.textContent = isCoverage ? 'Missing Files' : 'Results';
+    startText.textContent = 'Start';
+    startButton.title = isCoverage ? 'Coverage processing will be enabled with the backend implementation.' : '';
+    startButton.disabled = executionActive || isCoverage;
+    showResultsButton.disabled = true;
+}
+
+function setExecutionActive(isActive) {
+    executionActive = isActive;
+    modeInputs.forEach(input => { input.disabled = isActive; });
+    startButton.disabled = isActive || currentMode === 'coverage';
+}
+
+window.changeOperationMode = function (mode) {
+    if (executionActive || (mode !== 'duplicates' && mode !== 'coverage')) {
+        modeInputs.forEach(input => { input.checked = input.value === currentMode; });
+        return;
+    }
+
+    currentMode = mode;
+    resetFolderSelections();
+    clearResults();
+    updateModePresentation();
 };
 
 // --- Dynamic Directory List Handlers ---
@@ -94,6 +179,26 @@ window.removeDir = function (btn) {
     const row = btn.closest('.dir-row');
     row.remove();
     _updateRemoveButtons();
+};
+
+/**
+ * Steps a themed number input while preserving its native min/max behavior.
+ * @param {string} inputId The number input to update.
+ * @param {number} direction Positive to increment, negative to decrement.
+ */
+window.stepNumberInput = function (inputId, direction) {
+    const input = document.getElementById(inputId);
+    if (!input || input.disabled) return;
+
+    if (direction > 0) {
+        input.stepUp();
+    } else {
+        input.stepDown();
+    }
+
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus({ preventScroll: true });
 };
 
 /** Disables the remove button when only one row remains. */
@@ -138,6 +243,8 @@ window.toggleAdvanced = function () {
 
 // --- Execution Start Handler ---
 window.startProcess = function () {
+    if (currentMode === 'coverage') return;
+
     // 1. Gather data
     const dirInputs = document.querySelectorAll('#dirList .dir-row input');
     const directories = Array.from(dirInputs)
@@ -175,7 +282,7 @@ window.startProcess = function () {
 
 
     // UI State: Running
-    startButton.disabled = true;
+    setExecutionActive(true);
     stopButton.disabled = false;
     showResultsButton.disabled = true;
     clearResultsButton.disabled = true;
@@ -187,7 +294,7 @@ window.startProcess = function () {
     StartExecution(params)
         .then((result) => {
             if (result) statusJob.textContent = result;
-            startButton.disabled = false;
+            setExecutionActive(false);
             stopButton.disabled = true;
             fullResetButton.disabled = false;
             toggleStartSpinner(false);
@@ -199,7 +306,7 @@ window.startProcess = function () {
             statusError.style.display = '';
             markActivePhaseFailed();
             showResultsButton.disabled = true;
-            startButton.disabled = false;
+            setExecutionActive(false);
             stopButton.disabled = true;
             fullResetButton.disabled = false;
             toggleStartSpinner(false);
@@ -240,14 +347,9 @@ window.showResults = function () {
  * Called both from window.fullReset() and from the backend "fullReset" Wails event.
  */
 function _applyUIReset() {
-    // Reset directory list to a single empty row
-    const dirList = document.getElementById('dirList');
-    dirList.innerHTML = `
-        <div class="dir-row" data-index="0">
-            <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
-            <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
-            <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
-        </div>`;
+    currentMode = 'duplicates';
+    modeInputs.forEach(input => { input.checked = input.value === currentMode; });
+    resetFolderSelections();
 
     // Reset advanced settings
     document.getElementById('cacheDir').value = '';
@@ -262,10 +364,11 @@ function _applyUIReset() {
     clearResults();
 
     // Restore button states
-    startButton.disabled = false;
+    setExecutionActive(false);
     stopButton.disabled = true;
     fullResetButton.disabled = false;
     toggleStartSpinner(false);
+    updateModePresentation();
 }
 
 window.fullReset = function () {
@@ -293,6 +396,7 @@ window.clearResults = function () {
     resultsCountLabel.textContent = 'Results';
     clearResultsButton.disabled = true;
     resultsPageSize.disabled = true;
+    showResultsButton.disabled = true;
 
     // Reset status area to clean slate
     statusJob.textContent = 'Ready to run.';
@@ -300,9 +404,13 @@ window.clearResults = function () {
     statusFiles.textContent = '\u2014';
     statusDuplicates.textContent = '\u2014';
     statusDuplicates.classList.remove('status-value--orange');
+    coverageOutcome.textContent = 'Awaiting a coverage run';
+    coverageCovered.textContent = '\u2014';
+    coverageMissing.textContent = '\u2014';
     statusError.textContent = '';
     statusError.style.display = 'none';
     resetProgressBar();
+    updateModePresentation();
 };
 
 function resetProgressBar() {
@@ -398,6 +506,7 @@ function setupStatusListeners() {
 
         showResultsButton.disabled = true;
         fullResetButton.disabled = false;
+        setExecutionActive(false);
 
         toggleStartSpinner(false);
     });
@@ -406,7 +515,7 @@ function setupStatusListeners() {
     statusJob.textContent = "Process Complete.";
     statusJob.classList.add('status-value--success');
     toggleStartSpinner(false);
-    startButton.disabled = false;
+    setExecutionActive(false);
     stopButton.disabled = true;
     fullResetButton.disabled = false;
 
@@ -426,6 +535,7 @@ function setupStatusListeners() {
 // Run setup after DOM load
 setupStatusListeners();
 refreshResultsButtonState();
+updateModePresentation();
 
 // --- Results: public page navigation (called from template onclick) ---
 window.currentPage = currentPage; // expose for onclick expressions

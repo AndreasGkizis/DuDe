@@ -5,8 +5,34 @@
         <span class="output-status">Welcome to DuDe!</span>
     </div>
 
-    <!-- 1. CORE CONFIGURATION SECTION (Directories) -->
-    <div class="input-group mb-6">
+    <!-- 1. OPERATION MODE -->
+    <section class="operation-section" aria-labelledby="operation-heading">
+        <div class="section-label-row">
+            <span id="operation-heading" class="section-label">Operation</span>
+        </div>
+
+        <div class="operation-selector" role="radiogroup" aria-labelledby="operation-heading">
+            <label class="operation-option" for="modeDuplicates">
+                <input id="modeDuplicates" type="radio" name="operationMode" value="duplicates"
+                    onchange="changeOperationMode(this.value)" checked>
+                <span class="operation-option-content">
+                    <span class="operation-option-title">Find Duplicates</span>
+                    <span class="operation-option-description">Find equivalent files across selected folders.</span>
+                </span>
+            </label>
+            <label class="operation-option" for="modeCoverage">
+                <input id="modeCoverage" type="radio" name="operationMode" value="coverage"
+                    onchange="changeOperationMode(this.value)">
+                <span class="operation-option-content">
+                    <span class="operation-option-title">Check Target Coverage</span>
+                    <span class="operation-option-description">Check that source content exists somewhere in the target.</span>
+                </span>
+            </label>
+        </div>
+    </section>
+
+    <!-- 2. CORE CONFIGURATION SECTION (Directories) -->
+    <div id="duplicateFolders" class="input-group mb-6">
 
         <label>Directories to Scan
             <span class="tooltip-container">
@@ -26,7 +52,39 @@
         <button class="btn btn-add-dir" id="addDirBtn" onclick="addDir()">+ Add Directory</button>
     </div>
 
-    <!-- 2. ADVANCED SETTINGS SECTION -->
+    <div id="coverageFolders" class="input-group coverage-folders" hidden>
+        <div class="coverage-folder-field">
+            <label for="sourceDir">Source Folder
+                <span class="tooltip-container">
+                    <span class="info-icon">i</span>
+                    <span class="tooltip-text">Every eligible file in this folder must have equivalent content somewhere in the target.</span>
+                </span>
+            </label>
+            <div class="dir-chooser">
+                <input class="input dir-input" id="sourceDir" type="text" readonly placeholder="Nothing selected!">
+                <button class="btn btn-select" onclick="selectAndSetDir('sourceDir')">Select</button>
+            </div>
+        </div>
+
+        <div class="coverage-folder-field">
+            <label for="targetDir">Target Folder
+                <span class="tooltip-container">
+                    <span class="info-icon">i</span>
+                    <span class="tooltip-text">Equivalent content may appear under any filename or relative location in this folder.</span>
+                </span>
+            </label>
+            <div class="dir-chooser">
+                <input class="input dir-input" id="targetDir" type="text" readonly placeholder="Nothing selected!">
+                <button class="btn btn-select" onclick="selectAndSetDir('targetDir')">Select</button>
+            </div>
+        </div>
+
+        <div id="folderRelationshipWarning" class="inline-notice inline-notice--warning" role="status" hidden>
+            Source and target overlap. Files may satisfy coverage by matching themselves.
+        </div>
+    </div>
+
+    <!-- 3. ADVANCED SETTINGS SECTION -->
 
     <div id="advancedSection" class="advanced-section" data-collapsed="true">
         <button id="advancedToggle" class="advanced-toggle" onclick="toggleAdvanced()">
@@ -80,7 +138,19 @@
                                 available cores.)</span>
                         </span>
                     </label>
-                    <input class="input" id="cpus" type="number" value="0" min="0" max="512">
+                    <div class="number-input">
+                        <input class="input" id="cpus" type="number" value="0" min="0" max="512">
+                        <div class="number-stepper">
+                            <button class="number-step-button" type="button" onclick="stepNumberInput('cpus', 1)"
+                                aria-label="Increase CPUs" aria-controls="cpus">
+                                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 7 6 2l5 5" /></svg>
+                            </button>
+                            <button class="number-step-button" type="button" onclick="stepNumberInput('cpus', -1)"
+                                aria-label="Decrease CPUs" aria-controls="cpus">
+                                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5" /></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -91,7 +161,19 @@
                                 size can improve speed on HDDs.</span>
                         </span>
                     </label>
-                    <input class="input" id="bufSize" type="number" value="1024" min="0" max="1048576">
+                    <div class="number-input">
+                        <input class="input" id="bufSize" type="number" value="1024" min="0" max="1048576">
+                        <div class="number-stepper">
+                            <button class="number-step-button" type="button" onclick="stepNumberInput('bufSize', 1)"
+                                aria-label="Increase buffer size" aria-controls="bufSize">
+                                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 7 6 2l5 5" /></svg>
+                            </button>
+                            <button class="number-step-button" type="button" onclick="stepNumberInput('bufSize', -1)"
+                                aria-label="Decrease buffer size" aria-controls="bufSize">
+                                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5" /></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -110,7 +192,7 @@
             <div class="full-width-item checkbox-container">
                 <input type="checkbox" id="debugMode" class="checkbox-input">
                 <label for="debugMode">
-                    Debug Mode
+                    Keep Logs of the Execution
                     <span class="tooltip-container tooltip-top">
                         <span class="info-icon">i</span>
                         <span class="tooltip-text">Decides on whether to keep execution logs or not.<br><b> Defaults to
@@ -164,10 +246,27 @@
                 <span id="status-files" class="status-value">&mdash;</span>
             </div>
             <div class="status-row">
-                <span class="status-label">Duplicates Found</span>
+                <span id="status-metric-label" class="status-label">Duplicates Found</span>
                 <span id="status-duplicates" class="status-value">&mdash;</span>
             </div>
             <div id="status-error" class="status-error" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div id="coverage-summary" class="coverage-summary" hidden>
+        <div class="coverage-summary-heading">
+            <span>Source Coverage</span>
+            <span id="coverage-outcome" class="coverage-outcome">Awaiting a coverage run</span>
+        </div>
+        <div class="coverage-summary-metrics">
+            <div class="coverage-summary-metric">
+                <span id="coverage-covered" class="coverage-summary-value">&mdash;</span>
+                <span class="coverage-summary-label">covered / total</span>
+            </div>
+            <div class="coverage-summary-metric">
+                <span id="coverage-missing" class="coverage-summary-value">&mdash;</span>
+                <span class="coverage-summary-label">missing files</span>
+            </div>
         </div>
     </div>
 
@@ -177,7 +276,7 @@
         <span id="results-count-label">Results</span>
         <div class="results-header-actions">
             <label class="results-page-size-control" for="resultsPageSize">
-                Groups per page
+                <span id="page-size-label">Groups per page</span>
                 <select id="resultsPageSize" class="input results-page-size-select" onchange="changeResultsPageSize(this.value)" disabled>
                     <option value="3" selected>3</option>
                     <option value="5">5</option>
