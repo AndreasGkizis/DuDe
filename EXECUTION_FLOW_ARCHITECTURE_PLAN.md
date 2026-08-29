@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 1
+**Current step:** 2
 
 ## Purpose and Scope
 
@@ -64,7 +64,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
 
 ## Implementation Steps
 
-- [ ] **1. Finish execution data contracts — In progress.**
+- [x] **1. Finish execution data contracts.**
   - Retain `ExecutionModeDuplicates` and `ExecutionModeFindMissingContent` and require callers to provide one explicitly.
   - Do not default or infer the execution mode when it is empty.
   - Retain the source and target find-missing-content folder fields.
@@ -75,12 +75,12 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: execution models, JSON/Wails contracts, generated bindings, and focused model coverage only; no flow routing or coverage execution.
   - Verification: focused model tests, the complete Go unit/E2E suites, frontend build, and forced Wails build.
 
-- [ ] **2. Separate shared resolution from flow validation.**
+- [ ] **2. Separate shared resolution from flow validation — Awaiting review and commit.**
   - Keep cache/results fallback, worker-count resolution, buffer-size resolution, and writable-results validation shared.
   - Move directory requirements behind mode-specific validation.
   - Reject empty and unknown execution modes explicitly while preserving existing validation messages where applicable.
-  - Add coverage validation for exactly one readable source directory and exactly one readable target directory.
-  - Review boundary: argument resolution and validation only; execution still uses duplicate detection and coverage execution remains disabled.
+  - Add Find Missing Content validation for exactly one readable source directory and exactly one readable target directory.
+  - Review boundary: argument resolution and validation only; execution still uses duplicate detection and Find Missing Content execution remains disabled.
   - Verification: focused resolver and validator tests followed by the complete unit suite.
 
 - [ ] **3. Introduce the flow contract and registry.**

@@ -2,6 +2,7 @@ package unit_tests
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 	"testing"
@@ -88,6 +89,30 @@ func TestStartExecutionReportsValidationFailures(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("expected validation failure to be reported to the UI")
+	}
+}
+
+func TestStartExecutionDoesNotRouteFindMissingContentToDuplicateRunner(t *testing.T) {
+	reporter := capturingReporter{failures: make(chan string, 1)}
+	app := processing.NewApp(reporter)
+	app.Startup(context.Background())
+
+	err := app.StartExecution(models.ExecutionParams{
+		Mode:                 models.ExecutionModeFindMissingContent,
+		FindMissingSourceDir: t.TempDir(),
+		FindMissingTargetDir: t.TempDir(),
+	})
+
+	if !errors.Is(err, processing.ErrExecutionModeUnavailable) {
+		t.Fatalf("expected ErrExecutionModeUnavailable, got %v", err)
+	}
+	select {
+	case message := <-reporter.failures:
+		if message == "" {
+			t.Fatal("expected a useful unavailable-mode message")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected unavailable mode to be reported to the UI")
 	}
 }
 

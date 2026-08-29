@@ -208,7 +208,20 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		},
 	}
 
-	if err := resolver.ResolveAndValidateArgs(&args, safeDir); err != nil {
+	if err := resolver.ValidateModeArgs(&args); err != nil {
+		executionErr := fmt.Errorf("validation failed: %w", err)
+		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
+		return executionErr
+	}
+
+	//NOTE: this is only here due to not yet having a FindMissingContent runner implemented. Once that is implemented, this check can be removed.
+	if args.Mode != models.ExecutionModeDuplicates {
+		executionErr := fmt.Errorf("execution mode %d: %w", args.Mode, ErrExecutionModeUnavailable)
+		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
+		return executionErr
+	}
+
+	if err := resolver.ResolveSharedArgs(&args, safeDir); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
 		return executionErr
