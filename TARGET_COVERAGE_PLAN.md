@@ -113,38 +113,40 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 
 ## Backend Interfaces and Models
 
-1. Add a typed execution mode, for example:
-   - `duplicates`
-   - `coverage`
+1. Add an integer-backed `ExecutionMode` enum containing:
+   - `ExecutionModeDuplicates`
+   - `ExecutionModeFindMissingContent`
 2. Extend `ExecutionParams` with:
    - execution mode;
    - source directory;
    - target directory.
 3. Retain the existing `Directories` field for duplicate mode.
-4. Treat an omitted or zero-value execution mode as duplicate mode for backward compatibility with existing Go tests and callers.
+4. Require every execution request to provide an explicit recognized mode; reject empty and unknown modes without inferring intent from other arguments.
 5. Apply mode-aware validation:
    - duplicate mode requires at least one readable directory;
    - coverage mode requires one readable source directory and one readable target directory;
-   - both modes retain shared cache directory, results directory, CPU, and buffer validation.
-6. Add a coverage-file model containing:
+   - both modes retain shared cache directory, results directory, worker-count, and buffer-size validation.
+6. Add a `MissingSourceFile` model containing:
    - filename;
    - full source path;
-   - byte size.
-7. Add a coverage-result model containing:
-   - outcome;
+   - byte size may be added when the missing-content UI and CSV contract is implemented.
+7. Add a `MissingContentResult` model containing:
    - total source-file count;
-   - covered source-file count;
-   - missing source-file count;
    - ordered missing-file collection;
    - optional generated report path.
-8. Add `GetCoverageResult()` for the Wails frontend.
-9. Retain `GetResults()` for duplicate groups.
-10. Store duplicate and coverage results separately in `FrontendApp`.
-11. Protect coverage state with the existing application state mutex.
-12. Clear both result types:
+8. Derive successful coverage presentation from the result data:
+   - zero total source files means Empty Source;
+   - any missing files means Missing;
+   - otherwise the result means Complete.
+9. Treat cancellation and inconclusive failure as execution lifecycle states that publish no coverage result.
+10. Add `GetMissingContentResult()` for the Wails frontend.
+11. Retain `GetResults()` for duplicate groups.
+12. Store duplicate and coverage results separately in `FrontendApp`.
+13. Protect coverage state with the existing application state mutex.
+14. Clear both result types:
    - when a new execution starts;
    - during Full Reset.
-13. Route both execution modes through the existing `ExecutionGate`.
+15. Route both execution modes through the existing `ExecutionGate`.
 
 ## Progress and Status Reporting
 
@@ -223,9 +225,9 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 
 ## Unit Tests
 
-1. Validate duplicate mode with an omitted execution mode remains backward compatible.
+1. Validate that duplicate and coverage modes must be supplied explicitly, and that empty or unknown modes are rejected.
 2. Validate coverage mode requires both source and target folders.
-3. Validate shared cache, results-directory, CPU, and buffer resolution.
+3. Validate shared cache, results-directory, worker-count, and buffer-size resolution.
 4. Prove duplicate and coverage modes use the same discovery rules.
 5. Prove renamed files with identical content count as covered.
 6. Prove files moved into different target subdirectories count as covered.
@@ -340,17 +342,18 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Verification: `cd frontend && npm run build` and `GOCACHE=/tmp/dude-go-build wails build -f`.
 
 - [ ] **2. Add the execution-mode contract and mode-aware validation.**
-  - Add typed `duplicates` and `coverage` execution modes plus source and target directory fields to `ExecutionParams`.
-  - Treat an omitted or zero-value mode as duplicate mode.
+  - Add the `ExecutionModeDuplicates` and `ExecutionModeFindMissingContent` enum values plus source and target directory fields to `ExecutionParams`.
+  - Require an explicit recognized mode and reject empty or unknown values.
   - Require `Directories` in duplicate mode and both Source Folder and Target Folder in coverage mode.
-  - Preserve shared cache directory, results directory, CPU, and buffer resolution.
+  - Preserve shared cache directory, results directory, worker-count, and buffer-size resolution.
   - Review boundary: models and argument validation only; coverage runner routing remains disconnected and the coverage Start button remains disabled.
   - Verification: focused resolver/model tests, then `GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests/handlers/validation ./tests/unit_tests`.
 
-- [ ] **3. Add coverage result models and synchronized application state.**
-  - Add the coverage outcome, missing-file, and coverage-result models described above.
+- [ ] **3. Add missing-content result models and synchronized application state.**
+  - Add the separate concrete `DuplicateResult`, `MissingSourceFile`, and `MissingContentResult` models without a shared result interface.
+  - Derive Complete, Missing, and Empty Source from successful coverage data; publish no result for cancellation or inconclusive failure.
   - Store duplicate and coverage results separately under `FrontendApp.stateMu`.
-  - Add `GetCoverageResult()` while retaining `GetResults()` unchanged.
+  - Add `GetMissingContentResult()` while retaining `GetResults()` unchanged.
   - Clear both result types at execution start and during Full Reset.
   - Review boundary: state and Wails-facing data APIs only; no coverage processing yet.
   - Verification: focused state/reset tests and `GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests`.
@@ -411,7 +414,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 
 - [ ] **11. Connect and complete the coverage frontend.**
   - Send mode, source directory, and target directory in `StartExecution` parameters and enable Start in coverage mode.
-  - Fetch `GetCoverageResult()` only for coverage executions and keep duplicate rendering unchanged.
+  - Fetch `GetMissingContentResult()` only for find-missing-content executions and keep duplicate rendering unchanged.
   - Render Complete, Missing, Empty Source, Inconclusive, cancellation, and reset as distinct states.
   - Render every missing file with filename, full path, byte size, pagination, and Show action.
   - Enable Open Results Folder only when the current execution produced a report.

@@ -76,7 +76,7 @@ func TestStartExecutionReportsValidationFailures(t *testing.T) {
 	app := processing.NewApp(reporter)
 	app.Startup(context.Background())
 
-	err := app.StartExecution(models.ExecutionParams{})
+	err := app.StartExecution(models.ExecutionParams{Mode: models.ExecutionModeDuplicates})
 	if err == nil {
 		t.Fatal("expected invalid execution arguments to fail")
 	}

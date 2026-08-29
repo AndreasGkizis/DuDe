@@ -1,13 +1,16 @@
 export namespace models {
 	
 	export class ExecutionParams {
+	    mode: number;
 	    directories: string[];
+	    findMissingSourceDir: string;
+	    findMissingTargetDir: string;
 	    useCache: boolean;
 	    cacheDir: string;
 	    resultsDir: string;
 	    paranoidMode: boolean;
-	    cpus: number;
-	    bufSize: number;
+	    workerCount: number;
+	    bufferSizeBytes: number;
 	    debugMode: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -16,13 +19,16 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mode = source["mode"];
 	        this.directories = source["directories"];
+	        this.findMissingSourceDir = source["findMissingSourceDir"];
+	        this.findMissingTargetDir = source["findMissingTargetDir"];
 	        this.useCache = source["useCache"];
 	        this.cacheDir = source["cacheDir"];
 	        this.resultsDir = source["resultsDir"];
 	        this.paranoidMode = source["paranoidMode"];
-	        this.cpus = source["cpus"];
-	        this.bufSize = source["bufSize"];
+	        this.workerCount = source["workerCount"];
+	        this.bufferSizeBytes = source["bufferSizeBytes"];
 	        this.debugMode = source["debugMode"];
 	    }
 	}

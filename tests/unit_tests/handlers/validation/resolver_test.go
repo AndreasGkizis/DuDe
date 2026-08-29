@@ -222,23 +222,23 @@ func TestResolveWorkers(t *testing.T) {
 	}{
 		{
 			name:     "Zero value defaults to Max",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: 0},
-			expected: models.ExecutionParams{CPUs: maxCPUs},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, WorkerCount: 0},
+			expected: models.ExecutionParams{WorkerCount: maxCPUs},
 		},
 		{
 			name:     "Negative value defaults to Max",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: -5},
-			expected: models.ExecutionParams{CPUs: maxCPUs},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, WorkerCount: -5},
+			expected: models.ExecutionParams{WorkerCount: maxCPUs},
 		},
 		{
 			name:     "Valid value within range",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: 2},
-			expected: models.ExecutionParams{CPUs: 2},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, WorkerCount: 2},
+			expected: models.ExecutionParams{WorkerCount: 2},
 		},
 		{
 			name:     "Value exceeding Max is capped",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, CPUs: maxCPUs + 1},
-			expected: models.ExecutionParams{CPUs: maxCPUs},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, WorkerCount: maxCPUs + 1},
+			expected: models.ExecutionParams{WorkerCount: maxCPUs},
 		},
 	}
 
@@ -249,8 +249,8 @@ func TestResolveWorkers(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s: Some error %d", tt.name, err)
 			}
-			if tt.params.CPUs != tt.expected.CPUs {
-				t.Errorf("Expected %d but got %d", tt.expected.CPUs, tt.params.CPUs)
+			if tt.params.WorkerCount != tt.expected.WorkerCount {
+				t.Errorf("Expected %d but got %d", tt.expected.WorkerCount, tt.params.WorkerCount)
 			}
 		})
 	}
@@ -273,23 +273,23 @@ func TestResolveBufferSize(t *testing.T) {
 	}{
 		{
 			name:     "Zero value defaults",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 0},
-			expected: models.ExecutionParams{BufSize: defaultBuf},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufferSizeBytes: 0},
+			expected: models.ExecutionParams{BufferSizeBytes: defaultBuf},
 		},
 		{
 			name:     "Negative value defaults",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: -1},
-			expected: models.ExecutionParams{BufSize: defaultBuf},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufferSizeBytes: -1},
+			expected: models.ExecutionParams{BufferSizeBytes: defaultBuf},
 		},
 		{
 			name:     "Specific valid buffer",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 2048},
-			expected: models.ExecutionParams{BufSize: 2048},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufferSizeBytes: 2048},
+			expected: models.ExecutionParams{BufferSizeBytes: 2048},
 		},
 		{
 			name:     "Specific valid buffer, over max",
-			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufSize: 100000000000},
-			expected: models.ExecutionParams{BufSize: maxValue},
+			params:   models.ExecutionParams{Directories: []string{"/placeholder"}, BufferSizeBytes: 100000000000},
+			expected: models.ExecutionParams{BufferSizeBytes: maxValue},
 		},
 	}
 
@@ -300,8 +300,8 @@ func TestResolveBufferSize(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s: Some error %d", tt.name, err)
 			}
-			if tt.params.BufSize != tt.expected.BufSize {
-				t.Errorf("Expected %d but got %d", tt.expected.BufSize, tt.params.BufSize)
+			if tt.params.BufferSizeBytes != tt.expected.BufferSizeBytes {
+				t.Errorf("Expected %d but got %d", tt.expected.BufferSizeBytes, tt.params.BufferSizeBytes)
 			}
 		})
 	}

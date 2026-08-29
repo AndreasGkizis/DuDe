@@ -32,9 +32,9 @@ func (r Resolver) ResolveAndValidateArgs(args *models.ExecutionParams, exeDir st
 	}
 
 	// resolve or validate the cpus
-	args.CPUs = resolveWorkers(&args.CPUs)
+	args.WorkerCount = resolveWorkers(&args.WorkerCount)
 
-	args.BufSize = resolveBufferSize(&args.BufSize)
+	args.BufferSizeBytes = resolveBufferSize(&args.BufferSizeBytes)
 
 	return nil
 }

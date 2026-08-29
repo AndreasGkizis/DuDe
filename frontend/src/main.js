@@ -37,11 +37,13 @@ const startButtonSpinner = document.getElementById('startButtonSpinner');
 // --- Duplicate Results State ---
 const DEFAULT_PAGE_SIZE = 3;
 const PAGE_SIZE_OPTIONS = [3, 5, 10, 25, 50];
+const EXECUTION_MODE_DUPLICATES = 1;
+const EXECUTION_MODE_FIND_MISSING_CONTENT = 2;
 let allGroups = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let activePhase = '';
-let currentMode = 'duplicates';
+let currentMode = EXECUTION_MODE_DUPLICATES;
 let executionActive = false;
 
 const resultsSection = document.getElementById('results-section');
@@ -120,32 +122,33 @@ function updateFolderRelationshipWarning() {
 }
 
 function updateModePresentation() {
-    const isCoverage = currentMode === 'coverage';
-    duplicateFolders.hidden = isCoverage;
-    coverageFolders.hidden = !isCoverage;
-    coverageSummary.hidden = !isCoverage;
-    statusMetricLabel.textContent = isCoverage ? 'Source Coverage' : 'Duplicates Found';
-    pageSizeLabel.textContent = isCoverage ? 'Missing files per page' : 'Groups per page';
-    resultsCountLabel.textContent = isCoverage ? 'Missing Files' : 'Results';
+    const isFindMissingContent = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT;
+    duplicateFolders.hidden = isFindMissingContent;
+    coverageFolders.hidden = !isFindMissingContent;
+    coverageSummary.hidden = !isFindMissingContent;
+    statusMetricLabel.textContent = isFindMissingContent ? 'Missing Content' : 'Duplicates Found';
+    pageSizeLabel.textContent = isFindMissingContent ? 'Missing files per page' : 'Groups per page';
+    resultsCountLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Results';
     startText.textContent = 'Start';
-    startButton.title = isCoverage ? 'Coverage processing will be enabled with the backend implementation.' : '';
-    startButton.disabled = executionActive || isCoverage;
+    startButton.title = isFindMissingContent ? 'Missing-content processing will be enabled with the backend implementation.' : '';
+    startButton.disabled = executionActive || isFindMissingContent;
     showResultsButton.disabled = true;
 }
 
 function setExecutionActive(isActive) {
     executionActive = isActive;
     modeInputs.forEach(input => { input.disabled = isActive; });
-    startButton.disabled = isActive || currentMode === 'coverage';
+    startButton.disabled = isActive || currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT;
 }
 
 window.changeOperationMode = function (mode) {
-    if (executionActive || (mode !== 'duplicates' && mode !== 'coverage')) {
-        modeInputs.forEach(input => { input.checked = input.value === currentMode; });
+    const selectedMode = Number(mode);
+    if (executionActive || (selectedMode !== EXECUTION_MODE_DUPLICATES && selectedMode !== EXECUTION_MODE_FIND_MISSING_CONTENT)) {
+        modeInputs.forEach(input => { input.checked = Number(input.value) === currentMode; });
         return;
     }
 
-    currentMode = mode;
+    currentMode = selectedMode;
     resetFolderSelections();
     clearResults();
     updateModePresentation();
@@ -243,7 +246,7 @@ window.toggleAdvanced = function () {
 
 // --- Execution Start Handler ---
 window.startProcess = function () {
-    if (currentMode === 'coverage') return;
+    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) return;
 
     // 1. Gather data
     const dirInputs = document.querySelectorAll('#dirList .dir-row input');
@@ -252,13 +255,14 @@ window.startProcess = function () {
         .filter(v => v !== '');
 
     const params = {
+        mode: currentMode,
         directories: directories,
         useCache: document.getElementById('keepMemory').checked,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
         paranoidMode: document.getElementById('paranoidMode').checked,
-        cpus: parseInt(document.getElementById('cpus').value) || 0,
-        bufSize: parseInt(document.getElementById('bufSize').value) || 0,
+        workerCount: parseInt(document.getElementById('cpus').value) || 0,
+        bufferSizeBytes: parseInt(document.getElementById('bufSize').value) || 0,
         debugMode: document.getElementById('debugMode').checked,
     };
 
@@ -347,8 +351,8 @@ window.showResults = function () {
  * Called both from window.fullReset() and from the backend "fullReset" Wails event.
  */
 function _applyUIReset() {
-    currentMode = 'duplicates';
-    modeInputs.forEach(input => { input.checked = input.value === currentMode; });
+    currentMode = EXECUTION_MODE_DUPLICATES;
+    modeInputs.forEach(input => { input.checked = Number(input.value) === currentMode; });
     resetFolderSelections();
 
     // Reset advanced settings
@@ -404,7 +408,7 @@ window.clearResults = function () {
     statusFiles.textContent = '\u2014';
     statusDuplicates.textContent = '\u2014';
     statusDuplicates.classList.remove('status-value--orange');
-    coverageOutcome.textContent = 'Awaiting a coverage run';
+    coverageOutcome.textContent = 'Awaiting a missing-content run';
     coverageCovered.textContent = '\u2014';
     coverageMissing.textContent = '\u2014';
     statusError.textContent = '';

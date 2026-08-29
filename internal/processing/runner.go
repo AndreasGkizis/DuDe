@@ -272,7 +272,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	var senderGroups int32 = int32(len(args.Directories))
 
 	failedCounter := 0
-	mm := NewMemoryManager(&args, args.BufSize, 1)
+	mm := NewMemoryManager(&args, args.BufferSizeBytes, 1)
 
 	rt := visuals.NewProgressCounter(execCtx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
@@ -322,7 +322,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	pt := visuals.NewProgressTracker(execCtx, reporter, "Hashing")
 	pt.Start()
 
-	err = CreateHashes(execCtx, &syncSourceDirFileMap, args.CPUs, pt, mm, &hashMemory, &failedCounter, errChan)
+	err = CreateHashes(execCtx, &syncSourceDirFileMap, args.WorkerCount, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
@@ -352,7 +352,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		compareTracker := visuals.NewProgressTracker(execCtx, reporter, "Comparing")
 		compareTracker.Start()
 
-		compareErr := EnsureDuplicates(execCtx, &syncSourceDirFileMap, compareTracker, args.CPUs)
+		compareErr := EnsureDuplicates(execCtx, &syncSourceDirFileMap, compareTracker, args.WorkerCount)
 		compareTracker.Wait()
 		if compareErr != nil {
 			app.setLastResults(nil)
@@ -392,7 +392,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		log.InfoWithFuncName("No duplicates were found")
 	}
 
-	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufSize))
+	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
 	log.InfoWithFuncName(fmt.Sprintf("Failed %d times to send to memoryChan", failedCounter))
 	app.reporter.LogFilesCount(app.wailsCtx, int64(fileCount), int64(fileCount))
 	app.reporter.LogProgress(app.wailsCtx, "Done", 100)

@@ -37,11 +37,12 @@ func Test_MultiFolder_NoDuplicates(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode:        models.ExecutionModeDuplicates,
 		Directories: []string{tempDir1, tempDir2, tempDir3},
 		ResultsDir:  testResultsDir,
 		CacheDir:    testCacheDir,
-		CPUs:        1,
-		BufSize:     1024,
+		WorkerCount:        1,
+		BufferSizeBytes:     1024,
 	}
 
 	err := app.StartExecution(args)
@@ -89,11 +90,12 @@ func Test_MultiFolder_DuplicatesAcrossAllThree(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode:        models.ExecutionModeDuplicates,
 		Directories: []string{tempDir1, tempDir2, tempDir3},
 		ResultsDir:  testResultsDir,
 		CacheDir:    testCacheDir,
-		CPUs:        1,
-		BufSize:     1024,
+		WorkerCount:        1,
+		BufferSizeBytes:     1024,
 	}
 
 	err = app.StartExecution(args)
@@ -138,11 +140,12 @@ func Test_MultiFolder_DuplicatesInSubset(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode:        models.ExecutionModeDuplicates,
 		Directories: []string{tempDir1, tempDir2, tempDir3},
 		ResultsDir:  testResultsDir,
 		CacheDir:    testCacheDir,
-		CPUs:        1,
-		BufSize:     1024,
+		WorkerCount:        1,
+		BufferSizeBytes:     1024,
 	}
 
 	err = app.StartExecution(args)
@@ -189,11 +192,12 @@ func Test_MultiFolder_SomeDirectoriesEmpty(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode:        models.ExecutionModeDuplicates,
 		Directories: []string{filledDir, emptyDir1, emptyDir2},
 		ResultsDir:  testResultsDir,
 		CacheDir:    testCacheDir,
-		CPUs:        1,
-		BufSize:     1024,
+		WorkerCount:        1,
+		BufferSizeBytes:     1024,
 	}
 
 	err := app.StartExecution(args)
@@ -243,11 +247,12 @@ func Test_MultiFolder_FourDirectories(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode:        models.ExecutionModeDuplicates,
 		Directories: []string{tempDir1, tempDir2, tempDir3, tempDir4},
 		ResultsDir:  testResultsDir,
 		CacheDir:    testCacheDir,
-		CPUs:        2,
-		BufSize:     1024,
+		WorkerCount:        2,
+		BufferSizeBytes:     1024,
 	}
 
 	err = app.StartExecution(args)
