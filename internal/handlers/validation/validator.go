@@ -4,17 +4,17 @@ import (
 	"DuDe/internal/common/fs"
 )
 
-// IValidator defines the contract for all validation processes.
-type IValidator interface {
+// PathValidator checks filesystem access needed by execution arguments.
+type PathValidator interface {
 	ReadableDir(path string) error
 	WritableDir(path string) error
 }
 
-type Validator struct {
+type FilesystemValidator struct {
 	FS fs.FS
 }
 
-func (v Validator) ReadableDir(path string) error {
+func (v FilesystemValidator) ReadableDir(path string) error {
 	if !v.FS.Exists(path) {
 		return ErrPathNotExists
 	}
@@ -27,7 +27,7 @@ func (v Validator) ReadableDir(path string) error {
 	return nil
 }
 
-func (v Validator) WritableDir(path string) error {
+func (v FilesystemValidator) WritableDir(path string) error {
 	if v.FS.Exists(path) {
 		if !v.FS.IsDir(path) {
 			return ErrPathNotDirectory

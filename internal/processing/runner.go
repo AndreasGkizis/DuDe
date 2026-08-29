@@ -6,6 +6,7 @@ import (
 	log "DuDe/internal/common/logger"
 	database "DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
+	"DuDe/internal/processing/flows"
 	"DuDe/internal/reporting"
 
 	"errors"
@@ -28,18 +29,42 @@ type FrontendApp struct {
 	gate     *ExecutionGate
 	stateMu  sync.RWMutex
 
-	platform    string
-	Args        models.ExecutionParams
-	reporter    reporting.Reporter
-	lastResults []models.FileHash // duplicate groups from the last completed execution
+	platform      string
+	Args          models.ExecutionParams
+	reporter      reporting.Reporter
+	pathValidator validation.PathValidator
+	flowRegistry  *flows.Registry
+	lastResults   []models.FileHash // duplicate groups from the last completed execution
 }
 
 // NewApp creates a new App application struct
 func NewApp(reporter reporting.Reporter) *FrontendApp {
-	return &FrontendApp{
-		reporter: reporter,
-		gate:     NewExecutionGate(),
+	pathValidator := validation.FilesystemValidator{
+		FS: fs.OS{},
 	}
+
+	app := &FrontendApp{
+		reporter:      reporter,
+		pathValidator: pathValidator,
+		gate:          NewExecutionGate(),
+	}
+
+	duplicateFlow := flows.NewDuplicateFlow(
+		pathValidator,
+		// TODO(step 5): Remove this adapter after Step 4 moves the duplicate
+		// dependencies into packages that DuplicateFlow can import directly.
+		// DuplicateFlow.Run will then own the orchestration and return its result.
+		func(reporter reporting.Reporter) error {
+			return runSelectedExecution(app, reporter)
+		},
+	)
+	flowRegistry, err := flows.NewRegistry(duplicateFlow)
+	if err != nil {
+		panic(fmt.Sprintf("create execution flow registry: %v", err))
+	}
+
+	app.flowRegistry = flowRegistry
+	return app
 }
 
 // CancelExecution attempts to stop the currently running process.
@@ -202,26 +227,21 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 
 	safeDir := common.GetSafeResultsDir(a.platform)
 
-	resolver := validation.Resolver{
-		V: validation.Validator{
-			FS: fs.OS{},
-		},
+	flow, err := a.flowRegistry.Resolve(args.Mode)
+	if err != nil {
+		a.reporter.ReportError(a.wailsCtx, err.Error())
+		return err
 	}
 
-	if err := resolver.ValidateModeArgs(&args); err != nil {
+	validation.ResolveExecutionArgs(&args, safeDir)
+
+	if err := validation.ValidateSharedExecutionArgs(&args, a.pathValidator); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
 		return executionErr
 	}
 
-	//NOTE: this is only here due to not yet having a FindMissingContent runner implemented. Once that is implemented, this check can be removed.
-	if args.Mode != models.ExecutionModeDuplicates {
-		executionErr := fmt.Errorf("execution mode %d: %w", args.Mode, ErrExecutionModeUnavailable)
-		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
-		return executionErr
-	}
-
-	if err := resolver.ResolveSharedArgs(&args, safeDir); err != nil {
+	if err := flow.Validate(&args); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
 		return executionErr
@@ -232,7 +252,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	a.Args = args
 	a.stateMu.Unlock()
 
-	err = runSelectedExecution(a, a.reporter)
+	err = flow.Run(a.reporter)
 	if errors.Is(err, context.Canceled) {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		return nil
@@ -268,6 +288,10 @@ func (a *FrontendApp) setLastResults(results []models.FileHash) {
 	a.stateMu.Unlock()
 }
 
+// TODO(step 5): Move this duplicate-specific orchestration into
+// flows.DuplicateFlow.Run after Step 4 establishes importable processing
+// packages. FrontendApp must retain only lifecycle and result publication.
+// Despite its legacy name, this function is not a generic execution starter.
 func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	var err error
 	args := app.executionArgs()

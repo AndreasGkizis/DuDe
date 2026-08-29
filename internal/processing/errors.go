@@ -1,8 +1,11 @@
 package processing
 
-import "errors"
+import (
+	"DuDe/internal/processing/flows"
+	"errors"
+)
 
 var (
 	ErrNoFilesFound             = errors.New("execution skipped: no files found in the specified directories")
-	ErrExecutionModeUnavailable = errors.New("execution mode is not connected yet")
+	ErrExecutionModeUnavailable = flows.ErrExecutionModeUnavailable
 )
