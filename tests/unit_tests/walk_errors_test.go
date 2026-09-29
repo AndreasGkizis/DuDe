@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -81,7 +81,7 @@ func runWalkDirAndCapturePanic(path string, files *sync.Map, reporter reporting.
 		defer func() {
 			panicked = recover() != nil
 		}()
-		processing.WalkDir(context.Background(), path, files, counter)
+		services.WalkDir(context.Background(), path, files, counter)
 	}()
 
 	counter.WaitForSenders()

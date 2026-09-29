@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 3
+**Current step:** 4
 
 ## Purpose and Scope
 
@@ -83,7 +83,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: argument resolution and validation only; execution still uses duplicate detection and Find Missing Content execution remains disabled.
   - Verification: focused argument-resolution, shared-validation, and flow-validation tests followed by the complete unit suite.
 
-- [ ] **3. Introduce the flow contract and registry — Awaiting review and commit.**
+- [x] **3. Introduce the flow contract and registry.**
   - Keep execution flows together under `internal/processing/flows`.
   - Add an internal `ExecutionFlow` interface with mode, validation, and run operations.
   - Add a registry keyed by `ExecutionMode`.
@@ -93,7 +93,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Verification: focused contract, registry, empty-mode, and unknown-mode tests followed by the complete unit suite.
 
 - [ ] **4. Establish importable processing package boundaries.**
-  - Move reusable processing primitives out of the root `processing` package into child packages that `processing/flows` can import without creating an import cycle.
+  - Move reusable processing primitives out of the root `processing` package into `internal/processing/services`, which `processing/flows` can import without creating an import cycle.
   - Establish clear homes for discovery, candidate hashing and cache access, equivalence confirmation, and result writing before moving orchestration into a flow.
   - Keep the existing duplicate runner as a temporary adapter while files and dependencies move.
   - Preserve behavior and avoid redesigning the algorithms during this package-only step.

@@ -1,4 +1,4 @@
-package processing
+package services
 
 import (
 	"DuDe/internal/models"

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -92,7 +92,7 @@ func runEnsureDuplicatesAndWait(t *testing.T, groups *sync.Map) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Comparing")
 	tracker.Start()
-	err := processing.EnsureDuplicates(ctx, groups, tracker, 1)
+	err := services.EnsureDuplicates(ctx, groups, tracker, 1)
 
 	done := make(chan struct{})
 	go func() {

@@ -10,6 +10,7 @@ import (
 
 	"DuDe/internal/models"
 	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -122,7 +123,7 @@ func TestFindDuplicatesCompletesProgressWhenThereIsNoWork(t *testing.T) {
 
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Finding")
 	tracker.Start()
-	processing.FindDuplicatesInMap(ctx, &sync.Map{}, tracker)
+	services.FindDuplicatesInMap(ctx, &sync.Map{}, tracker)
 
 	waitForTrackerToFinish(t, tracker, cancel)
 }
@@ -139,12 +140,12 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Hashing")
 	tracker.Start()
-	memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
 	failedCount := 0
 	errChan := make(chan error, 2)
 
-	if err := processing.CreateHashes(
+	if err := services.CreateHashes(
 		ctx,
 		sourceFiles,
 		1,
@@ -182,11 +183,11 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 	t.Helper()
 
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "test")
-	memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
 	failedCount := 0
 
-	err := processing.CreateHashes(
+	err := services.CreateHashes(
 		context.Background(),
 		sourceFiles,
 		1,

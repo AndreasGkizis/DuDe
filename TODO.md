@@ -4,6 +4,7 @@
 
 ## Later
 
+- Upgrade Wails after confirming a version compatible with the project's next Go toolchain; update the CLI, Go module, generated bindings, VS Code tasks, and release build verification together.
 - Remove unused code.
 - Make `ExecutionParams` immutable after separating raw requests from resolved execution configuration.
 - Review log levels and details.

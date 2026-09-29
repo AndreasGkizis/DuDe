@@ -1,4 +1,4 @@
-package processing
+package services
 
 import (
 	log "DuDe/internal/common/logger"

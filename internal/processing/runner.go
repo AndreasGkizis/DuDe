@@ -7,6 +7,7 @@ import (
 	database "DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/processing/flows"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 
 	"errors"
@@ -132,7 +133,7 @@ func (a *FrontendApp) CheckIfResultsExist() bool {
 	} else {
 		resultsDir = args.ResultsDir
 	}
-	return ResultsFileExist(resultsDir)
+	return services.ResultsFileExist(resultsDir)
 }
 
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
@@ -309,7 +310,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	var senderGroups int32 = int32(len(args.Directories))
 
 	failedCounter := 0
-	mm := NewMemoryManager(&args, args.BufferSizeBytes, 1)
+	mm := services.NewMemoryManager(&args, args.BufferSizeBytes, 1)
 
 	rt := visuals.NewProgressCounter(execCtx, app.reporter, "Reading", int(senderGroups))
 	rt.Start()
@@ -328,7 +329,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	for _, dir := range args.Directories {
 		dir := dir // capture loop variable
-		go WalkDir(execCtx, dir, &syncSourceDirFileMap, rt)
+		go services.WalkDir(execCtx, dir, &syncSourceDirFileMap, rt)
 	}
 	rt.Wait()
 
@@ -343,7 +344,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 
 	app.reporter.LogProgress(execCtx, "Filtering", 0)
 	app.reporter.LogFilesCount(execCtx, 0, int64(fileCount))
-	candidateCount, skippedCount := FilterHashCandidatesBySize(&syncSourceDirFileMap)
+	candidateCount, skippedCount := services.FilterHashCandidatesBySize(&syncSourceDirFileMap)
 	app.reporter.LogProgress(execCtx, "Filtering", 100)
 	app.reporter.LogFilesCount(execCtx, int64(fileCount), int64(fileCount))
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
@@ -359,7 +360,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	pt := visuals.NewProgressTracker(execCtx, reporter, "Hashing")
 	pt.Start()
 
-	err = CreateHashes(execCtx, &syncSourceDirFileMap, args.WorkerCount, pt, mm, &hashMemory, &failedCounter, errChan)
+	err = services.CreateHashes(execCtx, &syncSourceDirFileMap, args.WorkerCount, pt, mm, &hashMemory, &failedCounter, errChan)
 	if err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
@@ -378,7 +379,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	findTracker := visuals.NewProgressTracker(execCtx, reporter, "Finding")
 	findTracker.Start()
 
-	FindDuplicatesInMap(execCtx, &syncSourceDirFileMap, findTracker)
+	services.FindDuplicatesInMap(execCtx, &syncSourceDirFileMap, findTracker)
 
 	findTracker.Wait()
 
@@ -389,7 +390,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 		compareTracker := visuals.NewProgressTracker(execCtx, reporter, "Comparing")
 		compareTracker.Start()
 
-		compareErr := EnsureDuplicates(execCtx, &syncSourceDirFileMap, compareTracker, args.WorkerCount)
+		compareErr := services.EnsureDuplicates(execCtx, &syncSourceDirFileMap, compareTracker, args.WorkerCount)
 		compareTracker.Wait()
 		if compareErr != nil {
 			app.setLastResults(nil)
@@ -418,7 +419,7 @@ func startExecution(app *FrontendApp, reporter reporting.Reporter) error {
 	if length != 0 {
 		timer1 := time.Now()
 
-		err = SaveResultsAsCSV(&syncSourceDirFileMap, args.ResultsDir)
+		err = services.SaveResultsAsCSV(&syncSourceDirFileMap, args.ResultsDir)
 		if err != nil {
 			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
 			return err

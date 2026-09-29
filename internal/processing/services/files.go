@@ -1,4 +1,4 @@
-package processing
+package services
 
 import (
 	common "DuDe/internal/common"

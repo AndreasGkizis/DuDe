@@ -3,6 +3,7 @@ package e2e_tests
 import (
 	"DuDe/internal/common"
 	process "DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"context"
 	"crypto/rand"
@@ -171,7 +172,7 @@ func readResultsFile(t *testing.T, dir string) ([][]string, error) {
 	defer file.Close()
 
 	reader := csv.NewReader(file)
-	reader.Comma = process.GetDelimiterForOS()
+	reader.Comma = services.GetDelimiterForOS()
 	allCsvLines, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSV data from %q: %w", filePath, err)
