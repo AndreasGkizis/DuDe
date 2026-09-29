@@ -4,16 +4,14 @@ import (
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/models"
 	"DuDe/internal/processing/flows"
-	"DuDe/internal/reporting"
+	"context"
 	"errors"
 	"strings"
 	"testing"
 )
 
-func noOpFlowRun(reporting.Reporter) error { return nil }
-
 func TestDuplicateFlowRequiresDirectories(t *testing.T) {
-	flow := flows.NewDuplicateFlow(validation.MockValidator{}, noOpFlowRun)
+	flow := flows.NewDuplicateFlow(validation.MockValidator{})
 
 	err := flow.Validate(&models.ExecutionParams{})
 
@@ -29,7 +27,7 @@ func TestDuplicateFlowValidatesEveryDirectory(t *testing.T) {
 			paths = append(paths, path)
 			return nil
 		},
-	}, noOpFlowRun)
+	})
 	args := models.ExecutionParams{Directories: []string{"/one", "/two"}}
 
 	err := flow.Validate(&args)
@@ -51,7 +49,7 @@ func TestDuplicateFlowWrapsDirectoryReadError(t *testing.T) {
 			}
 			return nil
 		},
-	}, noOpFlowRun)
+	})
 	args := models.ExecutionParams{Directories: []string{"/good", "/bad"}}
 
 	err := flow.Validate(&args)
@@ -65,7 +63,7 @@ func TestDuplicateFlowWrapsDirectoryReadError(t *testing.T) {
 }
 
 func TestFindMissingContentFlowRequiresSourceAndTarget(t *testing.T) {
-	flow := flows.NewFindMissingContentFlow(validation.MockValidator{}, noOpFlowRun)
+	flow := flows.NewFindMissingContentFlow(validation.MockValidator{})
 
 	err := flow.Validate(&models.ExecutionParams{})
 	if !errors.Is(err, flows.ErrSourceDirectoryRequired) {
@@ -78,6 +76,16 @@ func TestFindMissingContentFlowRequiresSourceAndTarget(t *testing.T) {
 	}
 }
 
+func TestFindMissingContentFlowRunIsUnavailableUntilImplemented(t *testing.T) {
+	flow := flows.NewFindMissingContentFlow(validation.MockValidator{})
+
+	err := flow.Run(context.Background(), models.ExecutionParams{}, nil, nil)
+
+	if !errors.Is(err, flows.ErrExecutionModeUnavailable) {
+		t.Fatalf("expected unavailable execution mode, got %v", err)
+	}
+}
+
 func TestFindMissingContentFlowValidatesOnlySourceAndTarget(t *testing.T) {
 	var paths []string
 	flow := flows.NewFindMissingContentFlow(validation.MockValidator{
@@ -85,7 +93,7 @@ func TestFindMissingContentFlowValidatesOnlySourceAndTarget(t *testing.T) {
 			paths = append(paths, path)
 			return nil
 		},
-	}, noOpFlowRun)
+	})
 	args := models.ExecutionParams{
 		Directories:          []string{"/stale-duplicate-directory"},
 		FindMissingSourceDir: "/source",
@@ -111,7 +119,7 @@ func TestFindMissingContentFlowWrapsSourceReadError(t *testing.T) {
 			}
 			return nil
 		},
-	}, noOpFlowRun)
+	})
 	args := models.ExecutionParams{
 		FindMissingSourceDir: "/source",
 		FindMissingTargetDir: "/target",

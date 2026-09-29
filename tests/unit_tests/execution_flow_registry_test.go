@@ -4,6 +4,7 @@ import (
 	"DuDe/internal/models"
 	"DuDe/internal/processing/flows"
 	"DuDe/internal/reporting"
+	"context"
 	"errors"
 	"testing"
 )
@@ -20,7 +21,7 @@ func (registryTestFlow) Validate(*models.ExecutionParams) error {
 	return nil
 }
 
-func (registryTestFlow) Run(reporting.Reporter) error {
+func (registryTestFlow) Run(context.Context, models.ExecutionParams, reporting.Reporter, flows.ResultPublisher) error {
 	return nil
 }
 

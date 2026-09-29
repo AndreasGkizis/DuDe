@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 4
+**Current step:** 6
 
 ## Purpose and Scope
 
@@ -92,7 +92,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: flow selection and registration only; duplicate orchestration may still be adapted internally and coverage remains unregistered.
   - Verification: focused contract, registry, empty-mode, and unknown-mode tests followed by the complete unit suite.
 
-- [ ] **4. Establish importable processing package boundaries.**
+- [x] **4. Establish importable processing package boundaries.**
   - Move reusable processing primitives out of the root `processing` package into `internal/processing/services`, which `processing/flows` can import without creating an import cycle.
   - Establish clear homes for discovery, candidate hashing and cache access, equivalence confirmation, and result writing before moving orchestration into a flow.
   - Keep the existing duplicate runner as a temporary adapter while files and dependencies move.
@@ -101,7 +101,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: package ownership and dependency direction only; duplicate orchestration remains temporarily in the root runner and Find Missing Content remains unregistered.
   - Verification: focused package tests and compile checks followed by the complete unit suite.
 
-- [ ] **5. Adapt duplicate detection into the first flow.**
+- [x] **5. Adapt duplicate detection into the first flow.**
   - Move the current duplicate orchestration behind the flow contract.
   - Return a typed duplicate result instead of mutating application result state during processing.
   - Preserve discovery, progress phases, cache fallback, CSV format, cancellation, and Paranoid Mode behavior.

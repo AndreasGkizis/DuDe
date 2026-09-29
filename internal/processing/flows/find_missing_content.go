@@ -3,6 +3,7 @@ package flows
 import (
 	"DuDe/internal/models"
 	"DuDe/internal/reporting"
+	"context"
 	"errors"
 	"fmt"
 )
@@ -16,17 +17,10 @@ var (
 // It is intentionally not registered until its backend produces a typed result.
 type FindMissingContentFlow struct {
 	paths ReadableDirectoryValidator
-	run   func(reporter reporting.Reporter) error
 }
 
-func NewFindMissingContentFlow(
-	paths ReadableDirectoryValidator,
-	run func(reporter reporting.Reporter) error,
-) FindMissingContentFlow {
-	return FindMissingContentFlow{
-		paths: paths,
-		run:   run,
-	}
+func NewFindMissingContentFlow(paths ReadableDirectoryValidator) FindMissingContentFlow {
+	return FindMissingContentFlow{paths: paths}
 }
 
 func (FindMissingContentFlow) Mode() models.ExecutionMode {
@@ -51,7 +45,6 @@ func (flow FindMissingContentFlow) Validate(args *models.ExecutionParams) error 
 	return nil
 }
 
-func (flow FindMissingContentFlow) Run(reporter reporting.Reporter) error {
-	// this will hold then actual execution logic, but for now this is a placeholder
-	return flow.run(reporter)
+func (FindMissingContentFlow) Run(context.Context, models.ExecutionParams, reporting.Reporter, ResultPublisher) error {
+	return ErrExecutionModeUnavailable
 }
