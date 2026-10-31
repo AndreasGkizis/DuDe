@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 9
+**Current step:** 10
 
 ## Purpose and Scope
 
@@ -132,7 +132,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: candidate selection, hashing, and cache mechanics only; do not implement directional matching.
   - Verification: focused size-filtering, hashing, cache, fallback, worker-limit, buffer, and cancellation tests followed by duplicate regression tests.
 
-- [ ] **9. Extract shared equivalence confirmation.**
+- [x] **9. Extract shared equivalence confirmation.**
   - Centralize size/hash equivalence and optional byte-for-byte Paranoid confirmation.
   - Support injected hashing in tests for deterministic collision scenarios.
   - Preserve duplicate comparison behavior, failures, and cancellation.

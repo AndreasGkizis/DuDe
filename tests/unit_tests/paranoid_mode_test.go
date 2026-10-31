@@ -2,6 +2,7 @@ package unit_tests
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -46,6 +47,28 @@ func TestEnsureDuplicatesPersistsPartialRemoval(t *testing.T) {
 	}
 }
 
+func TestEnsureDuplicatesRejectsInjectedHashCollision(t *testing.T) {
+	directory := t.TempDir()
+	primaryPath := writeParanoidTestFile(t, directory, "primary.txt", "original")
+	collisionPath := writeParanoidTestFile(t, directory, "collision.txt", "different")
+
+	groups := &sync.Map{}
+	groups.Store("injected-collision", models.FileHash{
+		FilePath: primaryPath,
+		Hash:     "same-hash",
+		DuplicatesFound: []models.FileHash{
+			{FilePath: collisionPath, Hash: "same-hash"},
+		},
+	})
+
+	if err := runEnsureDuplicatesAndWait(t, groups); err != nil {
+		t.Fatalf("ensure duplicates: %v", err)
+	}
+	if _, exists := groups.Load("injected-collision"); exists {
+		t.Fatal("expected Paranoid Mode to reject unequal files with the same hash")
+	}
+}
+
 func TestEnsureDuplicatesDoesNotConfirmComparisonErrors(t *testing.T) {
 	directory := t.TempDir()
 	primaryPath := writeParanoidTestFile(t, directory, "primary.txt", "same")
@@ -83,6 +106,27 @@ func TestEnsureDuplicatesCompletesProgressWhenPrimaryFileCannotOpen(t *testing.T
 
 	if err := runEnsureDuplicatesAndWait(t, groups); err == nil {
 		t.Fatal("expected primary file open failure to be returned")
+	}
+}
+
+func TestEnsureDuplicatesReturnsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	groups := &sync.Map{}
+	groups.Store("hash", models.FileHash{
+		FilePath: filepath.Join(t.TempDir(), "primary.txt"),
+		DuplicatesFound: []models.FileHash{
+			{FilePath: filepath.Join(t.TempDir(), "duplicate.txt")},
+		},
+	})
+
+	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Comparing")
+	tracker.Start()
+	err := services.EnsureDuplicates(ctx, groups, tracker, 1)
+	tracker.Wait()
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation, got %v", err)
 	}
 }
 
