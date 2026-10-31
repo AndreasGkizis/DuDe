@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 7
+**Current step:** 8
 
 ## Purpose and Scope
 
@@ -118,7 +118,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: application lifecycle and result publication only; coverage execution remains disabled.
   - Verification: focused lifecycle, state-clearing, cancellation, error-reporting, concurrent-start, and Full Reset tests, including focused race coverage.
 
-- [ ] **7. Extract shared discovery.**
+- [x] **7. Extract shared discovery.**
   - Provide one cancellable discovery component usable by multiple flows.
   - Preserve current handling of hidden files, nested directories, symlinks, special entries, metadata failures, and traversal errors.
   - Keep independently discovered collections separate.

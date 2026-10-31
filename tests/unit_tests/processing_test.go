@@ -162,7 +162,7 @@ func TestProgressCounterWaitReturnsAfterAllSendersFinish(t *testing.T) {
 	}
 }
 
-func TestFilterHashCandidatesBySize(t *testing.T) {
+func TestRemoveUniqueSizeFiles(t *testing.T) {
 	tests := []struct {
 		name             string
 		files            map[string]int64
@@ -206,7 +206,7 @@ func TestFilterHashCandidatesBySize(t *testing.T) {
 				files.Store(path, models.FileHash{FilePath: path, FileSize: size})
 			}
 
-			candidates, skipped := services.FilterHashCandidatesBySize(files)
+			candidates, skipped := services.RemoveUniqueSizeFiles(files)
 			if candidates != test.wantCandidates {
 				t.Errorf("expected %d candidates, got %d", test.wantCandidates, candidates)
 			}
@@ -246,7 +246,7 @@ func TestSameSizeDifferentFilesAreHashedButNotDuplicates(t *testing.T) {
 	files.Store(firstPath, models.FileHash{FilePath: firstPath, FileSize: 4})
 	files.Store(secondPath, models.FileHash{FilePath: secondPath, FileSize: 4})
 
-	candidates, skipped := services.FilterHashCandidatesBySize(files)
+	candidates, skipped := services.RemoveUniqueSizeFiles(files)
 	if candidates != 2 || skipped != 0 {
 		t.Fatalf("expected 2 candidates and 0 skipped files, got %d and %d", candidates, skipped)
 	}

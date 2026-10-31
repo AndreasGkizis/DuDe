@@ -58,7 +58,7 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 				failedCount := 0
 				b.StartTimer()
 
-				services.FilterHashCandidatesBySize(sourceFiles)
+				services.RemoveUniqueSizeFiles(sourceFiles)
 				err := services.CreateHashes(
 					context.Background(),
 					sourceFiles,

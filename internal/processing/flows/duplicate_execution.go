@@ -87,7 +87,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	reporter.LogProgress(ctx, "Filtering", 0)
 	reporter.LogFilesCount(ctx, 0, int64(fileCount))
-	candidateCount, skippedCount := services.FilterHashCandidatesBySize(files)
+	candidateCount, skippedCount := services.RemoveUniqueSizeFiles(files)
 	reporter.LogProgress(ctx, "Filtering", 100)
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))

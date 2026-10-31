@@ -16,29 +16,6 @@ import (
 	"sync"
 )
 
-func FilterHashCandidatesBySize(files *sync.Map) (candidateCount, skippedCount int) {
-	sizeCounts := make(map[int64]int)
-	files.Range(func(_, value any) bool {
-		file := value.(models.FileHash)
-		sizeCounts[file.FileSize]++
-		return true
-	})
-
-	files.Range(func(key, value any) bool {
-		file := value.(models.FileHash)
-		if sizeCounts[file.FileSize] == 1 {
-			files.Delete(key)
-			skippedCount++
-			return true
-		}
-
-		candidateCount++
-		return true
-	})
-
-	return candidateCount, skippedCount
-}
-
 func SaveResultsAsCSV(data *sync.Map, fulldir string) error {
 	flattened_data := GetFlattened(data)
 	log.InfoWithFuncName(fmt.Sprintf("Number of duplicates found: %d", len(flattened_data)))
