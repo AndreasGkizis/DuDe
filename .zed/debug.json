@@ -1,0 +1,20 @@
+[
+  {
+    "label": "Wails: Debug (real execution)",
+    "adapter": "Delve",
+    "request": "launch",
+    "mode": "exec",
+    "program": "$ZED_WORKTREE_ROOT/build/bin/DuDe",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "build": "wails-debug-real"
+  },
+  {
+    "label": "Wails: Debug (simulated progress)",
+    "adapter": "Delve",
+    "request": "launch",
+    "mode": "exec",
+    "program": "$ZED_WORKTREE_ROOT/build/bin/DuDe",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "build": "wails-debug-progress"
+  }
+]
