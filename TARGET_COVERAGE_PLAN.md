@@ -341,7 +341,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: frontend structure, styling, and local state only; no coverage result calculation.
   - Verification: `cd frontend && npm run build` and `GOCACHE=/tmp/dude-go-build wails build -f`.
 
-- [ ] **2. Add the execution-mode contract and mode-aware validation.**
+- [x] **2. Add the execution-mode contract and mode-aware validation.**
   - Add the `ExecutionModeDuplicates` and `ExecutionModeFindMissingContent` enum values plus source and target directory fields to `ExecutionParams`.
   - Require an explicit recognized mode and reject empty or unknown values.
   - Require `Directories` in duplicate mode and both Source Folder and Target Folder in coverage mode.
@@ -349,7 +349,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: models and argument validation only; coverage runner routing remains disconnected and the coverage Start button remains disabled.
   - Verification: focused resolver/model tests, then `GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests/handlers/validation ./tests/unit_tests`.
 
-- [ ] **3. Add missing-content result models and synchronized application state.**
+- [x] **3. Add missing-content result models and synchronized application state.**
   - Add the separate concrete `DuplicateResult`, `MissingSourceFile`, and `MissingContentResult` models without a shared result interface.
   - Derive Complete, Missing, and Empty Source from successful coverage data; publish no result for cancellation or inconclusive failure.
   - Store duplicate and coverage results separately under `FrontendApp.stateMu`.
@@ -358,7 +358,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: state and Wails-facing data APIs only; no coverage processing yet.
   - Verification: focused state/reset tests and `GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests`.
 
-- [ ] **4. Extract shared file discovery without changing duplicate behavior.**
+- [x] **4. Extract shared file discovery without changing duplicate behavior.**
   - Introduce one discovery entry point used by duplicate and coverage modes.
   - Preserve current hidden-file, nested-directory, symbolic-link, and special-entry behavior exactly.
   - Return enough traversal error information for coverage to become inconclusive without changing duplicate-mode eligibility.
@@ -366,14 +366,14 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: traversal and collection only; hashing and matching remain unchanged.
   - Verification: discovery parity and traversal-error tests, then the existing unit and E2E suites.
 
-- [ ] **5. Extract reusable candidate hashing and cache lookup.**
+- [x] **5. Extract reusable candidate hashing and cache lookup.**
   - Reuse size filtering, cached MD5 validation, worker count, buffer size, cancellation, and cache-failure fallback for caller-selected candidates.
   - Allow coverage to hash only target sizes that could match a source file.
   - Preserve the duplicate runner's current hashing results and progress behavior.
   - Review boundary: hashing and cache mechanics only; no directional coverage decision yet.
   - Verification: cache, hashing, cancellation, and duplicate-regression unit tests.
 
-- [ ] **6. Extract reusable equivalence confirmation.**
+- [x] **6. Extract reusable equivalence confirmation.**
   - Provide one equivalence operation that applies size and MD5 matching and optionally performs byte-for-byte Paranoid Mode confirmation.
   - Allow deterministic hash injection in tests so unequal files can simulate an MD5 collision.
   - Preserve existing duplicate Paranoid Mode behavior and comparison-error handling.

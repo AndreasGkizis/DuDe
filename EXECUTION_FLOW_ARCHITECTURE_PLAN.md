@@ -139,7 +139,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: equivalence semantics only; source-to-target aggregation remains coverage-specific work.
   - Verification: focused ordinary-match, Paranoid Mode, injected-collision, comparison-error, and cancellation tests followed by duplicate regression tests.
 
-- [ ] **10. Complete the architecture checkpoint.**
+- [x] **10. Complete the architecture checkpoint.**
   - Run the complete unit/E2E suites and race suites, the frontend build, and the forced Wails build.
   - Update the corresponding architecture-related checkboxes in `TARGET_COVERAGE_PLAN.md` to reflect only work that has actually passed its review boundary.
   - Document the short recipe for adding another flow: define its models, implement the interface, register it, expose its typed result, and add its frontend adapter.
@@ -168,3 +168,13 @@ If Wails binding generation is run separately, it must also use the repository's
 This tracker owns the reusable architecture work through the architecture checkpoint. After Step 10 passes, coverage implementation continues under [TARGET_COVERAGE_PLAN.md](TARGET_COVERAGE_PLAN.md), including directional matching, outcome rules, CSV reporting, frontend behavior, and coverage-specific unit and end-to-end scenarios.
 
 The two trackers must remain synchronized, but completion in one does not imply completion in the other. In particular, coverage's Start button remains disabled until the coverage flow, lifecycle routing, Wails-facing result API, and frontend adapter are connected and verified.
+
+## Adding Another Flow
+
+1. Define the flow-specific execution mode, arguments, and concrete result model.
+2. Implement `ExecutionFlow` with mode-specific validation and orchestration.
+3. Register the flow in `NewApp` through the flow registry.
+4. Add a dedicated result-publication method and synchronized application state.
+5. Expose the typed result through the Wails API and generated bindings.
+6. Add focused unit tests, lifecycle tests, and an end-to-end regression suite.
+7. Add the frontend adapter only after the backend flow and lifecycle behavior are verified.
