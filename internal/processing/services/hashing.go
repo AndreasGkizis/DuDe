@@ -21,6 +21,11 @@ import (
 func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
 	defer pt.Complete()
 
+	if maxWorkers < 1 {
+		mm.SenderFinished()
+		return fmt.Errorf("max workers must be at least 1")
+	}
+
 	numFilesToHash := com.LenSyncMap(sourceFiles)
 	if numFilesToHash == 0 {
 		mm.SenderFinished()

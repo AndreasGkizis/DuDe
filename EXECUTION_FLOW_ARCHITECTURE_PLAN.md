@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 8
+**Current step:** 9
 
 ## Purpose and Scope
 
@@ -125,7 +125,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: traversal and file collection only; hashing and equivalence behavior remain unchanged.
   - Verification: focused discovery parity, traversal-error, and cancellation tests followed by duplicate regression tests.
 
-- [ ] **8. Extract shared candidate hashing and cache access.**
+- [x] **8. Extract shared candidate hashing and cache access.**
   - Reuse size-based candidate selection, MD5 calculation, cache validation, worker limits, buffers, and cancellation.
   - Allow callers to choose candidates so coverage can avoid hashing irrelevant target sizes.
   - Preserve cache-failure fallback and duplicate results.
