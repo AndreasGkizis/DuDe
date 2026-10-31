@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestDiscoveryCollectsNestedAndHiddenFiles(t *testing.T) {
+func TestFileDiscoveryCollectsNestedAndHiddenFiles(t *testing.T) {
 	root := t.TempDir()
 	paths := []string{
 		filepath.Join(root, "root.txt"),
@@ -27,7 +27,7 @@ func TestDiscoveryCollectsNestedAndHiddenFiles(t *testing.T) {
 		}
 	}
 
-	files, err := services.NewDiscovery().Discover(context.Background(), []string{root}, reporting.NoOpReporter{})
+	files, err := services.NewFileDiscovery().Discover(context.Background(), []string{root}, reporting.NoOpReporter{})
 	if err != nil {
 		t.Fatalf("discover: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestDiscoveryCollectsNestedAndHiddenFiles(t *testing.T) {
 	}
 }
 
-func TestDiscoveryKeepsRootsSeparateInOneCollection(t *testing.T) {
+func TestFileDiscoveryKeepsRootsSeparateInOneCollection(t *testing.T) {
 	first := t.TempDir()
 	second := t.TempDir()
 	firstFile := filepath.Join(first, "first.txt")
@@ -54,7 +54,7 @@ func TestDiscoveryKeepsRootsSeparateInOneCollection(t *testing.T) {
 		}
 	}
 
-	files, err := services.NewDiscovery().Discover(
+	files, err := services.NewFileDiscovery().Discover(
 		context.Background(),
 		[]string{first, second},
 		reporting.NoOpReporter{},
@@ -70,11 +70,11 @@ func TestDiscoveryKeepsRootsSeparateInOneCollection(t *testing.T) {
 	}
 }
 
-func TestDiscoveryReturnsCancellation(t *testing.T) {
+func TestFileDiscoveryReturnsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	files, err := services.NewDiscovery().Discover(ctx, []string{t.TempDir()}, reporting.NoOpReporter{})
+	files, err := services.NewFileDiscovery().Discover(ctx, []string{t.TempDir()}, reporting.NoOpReporter{})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}

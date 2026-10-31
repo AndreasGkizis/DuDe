@@ -70,7 +70,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	memory.Start()
 	defer memory.CloseAndWait()
 
-	files, err := services.NewDiscovery().Discover(ctx, args.Directories, reporter)
+	files, err := services.NewFileDiscovery().Discover(ctx, args.Directories, reporter)
 	if err != nil {
 		return err
 	}
