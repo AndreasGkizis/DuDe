@@ -211,15 +211,10 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 		return errors.New("wails application context is not initialized")
 	}
 
-	execCtx, err := a.gate.Start(a.wailsCtx)
-	if err != nil {
-		a.reporter.ReportError(a.wailsCtx, err.Error())
-		return err
-	}
-	defer a.finishExecution()
-
+	// Resolve and validate before acquiring the execution gate. Validation is
+	// mode-specific, and a rejected request must not briefly occupy the active
+	// execution slot or interfere with FullReset.
 	safeDir := common.GetSafeResultsDir(a.platform)
-
 	flow, err := a.flowRegistry.Resolve(args.Mode)
 	if err != nil {
 		a.reporter.ReportError(a.wailsCtx, err.Error())
@@ -227,18 +222,23 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	}
 
 	validation.ResolveExecutionArgs(&args, safeDir)
-
 	if err := validation.ValidateSharedExecutionArgs(&args, a.pathValidator); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
 		return executionErr
 	}
-
 	if err := flow.Validate(&args); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())
 		return executionErr
 	}
+
+	execCtx, err := a.gate.Start(a.wailsCtx)
+	if err != nil {
+		a.reporter.ReportError(a.wailsCtx, err.Error())
+		return err
+	}
+	defer a.finishExecution()
 
 	a.stateMu.Lock()
 	a.execCtx = execCtx
@@ -247,15 +247,22 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	a.lastMissingContentResult = nil
 	a.stateMu.Unlock()
 
-	err = flow.Run(execCtx, args, a.reporter, a)
+	// Flows report their concrete result to this collector. FrontendApp only
+	// publishes it to synchronized application state after Run returns
+	// successfully, so failed or cancelled executions cannot publish results.
+	result := &executionResultPublisher{}
+	err = flow.Run(execCtx, args, a.reporter, result)
 	if errors.Is(err, context.Canceled) {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		return nil
 	}
 	if err != nil {
 		a.reporter.ReportError(a.wailsCtx, err.Error())
+		return err
 	}
-	return err
+
+	result.PublishTo(a)
+	return nil
 }
 
 func (a *FrontendApp) finishExecution() {
@@ -275,6 +282,35 @@ func (a *FrontendApp) executionContext() context.Context {
 	a.stateMu.RLock()
 	defer a.stateMu.RUnlock()
 	return a.execCtx
+}
+
+// executionResultPublisher collects concrete flow results until the flow has
+// completed successfully. It deliberately does not expose a shared result
+// envelope.
+type executionResultPublisher struct {
+	duplicate      *models.DuplicateResult
+	missingContent *models.MissingContentResult
+}
+
+func (p *executionResultPublisher) PublishDuplicateResult(result models.DuplicateResult) {
+	copyResult := result
+	copyResult.Groups = append([]models.FileHash(nil), result.Groups...)
+	p.duplicate = &copyResult
+}
+
+func (p *executionResultPublisher) PublishMissingContentResult(result models.MissingContentResult) {
+	copyResult := result
+	copyResult.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
+	p.missingContent = &copyResult
+}
+
+func (p *executionResultPublisher) PublishTo(app *FrontendApp) {
+	if p.duplicate != nil {
+		app.PublishDuplicateResult(*p.duplicate)
+	}
+	if p.missingContent != nil {
+		app.PublishMissingContentResult(*p.missingContent)
+	}
 }
 
 // PublishDuplicateResult records the last successful duplicate result.
