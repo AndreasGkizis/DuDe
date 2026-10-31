@@ -2,7 +2,7 @@
 
 **Status:** In Progress  
 **Decision date:** 2026-08-29  
-**Current step:** 6
+**Current step:** 7
 
 ## Purpose and Scope
 
@@ -109,7 +109,7 @@ Duplicate and missing-content data stay structurally separate in concrete result
   - Review boundary: duplicate-flow adaptation only; do not add coverage matching behavior.
   - Verification: focused duplicate-flow tests followed by the unchanged complete unit/E2E suites.
 
-- [ ] **6. Make `FrontendApp` the mode-independent lifecycle shell.**
+- [x] **6. Make `FrontendApp` the mode-independent lifecycle shell.**
   - Resolve the selected flow, resolve and validate shared execution arguments, run flow-specific validation, acquire the existing gate, and invoke the flow.
   - Publish results only after successful completion.
   - Clear stale duplicate and coverage state when a run starts.

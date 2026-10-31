@@ -61,9 +61,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	failedCounter := 0
 	memory := services.NewMemoryManager(&args, args.BufferSizeBytes, 1)
-	reading := visuals.NewProgressCounter(ctx, reporter, "Reading", len(args.Directories))
-	reading.Start()
-
 	hashMemory := memory.LoadMemory()
 	cacheWarningReported := false
 	if cacheErr := memory.CacheError(); cacheErr != nil {
@@ -73,13 +70,12 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	memory.Start()
 	defer memory.CloseAndWait()
 
-	var files sync.Map
-	for _, dir := range args.Directories {
-		go services.WalkDir(ctx, dir, &files, reading)
+	files, err := services.NewDiscovery().Discover(ctx, args.Directories, reporter)
+	if err != nil {
+		return err
 	}
-	reading.Wait()
 
-	fileCount := common.LenSyncMap(&files)
+	fileCount := common.LenSyncMap(files)
 	reporter.LogProgress(ctx, "Reading", 100)
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	if fileCount == 0 {
@@ -91,7 +87,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	reporter.LogProgress(ctx, "Filtering", 0)
 	reporter.LogFilesCount(ctx, 0, int64(fileCount))
-	candidateCount, skippedCount := services.FilterHashCandidatesBySize(&files)
+	candidateCount, skippedCount := services.FilterHashCandidatesBySize(files)
 	reporter.LogProgress(ctx, "Filtering", 100)
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	log.InfoWithFuncName(fmt.Sprintf("Skipped %d files with unique sizes; %d files remain as hash candidates", skippedCount, candidateCount))
@@ -106,7 +102,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	hashing := visuals.NewProgressTracker(ctx, reporter, "Hashing")
 	hashing.Start()
-	if err := services.CreateHashes(ctx, &files, args.WorkerCount, hashing, memory, &hashMemory, &failedCounter, errorLogger.channel); err != nil {
+	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, &failedCounter, errorLogger.channel); err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
 	}
@@ -123,22 +119,22 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	finding := visuals.NewProgressTracker(ctx, reporter, "Finding")
 	finding.Start()
-	services.FindDuplicatesInMap(ctx, &files, finding)
+	services.FindDuplicatesInMap(ctx, files, finding)
 	finding.Wait()
 
-	length := common.LenSyncMap(&files)
+	length := common.LenSyncMap(files)
 	log.InfoWithFuncName(fmt.Sprintf("found %v duplicates", length))
 	if length != 0 && args.ParanoidMode {
 		comparing := visuals.NewProgressTracker(ctx, reporter, "Comparing")
 		comparing.Start()
-		compareErr := services.EnsureDuplicates(ctx, &files, comparing, args.WorkerCount)
+		compareErr := services.EnsureDuplicates(ctx, files, comparing, args.WorkerCount)
 		comparing.Wait()
 		if compareErr != nil {
 			return fmt.Errorf("verify duplicates: %w", compareErr)
 		}
 	}
 
-	groupsToCollect := common.LenSyncMap(&files)
+	groupsToCollect := common.LenSyncMap(files)
 	reporter.LogProgress(ctx, "Collecting", 0)
 	reporter.LogFilesCount(ctx, 0, int64(groupsToCollect))
 	var groups []models.FileHash
@@ -153,10 +149,10 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	reporter.LogProgress(ctx, "Collecting", 100)
 	reporter.LogFilesCount(ctx, int64(collectedGroups), int64(groupsToCollect))
 
-	length = common.LenSyncMap(&files)
+	length = common.LenSyncMap(files)
 	if length != 0 {
 		savingStarted := time.Now()
-		if err := services.SaveResultsAsCSV(&files, args.ResultsDir); err != nil {
+		if err := services.SaveResultsAsCSV(files, args.ResultsDir); err != nil {
 			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
 			return err
 		}
