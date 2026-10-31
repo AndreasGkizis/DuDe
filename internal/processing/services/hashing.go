@@ -1,11 +1,10 @@
-package processing
+package services
 
 import (
 	com "DuDe/internal/common"
 	log "DuDe/internal/common/logger"
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
-	"bytes"
 	"context"
 	"crypto/md5"
 	"errors"
@@ -20,6 +19,11 @@ import (
 
 func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
 	defer pt.Complete()
+
+	if maxWorkers < 1 {
+		mm.SenderFinished()
+		return fmt.Errorf("max workers must be at least 1")
+	}
 
 	numFilesToHash := com.LenSyncMap(sourceFiles)
 	if numFilesToHash == 0 {
@@ -228,7 +232,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 				}
 
 				// Comparison errors are recorded and never treated as matches.
-				equal, err := filesEqual(ctx, mainFile, duplicate.FilePath)
+				equal, err := FilesMatch(ctx, mainFile, item, duplicate, true)
 				pt.Increment()
 
 				if err != nil {
@@ -273,54 +277,6 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 		comparisonErrors = append(comparisonErrors, ctx.Err())
 	}
 	return errors.Join(comparisonErrors...)
-}
-
-func filesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error) {
-
-	// Check 1: Cancellation before opening the second file
-	if ctx.Err() != nil {
-		return false, ctx.Err()
-	}
-
-	file2, err := os.Open(path2)
-	if err != nil {
-		return false, fmt.Errorf("error opening duplicate file: %w", err)
-	}
-	defer file2.Close()
-
-	const chunkSize = 4096
-	buf1 := make([]byte, chunkSize)
-	buf2 := make([]byte, chunkSize)
-
-	for {
-
-		// Check 2: Cancellation before starting the reads
-		select {
-		case <-ctx.Done():
-			return false, context.Canceled // Return cancellation error
-		default:
-			// continue
-		}
-
-		n1, err1 := file1.Read(buf1)
-		n2, err2 := file2.Read(buf2)
-
-		if err1 != nil && err1 != io.EOF || err2 != nil && err2 != io.EOF {
-			return false, fmt.Errorf("read error: %w", errors.Join(err1, err2))
-		}
-
-		if n1 != n2 || !bytes.Equal(buf1[:n1], buf2[:n2]) {
-			return false, nil
-		}
-
-		if err1 == io.EOF && err2 == io.EOF {
-			break
-		}
-	}
-
-	// Reset both files for potential reuse
-	file1.Seek(0, io.SeekStart)
-	return true, nil
 }
 
 func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error) {

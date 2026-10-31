@@ -5,10 +5,16 @@
       "label": "wails-debug",
       "type": "shell",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "GOCACHE": "/tmp/dude-go-build"
+        }
       },
-      "command": "/home/andreas/go/bin/wails",
+      "command": "mise",
       "args": [
+        "exec",
+        "--",
+        "/home/andreas/go/bin/wails",
         "build",
         "-debug",
         "-tags",
@@ -20,10 +26,16 @@
       "label": "wails-debug-windows",
       "type": "shell",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "GOCACHE": "/tmp/dude-go-build"
+        }
       },
-      "command": "wails",
+      "command": "mise",
       "args": [
+        "exec",
+        "--",
+        "/home/andreas/go/bin/wails",
         "build",
         "-debug",
         "-tags",
@@ -35,10 +47,16 @@
       "label": "wails-linux-build",
       "type": "shell",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "GOCACHE": "/tmp/dude-go-build"
+        }
       },
-      "command": "/home/andreas/go/bin/wails",
+      "command": "mise",
       "args": [
+        "exec",
+        "--",
+        "/home/andreas/go/bin/wails",
         "build",
         "-platform",
         "linux/amd64",

@@ -18,6 +18,14 @@ export function GetResults() {
   return window['go']['processing']['FrontendApp']['GetResults']();
 }
 
+export function PublishDuplicateResult(arg1) {
+  return window['go']['processing']['FrontendApp']['PublishDuplicateResult'](arg1);
+}
+
+export function PublishMissingContentResult(arg1) {
+  return window['go']['processing']['FrontendApp']['PublishMissingContentResult'](arg1);
+}
+
 export function RevealInExplorer(arg1) {
   return window['go']['processing']['FrontendApp']['RevealInExplorer'](arg1);
 }

@@ -13,19 +13,19 @@
 
         <div class="operation-selector" role="radiogroup" aria-labelledby="operation-heading">
             <label class="operation-option" for="modeDuplicates">
-                <input id="modeDuplicates" type="radio" name="operationMode" value="duplicates"
+                <input id="modeDuplicates" type="radio" name="operationMode" value="1"
                     onchange="changeOperationMode(this.value)" checked>
                 <span class="operation-option-content">
                     <span class="operation-option-title">Find Duplicates</span>
                     <span class="operation-option-description">Find equivalent files across selected folders.</span>
                 </span>
             </label>
-            <label class="operation-option" for="modeCoverage">
-                <input id="modeCoverage" type="radio" name="operationMode" value="coverage"
+            <label class="operation-option" for="modeFindMissingContent">
+                <input id="modeFindMissingContent" type="radio" name="operationMode" value="2"
                     onchange="changeOperationMode(this.value)">
                 <span class="operation-option-content">
-                    <span class="operation-option-title">Check Target Coverage</span>
-                    <span class="operation-option-description">Check that source content exists somewhere in the target.</span>
+                    <span class="operation-option-title">Find Missing Content</span>
+                    <span class="operation-option-description">Find source files whose content is not present in the target.</span>
                 </span>
             </label>
         </div>
@@ -80,7 +80,7 @@
         </div>
 
         <div id="folderRelationshipWarning" class="inline-notice inline-notice--warning" role="status" hidden>
-            Source and target overlap. Files may satisfy coverage by matching themselves.
+            Source and target overlap. Source files may appear present by matching themselves.
         </div>
     </div>
 
@@ -255,13 +255,13 @@
 
     <div id="coverage-summary" class="coverage-summary" hidden>
         <div class="coverage-summary-heading">
-            <span>Source Coverage</span>
-            <span id="coverage-outcome" class="coverage-outcome">Awaiting a coverage run</span>
+            <span>Missing Content</span>
+            <span id="coverage-outcome" class="coverage-outcome">Awaiting a missing-content run</span>
         </div>
         <div class="coverage-summary-metrics">
             <div class="coverage-summary-metric">
                 <span id="coverage-covered" class="coverage-summary-value">&mdash;</span>
-                <span class="coverage-summary-label">covered / total</span>
+                <span class="coverage-summary-label">found in target / total</span>
             </div>
             <div class="coverage-summary-metric">
                 <span id="coverage-missing" class="coverage-summary-value">&mdash;</span>

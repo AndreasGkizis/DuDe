@@ -2,6 +2,7 @@ package unit_tests
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -43,6 +44,28 @@ func TestEnsureDuplicatesPersistsPartialRemoval(t *testing.T) {
 	}
 	if duplicates[0].FilePath != equalPath {
 		t.Fatalf("expected %q to remain, got %q", equalPath, duplicates[0].FilePath)
+	}
+}
+
+func TestEnsureDuplicatesRejectsInjectedHashCollision(t *testing.T) {
+	directory := t.TempDir()
+	primaryPath := writeParanoidTestFile(t, directory, "primary.txt", "original")
+	collisionPath := writeParanoidTestFile(t, directory, "collision.txt", "different")
+
+	groups := &sync.Map{}
+	groups.Store("injected-collision", models.FileHash{
+		FilePath: primaryPath,
+		Hash:     "same-hash",
+		DuplicatesFound: []models.FileHash{
+			{FilePath: collisionPath, Hash: "same-hash"},
+		},
+	})
+
+	if err := runEnsureDuplicatesAndWait(t, groups); err != nil {
+		t.Fatalf("ensure duplicates: %v", err)
+	}
+	if _, exists := groups.Load("injected-collision"); exists {
+		t.Fatal("expected Paranoid Mode to reject unequal files with the same hash")
 	}
 }
 
@@ -86,13 +109,34 @@ func TestEnsureDuplicatesCompletesProgressWhenPrimaryFileCannotOpen(t *testing.T
 	}
 }
 
+func TestEnsureDuplicatesReturnsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	groups := &sync.Map{}
+	groups.Store("hash", models.FileHash{
+		FilePath: filepath.Join(t.TempDir(), "primary.txt"),
+		DuplicatesFound: []models.FileHash{
+			{FilePath: filepath.Join(t.TempDir(), "duplicate.txt")},
+		},
+	})
+
+	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Comparing")
+	tracker.Start()
+	err := services.EnsureDuplicates(ctx, groups, tracker, 1)
+	tracker.Wait()
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation, got %v", err)
+	}
+}
+
 func runEnsureDuplicatesAndWait(t *testing.T, groups *sync.Map) error {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Comparing")
 	tracker.Start()
-	err := processing.EnsureDuplicates(ctx, groups, tracker, 1)
+	err := services.EnsureDuplicates(ctx, groups, tracker, 1)
 
 	done := make(chan struct{})
 	go func() {

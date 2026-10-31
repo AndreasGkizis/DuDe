@@ -9,7 +9,7 @@ import (
 
 	database "DuDe/internal/db"
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 )
 
 func TestMemoryManagerDisablesCacheWhenInitializationFails(t *testing.T) {
@@ -18,7 +18,7 @@ func TestMemoryManagerDisablesCacheWhenInitializationFails(t *testing.T) {
 		t.Fatalf("create invalid cache path: %v", err)
 	}
 
-	manager := processing.NewMemoryManager(&models.ExecutionParams{
+	manager := services.NewMemoryManager(&models.ExecutionParams{
 		UseCache: true,
 		CacheDir: cachePath,
 	}, 1, 1)
@@ -31,7 +31,7 @@ func TestMemoryManagerDisablesCacheWhenInitializationFails(t *testing.T) {
 
 func TestMemoryManagerLoadFailureDoesNotPanic(t *testing.T) {
 	cacheDirectory := t.TempDir()
-	manager := processing.NewMemoryManager(&models.ExecutionParams{
+	manager := services.NewMemoryManager(&models.ExecutionParams{
 		UseCache: true,
 		CacheDir: cacheDirectory,
 	}, 1, 1)
@@ -60,7 +60,7 @@ func TestMemoryManagerLoadFailureDoesNotPanic(t *testing.T) {
 
 func TestMemoryManagerWriteFailureDisablesCacheAndDrainsQueue(t *testing.T) {
 	cacheDirectory := t.TempDir()
-	manager := processing.NewMemoryManager(&models.ExecutionParams{
+	manager := services.NewMemoryManager(&models.ExecutionParams{
 		UseCache: true,
 		CacheDir: cacheDirectory,
 	}, 2, 1)
@@ -96,7 +96,7 @@ func TestMemoryManagerWriteFailureDisablesCacheAndDrainsQueue(t *testing.T) {
 }
 
 func TestDisabledMemoryManagerPerformsNoCacheWork(t *testing.T) {
-	manager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	manager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	manager.Start()
 	manager.Push(cacheTestFile("/files/file.txt", "hash"))
 	manager.SenderFinished()
@@ -111,7 +111,7 @@ func TestDisabledMemoryManagerPerformsNoCacheWork(t *testing.T) {
 }
 
 func TestMemoryManagerCloseAndWaitDrainsWritesAndIsIdempotent(t *testing.T) {
-	manager := processing.NewMemoryManager(&models.ExecutionParams{
+	manager := services.NewMemoryManager(&models.ExecutionParams{
 		UseCache: true,
 		CacheDir: t.TempDir(),
 	}, 2, 1)

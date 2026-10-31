@@ -1,0 +1,49 @@
+[
+  {
+    "label": "wails-debug-real",
+    "command": "./.tools/bin/wails",
+    "args": ["build", "-debug", "-tags", "real_execution"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "GOCACHE": "/tmp/dude-go-build"
+    },
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "wails-debug-progress",
+    "command": "./.tools/bin/wails",
+    "args": ["build", "-debug", "-tags", "debug_progress"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "GOCACHE": "/tmp/dude-go-build"
+    },
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "wails-linux-build",
+    "command": "./.tools/bin/wails",
+    "args": [
+      "build",
+      "-platform",
+      "linux/amd64",
+      "-upx",
+      "-upxflags",
+      "--best",
+      "-ldflags",
+      "-s -w",
+      "-webview2",
+      "embed"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "GOCACHE": "/tmp/dude-go-build"
+    },
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  }
+]

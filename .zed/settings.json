@@ -1,0 +1,7 @@
+{
+  "dap": {
+    "Delve": {
+      "binary": "/home/andreas/Code/golang/DuDe/.tools/bin/dlv"
+    }
+  }
+}

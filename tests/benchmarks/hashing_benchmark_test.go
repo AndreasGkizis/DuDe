@@ -11,7 +11,7 @@ import (
 
 	log "DuDe/internal/common/logger"
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -51,15 +51,15 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 				b.StopTimer()
 				sourceFiles := sourceMap(files)
 				hashMemory := make(map[string]models.FileHash)
-				memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, len(files), 1)
+				memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, len(files), 1)
 				hashTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Hashing")
 				findTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Finding")
 				errChan := make(chan error, len(files))
 				failedCount := 0
 				b.StartTimer()
 
-				processing.FilterHashCandidatesBySize(sourceFiles)
-				err := processing.CreateHashes(
+				services.RemoveUniqueSizeFiles(sourceFiles)
+				err := services.CreateHashes(
 					context.Background(),
 					sourceFiles,
 					runtime.NumCPU(),
@@ -73,7 +73,7 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 					b.Fatalf("create hashes: %v", err)
 				}
 
-				processing.FindDuplicatesInMap(context.Background(), sourceFiles, findTracker)
+				services.FindDuplicatesInMap(context.Background(), sourceFiles, findTracker)
 
 				select {
 				case err := <-errChan:

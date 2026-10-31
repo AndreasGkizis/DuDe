@@ -2,6 +2,7 @@ package unit_tests
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"DuDe/internal/models"
 	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -76,7 +78,7 @@ func TestStartExecutionReportsValidationFailures(t *testing.T) {
 	app := processing.NewApp(reporter)
 	app.Startup(context.Background())
 
-	err := app.StartExecution(models.ExecutionParams{})
+	err := app.StartExecution(models.ExecutionParams{Mode: models.ExecutionModeDuplicates})
 	if err == nil {
 		t.Fatal("expected invalid execution arguments to fail")
 	}
@@ -91,13 +93,37 @@ func TestStartExecutionReportsValidationFailures(t *testing.T) {
 	}
 }
 
+func TestStartExecutionDoesNotRouteFindMissingContentToDuplicateRunner(t *testing.T) {
+	reporter := capturingReporter{failures: make(chan string, 1)}
+	app := processing.NewApp(reporter)
+	app.Startup(context.Background())
+
+	err := app.StartExecution(models.ExecutionParams{
+		Mode:                 models.ExecutionModeFindMissingContent,
+		FindMissingSourceDir: t.TempDir(),
+		FindMissingTargetDir: t.TempDir(),
+	})
+
+	if !errors.Is(err, processing.ErrExecutionModeUnavailable) {
+		t.Fatalf("expected ErrExecutionModeUnavailable, got %v", err)
+	}
+	select {
+	case message := <-reporter.failures:
+		if message == "" {
+			t.Fatal("expected a useful unavailable-mode message")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected unavailable mode to be reported to the UI")
+	}
+}
+
 func TestFindDuplicatesCompletesProgressWhenThereIsNoWork(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Finding")
 	tracker.Start()
-	processing.FindDuplicatesInMap(ctx, &sync.Map{}, tracker)
+	services.FindDuplicatesInMap(ctx, &sync.Map{}, tracker)
 
 	waitForTrackerToFinish(t, tracker, cancel)
 }
@@ -114,12 +140,12 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Hashing")
 	tracker.Start()
-	memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
 	failedCount := 0
 	errChan := make(chan error, 2)
 
-	if err := processing.CreateHashes(
+	if err := services.CreateHashes(
 		ctx,
 		sourceFiles,
 		1,
@@ -157,11 +183,11 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 	t.Helper()
 
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "test")
-	memoryManager := processing.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
+	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
 	failedCount := 0
 
-	err := processing.CreateHashes(
+	err := services.CreateHashes(
 		context.Background(),
 		sourceFiles,
 		1,

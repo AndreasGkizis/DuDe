@@ -10,7 +10,7 @@ import (
 
 	log "DuDe/internal/common/logger"
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"DuDe/internal/visuals"
 )
@@ -49,7 +49,7 @@ func TestFindDuplicatesInMap(t *testing.T) {
 	tracker.Start()
 
 	// ACT
-	processing.FindDuplicatesInMap(context.Background(), fileHashes, tracker)
+	services.FindDuplicatesInMap(context.Background(), fileHashes, tracker)
 
 	// ASSERT
 	fileHashes.Range(func(key, value any) bool {
@@ -76,7 +76,7 @@ func TestWalkDirStoresFileMetadata(t *testing.T) {
 	files := &sync.Map{}
 	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "test", 1)
 	counter.Start()
-	processing.WalkDir(context.Background(), directory, files, counter)
+	services.WalkDir(context.Background(), directory, files, counter)
 	counter.WaitForSenders()
 	counter.Wg.Wait()
 
@@ -123,7 +123,7 @@ func TestWalkDirCountsFilesButNotDirectories(t *testing.T) {
 	files := &sync.Map{}
 	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "test", 1)
 	counter.Start()
-	processing.WalkDir(context.Background(), directory, files, counter)
+	services.WalkDir(context.Background(), directory, files, counter)
 	counter.WaitForSenders()
 	counter.Wg.Wait()
 
@@ -162,7 +162,7 @@ func TestProgressCounterWaitReturnsAfterAllSendersFinish(t *testing.T) {
 	}
 }
 
-func TestFilterHashCandidatesBySize(t *testing.T) {
+func TestRemoveUniqueSizeFiles(t *testing.T) {
 	tests := []struct {
 		name             string
 		files            map[string]int64
@@ -206,7 +206,7 @@ func TestFilterHashCandidatesBySize(t *testing.T) {
 				files.Store(path, models.FileHash{FilePath: path, FileSize: size})
 			}
 
-			candidates, skipped := processing.FilterHashCandidatesBySize(files)
+			candidates, skipped := services.RemoveUniqueSizeFiles(files)
 			if candidates != test.wantCandidates {
 				t.Errorf("expected %d candidates, got %d", test.wantCandidates, candidates)
 			}
@@ -246,7 +246,7 @@ func TestSameSizeDifferentFilesAreHashedButNotDuplicates(t *testing.T) {
 	files.Store(firstPath, models.FileHash{FilePath: firstPath, FileSize: 4})
 	files.Store(secondPath, models.FileHash{FilePath: secondPath, FileSize: 4})
 
-	candidates, skipped := processing.FilterHashCandidatesBySize(files)
+	candidates, skipped := services.RemoveUniqueSizeFiles(files)
 	if candidates != 2 || skipped != 0 {
 		t.Fatalf("expected 2 candidates and 0 skipped files, got %d and %d", candidates, skipped)
 	}
@@ -262,7 +262,7 @@ func TestSameSizeDifferentFilesAreHashedButNotDuplicates(t *testing.T) {
 	}
 
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "test")
-	processing.FindDuplicatesInMap(context.Background(), files, tracker)
+	services.FindDuplicatesInMap(context.Background(), files, tracker)
 	remaining := 0
 	files.Range(func(_, _ any) bool {
 		remaining++
@@ -288,7 +288,7 @@ func TestMemoryManagerTracksCompletedCacheWrites(t *testing.T) {
 		UseCache: true,
 		CacheDir: t.TempDir(),
 	}
-	memoryManager := processing.NewMemoryManager(&args, 2, 1)
+	memoryManager := services.NewMemoryManager(&args, 2, 1)
 	memoryManager.Start()
 
 	memoryManager.Push(models.FileHash{

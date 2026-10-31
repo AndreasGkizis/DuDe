@@ -10,6 +10,10 @@ export function FullReset():Promise<void>;
 
 export function GetResults():Promise<Array<models.FileHash>>;
 
+export function PublishDuplicateResult(arg1:models.DuplicateResult):Promise<void>;
+
+export function PublishMissingContentResult(arg1:models.MissingContentResult):Promise<void>;
+
 export function RevealInExplorer(arg1:string):Promise<void>;
 
 export function SelectFolder():Promise<string>;
