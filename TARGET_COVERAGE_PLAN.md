@@ -29,7 +29,7 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
    - missing source files;
    - a missing-file list when applicable.
 9. An empty source produces a no-op warning, not a successful coverage claim.
-10. Identical or nested source and target folders are allowed, with a warning that files may match themselves.
+10. Identical or nested source and target folders are allowed. Source and target collections remain logically separate, and matching files may satisfy coverage even when they refer to the same physical files.
 
 ## Mode and Folder Controls
 
@@ -52,7 +52,6 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
    - clears both modes’ folder selections;
    - returns the UI to Find Duplicates mode;
    - preserves the existing cache-reset contract.
-8. Detect identical or nested source/target selections and display a non-blocking warning explaining that coverage may be satisfied by the same physical files.
 
 ## Shared File-Discovery and Equivalence Engine
 
@@ -97,15 +96,15 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 ## Accuracy and Failure Handling
 
 1. Coverage should produce one of these outcomes:
-   - **Complete:** every source file is covered;
-   - **Missing:** one or more source files are not covered;
-   - **Empty Source:** no source files were available to check;
-   - **Inconclusive:** an execution error prevented DuDe from proving coverage.
-2. Source traversal or hashing errors make the result inconclusive.
-3. Target traversal gaps make the result inconclusive because matching content may exist in the inaccessible subtree.
-4. Failure to read or compare a potentially matching target file makes the result inconclusive.
+   - **Complete:** every discovered source file is covered;
+   - **Missing:** one or more discovered source files are not covered;
+   - **Empty Source:** no source files were discovered;
+   - **Inconclusive:** an execution error prevented DuDe from completing the configured processing.
+2. Inaccessible or unreadable filesystem entries are skipped using the existing walker behavior, logged, and recorded as separate scan diagnostics; they do not by themselves make the execution inconclusive.
+3. Complete and Missing outcomes must indicate when skipped paths occurred, because coverage applies only to successfully discovered files.
+4. Failure to read or compare a discovered, potentially matching target file makes the execution inconclusive when it is a processing failure rather than an ordinary skipped filesystem entry.
 5. An unreadable target-only file may be ignored when its known size proves it cannot match any source file.
-6. Do not present partial coverage counts as a trustworthy final result after an inconclusive run.
+6. Do not present partial coverage counts as a trustworthy result after an inconclusive run.
 7. Route processing errors through the existing `Reporter.ReportError` and `errorUpdate` flow.
 8. Keep user cancellation as a normal stopped state rather than a processing failure.
 9. Clear stale results at the beginning of every execution so failed or cancelled runs cannot display results from a previous run.
@@ -129,24 +128,27 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 6. Add a `MissingSourceFile` model containing:
    - filename;
    - full source path;
-   - byte size may be added when the missing-content UI and CSV contract is implemented.
-7. Add a `MissingContentResult` model containing:
-   - total source-file count;
+   - byte size.
+7. Add a separate `ScanDiagnostics` model containing skipped filesystem paths and reasons. Keep diagnostics separate from `MissingContentResult` and `MissingSourceFile`.
+8. Add a `MissingContentResult` model containing:
+   - total discovered source-file count;
    - ordered missing-file collection;
    - optional generated report path.
-8. Derive successful coverage presentation from the result data:
-   - zero total source files means Empty Source;
+9. Expose current-run scan diagnostics separately from the coverage result and clear them when a new execution starts or Full Reset runs.
+10. Derive successful coverage presentation from the result data and diagnostics:
+   - zero discovered source files means Empty Source;
    - any missing files means Missing;
-   - otherwise the result means Complete.
-9. Treat cancellation and inconclusive failure as execution lifecycle states that publish no coverage result.
-10. Add `GetMissingContentResult()` for the Wails frontend.
-11. Retain `GetResults()` for duplicate groups.
-12. Store duplicate and coverage results separately in `FrontendApp`.
-13. Protect coverage state with the existing application state mutex.
-14. Clear both result types:
+   - otherwise the result means Complete;
+   - any skipped paths add a visible “some paths were skipped” qualifier to Complete or Missing, without changing the underlying result.
+11. Treat cancellation and inconclusive failure as execution lifecycle states that publish no coverage result.
+12. Add `GetMissingContentResult()` for the Wails frontend and a separate diagnostics API for the current execution.
+13. Retain `GetResults()` for duplicate groups.
+14. Store duplicate and coverage results separately in `FrontendApp`.
+15. Protect coverage state with the existing application state mutex.
+16. Clear both result types and scan diagnostics:
    - when a new execution starts;
    - during Full Reset.
-15. Route both execution modes through the existing `ExecutionGate`.
+17. Route both execution modes through the existing `ExecutionGate`.
 
 ## Progress and Status Reporting
 
@@ -163,8 +165,9 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 3. Ensure every phase completes explicitly, including zero-work phases.
 4. Keep progress totals based on actual work rather than the number of folders alone.
 5. Display a clear final status for:
-   - all files covered;
-   - missing files found;
+   - all discovered files covered;
+   - missing discovered files;
+   - completed with skipped paths;
    - empty source;
    - inconclusive failure;
    - user cancellation.
@@ -181,7 +184,7 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 2. When all source files are covered:
    - show a prominent successful state;
    - show zero missing files;
-   - do not create or expose a CSV report.
+   - expose the report generated for the completed run, even when it contains only headers.
 3. When source files are missing:
    - show the result as incomplete coverage rather than an execution error;
    - list every missing source path separately;
@@ -190,38 +193,44 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 4. When the source is empty:
    - show that no source files were available;
    - do not claim the target is complete;
-   - do not create a report.
-5. When execution is inconclusive:
+   - expose the valid empty report generated for the completed run.
+5. When execution completes with skipped paths:
+   - show the normal Complete or Missing result;
+   - visibly report the skipped paths separately;
+   - make clear that coverage applies only to discovered files.
+6. When execution is inconclusive:
    - show the error panel;
    - do not show a successful or missing-files result;
    - do not retain results from the prior execution.
-6. Reuse pagination when the missing-file list exceeds the configured page size.
-7. Keep duplicate-result rendering unchanged in duplicate mode.
-8. Enable **Open Results Folder** only when the current run actually produced a report.
+7. Reuse pagination when the missing-file list exceeds the configured page size.
+8. Keep duplicate-result rendering unchanged in duplicate mode.
+9. Enable **Open Results Folder** only when the current completed run actually produced a report.
 
 ## CSV Reporting
 
-1. Create a CSV only when at least one source file is missing.
-2. Name it:
-   - `coverage_missing_YYYY_MM_DD_HH_MM_SS.csv`
-3. Use these columns:
+1. Create exactly one coverage CSV for every successfully completed coverage execution, even when it contains no data rows.
+2. Do not create or publish a coverage CSV for a cancelled or inconclusive execution.
+3. Name it:
+   - `coverage_report_YYYY_MM_DD_HH_MM_SS.csv`
+4. Use these columns:
+   - `Type`
+   - `Scope`
    - `Filename`
    - `Full Path`
    - `Size (bytes)`
-4. Include one row for every missing source path.
-5. Sort rows by full source path for deterministic output.
-6. Use the existing platform-specific CSV delimiter behavior.
-7. Write the existing UTF-8 BOM for spreadsheet compatibility.
-8. Save the file in the selected results directory.
-9. Produce no coverage CSV for:
-   - complete coverage;
-   - an empty source;
-   - a cancelled execution;
-   - an inconclusive execution.
-10. If writing, flushing, or closing fails:
+   - `Reason`
+5. Write one `Missing` row with `Source` scope for every missing source path.
+6. Write one `Skipped` row for every skipped source or target path, with `Scope` set to `Source` or `Target` and the skip reason recorded.
+7. Leave fields empty when they are not available, such as filename and size for a skipped directory.
+8. Sort rows deterministically by scope, full path, and type.
+9. An empty source or a complete scan with no missing or skipped paths produces a valid report containing the header and no data rows.
+10. Use the existing platform-specific CSV delimiter behavior.
+11. Write the existing UTF-8 BOM for spreadsheet compatibility.
+12. Save the file in the selected results directory.
+13. If writing, flushing, or closing fails:
     - return an execution error;
     - remove the incomplete output file.
-11. Do not change the existing duplicate-results CSV format or filename.
+14. Do not change the existing duplicate-results CSV format or filename.
 
 ## Unit Tests
 
@@ -245,24 +254,25 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 18. Test ordinary MD5 matching with Paranoid Mode disabled.
 19. Test byte confirmation with Paranoid Mode enabled.
 20. Simulate an MD5 collision and prove Paranoid Mode rejects unequal bytes.
-21. Test source traversal and hashing errors.
-22. Test target traversal gaps.
+21. Test ordinary inaccessible source/target entries are logged, skipped, and recorded as separate diagnostics.
+22. Test source processing and hashing errors.
 23. Test relevant target hashing and comparison errors.
 24. Test irrelevant target files that cannot match by size.
 25. Test cancellation during each expensive phase.
 26. Test deterministic missing-file ordering.
 27. Test coverage-result state clearing between executions.
 28. Test Full Reset clears duplicate and coverage results.
-29. Test missing-only CSV generation and exact headers.
-30. Test no CSV for complete or empty-source outcomes.
-31. Test partial CSV cleanup after write, flush, or close failure.
+29. Test exact coverage CSV headers and row formats for missing and skipped entries.
+30. Test coverage CSV generation for complete, missing, empty-source, and skipped-path outcomes, including an empty report with headers only.
+31. Test that cancelled and inconclusive executions produce no coverage CSV.
+32. Test partial CSV cleanup after write, flush, or close failure.
 
 ## End-to-End Tests
 
 1. Complete coverage with renamed and reorganized target files:
    - all source files covered;
    - target extras ignored;
-   - no coverage CSV.
+   - a coverage CSV with headers and no data rows is created.
 2. Partial coverage:
    - correct total and covered counts;
    - every missing source path returned;
@@ -274,7 +284,7 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 5. Empty source:
    - no-op warning;
    - no pass claim;
-   - no CSV.
+   - a valid empty coverage CSV is created.
 6. Empty target:
    - every source file reported missing.
 7. Paranoid Mode:
@@ -325,7 +335,7 @@ Before implementation, the current unit and E2E baseline is passing.
 2. Source-only duplicates cannot create false coverage.
 3. Coverage and duplicate modes use the same file-discovery and equality rules.
 4. Paranoid Mode has identical meaning in both modes.
-5. Complete, missing, empty, inconclusive, cancelled, and reset states are visibly distinct.
+5. Complete, missing, completed-with-skips, empty, inconclusive, cancelled, and reset states are visibly distinct.
 6. Missing results are deterministic and inspectable in-app and through CSV.
 7. Existing duplicate behavior, reports, tests, and lifecycle guarantees remain intact.
 8. The complete Go test suite, race test, frontend build, and Wails build pass.
@@ -335,7 +345,7 @@ Before implementation, the current unit and E2E baseline is passing.
 Use this section as the implementation tracker. Each numbered checkbox is intended to be completed, reviewed, and committed independently. Mark a step complete only after its listed verification passes. Keep duplicate mode working at the end of every step.
 
 - [x] **1. Create the coverage UI foundation.**
-  - Add the operation selector, Source Folder and Target Folder controls, overlap warning, mode-aware labels, and coverage-summary placeholders.
+  - Add the operation selector, Source Folder and Target Folder controls, mode-aware labels, and coverage-summary placeholders.
   - Clear folder selections and displayed state when switching modes while preserving shared advanced settings.
   - Keep coverage execution disabled until the backend contract and result API are connected.
   - Review boundary: frontend structure, styling, and local state only; no coverage result calculation.
@@ -361,7 +371,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 - [x] **4. Extract shared file discovery without changing duplicate behavior.**
   - Introduce one discovery entry point used by duplicate and coverage modes.
   - Preserve current hidden-file, nested-directory, symbolic-link, and special-entry behavior exactly.
-  - Return enough traversal error information for coverage to become inconclusive without changing duplicate-mode eligibility.
+  - Preserve skipped inaccessible entries and their reasons as separate diagnostics without changing duplicate-mode eligibility.
   - Keep source and target discoveries as separate collections.
   - Review boundary: traversal and collection only; hashing and matching remain unchanged.
   - Verification: discovery parity and traversal-error tests, then the existing unit and E2E suites.
@@ -391,15 +401,17 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 - [ ] **8. Implement the coverage execution runner and outcome rules.**
   - Orchestrate source discovery, target discovery, filtering, hashing, comparison, collection, and reporting phases.
   - Reuse `MemoryManager`, configured workers and buffer, reporter events, and cancellation checks.
-  - Convert source failures, target traversal gaps, and relevant target read/comparison failures into Inconclusive.
+  - Preserve ordinary inaccessible-entry skips as separate diagnostics while continuing coverage over discovered files.
+  - Convert processing failures and relevant target read/comparison failures into Inconclusive.
   - Ignore unreadable target-only files only when their known size cannot match any source file.
-  - Publish no result after cancellation or inconclusive failure.
+  - Publish discovered coverage results together with diagnostics after a completed run; publish no result after cancellation or inconclusive failure.
   - Review boundary: backend coverage execution and progress only; no CSV or frontend rendering.
   - Verification: runner tests for every outcome, phase completion, relevant/irrelevant failures, cache fallback, and cancellation during expensive phases.
 
-- [ ] **9. Add missing-only coverage CSV reporting.**
+- [ ] **9. Add coverage CSV reporting.**
   - Write the documented filename, UTF-8 BOM, delimiter, headers, deterministic rows, and result path.
-  - Produce a report only for the Missing outcome.
+  - Produce exactly one report for every successfully completed coverage outcome, including Complete, Missing, Empty Source, and outcomes with skipped-path diagnostics.
+  - Produce no report after cancellation or inconclusive failure.
   - Remove incomplete output and return an error after write, flush, close, or cleanup failure.
   - Leave the duplicate CSV format and filename unchanged.
   - Review boundary: coverage report creation only.
@@ -415,7 +427,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 - [ ] **11. Connect and complete the coverage frontend.**
   - Send mode, source directory, and target directory in `StartExecution` parameters and enable Start in coverage mode.
   - Fetch `GetMissingContentResult()` only for find-missing-content executions and keep duplicate rendering unchanged.
-  - Render Complete, Missing, Empty Source, Inconclusive, cancellation, and reset as distinct states.
+  - Render Complete, Missing, Complete/Missing with skipped-path diagnostics, Empty Source, Inconclusive, cancellation, and reset as distinct states.
   - Render every missing file with filename, full path, byte size, pagination, and Show action.
   - Enable Open Results Folder only when the current execution produced a report.
   - Review boundary: frontend-to-backend wiring and coverage presentation only.
@@ -429,14 +441,14 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 
 - [ ] **13. Add failure and lifecycle end-to-end tests.**
   - Cover Paranoid Mode acceptance and simulated collision rejection.
-  - Cover source errors, target traversal gaps, relevant target failures, and inconclusive result suppression.
+  - Cover skipped inaccessible source/target entries and diagnostics, relevant target failures, and inconclusive result suppression.
   - Cover cancellation and Full Reset while coverage is active, including worker/cache cleanup and default-mode restoration.
   - Review boundary: failure, cancellation, and reset behavior only.
   - Verification: focused E2E tests and the full unit/E2E race command.
 
 - [ ] **14. Complete final regression and release verification.**
   - Run every command in Verification Commands, including the full race suite, frontend build, and forced Wails build.
-  - Manually verify both operation modes, overlap warnings, result-folder enablement, cancellation, and Full Reset.
+  - Manually verify both operation modes, result-folder enablement, cancellation, and Full Reset.
   - Confirm no duplicate-mode result, CSV, lifecycle, or UI behavior regressed.
   - Record any platform limitations honestly, update this plan's status, and mark the TODO item complete only after all acceptance criteria pass.
   - Review boundary: verification and documentation only; no new feature scope.
