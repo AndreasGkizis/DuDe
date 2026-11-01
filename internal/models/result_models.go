@@ -4,7 +4,7 @@ package models
 type MissingSourceFile struct {
 	Filename string `json:"filename"`
 	FullPath string `json:"fullPath"`
-	// maybe more, we will see what the UI needs to display for each missing file
+	Size     int64  `json:"size"`
 }
 
 // MissingContentResult contains the result of a successfully completed

@@ -390,7 +390,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: comparison semantics only; no source-to-target aggregation.
   - Verification: ordinary matching, Paranoid Mode, simulated collision, comparison-error, and cancellation tests.
 
-- [ ] **7. Implement the directional coverage matcher.**
+- [x] **7. Implement the directional coverage matcher.**
   - Accept already discovered source and target collections and keep them logically separate.
   - Build the target size index and determine covered or missing status for every source path.
   - Allow one target file to cover multiple identical source files without consuming target candidates.
