@@ -398,7 +398,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: deterministic in-memory matching only; no Wails state, CSV, or frontend changes.
   - Verification: focused table-driven tests for renamed, moved, unequal, repeated, zero-byte, empty, identical, and nested-folder scenarios.
 
-- [ ] **8. Implement the coverage execution runner and outcome rules.**
+- [x] **8. Implement the coverage execution runner and outcome rules.**
   - Orchestrate source discovery, target discovery, filtering, hashing, comparison, collection, and reporting phases.
   - Reuse `MemoryManager`, configured workers and buffer, reporter events, and cancellation checks.
   - Preserve ordinary inaccessible-entry skips as separate diagnostics while continuing coverage over discovered files.
@@ -408,7 +408,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: backend coverage execution and progress only; no CSV or frontend rendering.
   - Verification: runner tests for every outcome, phase completion, relevant/irrelevant failures, cache fallback, and cancellation during expensive phases.
 
-- [ ] **9. Add coverage CSV reporting.**
+- [x] **9. Add coverage CSV reporting.**
   - Write the documented filename, UTF-8 BOM, delimiter, headers, deterministic rows, and result path.
   - Produce exactly one report for every successfully completed coverage outcome, including Complete, Missing, Empty Source, and outcomes with skipped-path diagnostics.
   - Produce no report after cancellation or inconclusive failure.

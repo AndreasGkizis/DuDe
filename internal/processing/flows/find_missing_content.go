@@ -101,14 +101,14 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 
 	// filtering read files to usefull parts for the flow
 	reporter.LogProgress(ctx, "Filtering", 0)
-	
+
 	targetSizes := services.FileSizes(targetFiles)
 	filteredSourceFiles := services.CopyFilesWithSizes(sourceFiles, targetSizes)
-	
+
 	sourceCandidateSizes := services.FileSizes(filteredSourceFiles)
 	hashTargetMap := services.CopyFilesWithSizes(targetFiles, sourceCandidateSizes)
 	candidateCount := common.LenSyncMap(filteredSourceFiles) + common.LenSyncMap(hashTargetMap)
-	
+
 	reporter.LogProgress(ctx, "Filtering", 100)
 	reporter.LogFilesCount(ctx, int64(candidateCount), int64(totalFiles))
 
@@ -157,6 +157,13 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	reporter.LogProgress(ctx, "Comparing", 100)
 	reporter.LogFilesCount(ctx, int64(result.TotalSourceFiles), int64(result.TotalSourceFiles))
 	reporter.LogProgress(ctx, "Collecting", 100)
+	reporter.LogProgress(ctx, "Reporting", 0)
+	reportPath, err := services.SaveCoverageReport(result, diagnostics, args.ResultsDir)
+	if err != nil {
+		return err
+	}
+	result.ReportPath = reportPath
+	reporter.LogProgress(ctx, "Reporting", 100)
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))

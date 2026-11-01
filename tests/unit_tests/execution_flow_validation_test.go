@@ -99,6 +99,7 @@ func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {
 	err := flow.Run(context.Background(), models.ExecutionParams{
 		FindMissingSourceDir: t.TempDir(),
 		FindMissingTargetDir: t.TempDir(),
+		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
 	}, reporting.NoOpReporter{}, publisher)
@@ -129,6 +130,7 @@ func TestFindMissingContentFlowMatchesFilesThroughTheExecutionPipeline(t *testin
 	err := flow.Run(context.Background(), models.ExecutionParams{
 		FindMissingSourceDir: sourceDir,
 		FindMissingTargetDir: targetDir,
+		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
 	}, reporting.NoOpReporter{}, publisher)
@@ -152,6 +154,7 @@ func TestFindMissingContentFlowStopsWithoutPublishingOnCancellation(t *testing.T
 	err := flow.Run(ctx, models.ExecutionParams{
 		FindMissingSourceDir: t.TempDir(),
 		FindMissingTargetDir: t.TempDir(),
+		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
 	}, reporting.NoOpReporter{}, publisher)

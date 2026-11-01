@@ -685,6 +685,8 @@ function renderCoverageResult(result, diagnostics) {
     const coverage = result || { TotalSourceFiles: 0, MissingFiles: [] };
     const total = coverage.TotalSourceFiles ?? coverage.totalSourceFiles ?? 0;
     const missing = coverage.MissingFiles || coverage.missingFiles || [];
+    const reportPath = coverage.ReportPath || coverage.reportPath || '';
+    showResultsButton.disabled = !reportPath;
     const skippedSource = diagnostics?.SkippedSourcePaths || diagnostics?.skippedSourcePaths || [];
     const skippedTarget = diagnostics?.SkippedTargetPaths || diagnostics?.skippedTargetPaths || [];
     const skippedCount = skippedSource.length + skippedTarget.length;
