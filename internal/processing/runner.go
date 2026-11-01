@@ -35,6 +35,7 @@ type FrontendApp struct {
 	flowRegistry             *flows.Registry
 	lastResults              []models.FileHash // duplicate groups from the last completed execution
 	lastMissingContentResult *models.MissingContentResult
+	lastScanDiagnostics      *models.ScanDiagnostics
 }
 
 // NewApp creates a new App application struct
@@ -50,7 +51,8 @@ func NewApp(reporter reporting.Reporter) *FrontendApp {
 	}
 
 	duplicateFlow := flows.NewDuplicateFlow(pathValidator)
-	flowRegistry, err := flows.NewRegistry(duplicateFlow)
+	missingContentFlow := flows.NewFindMissingContentFlow(pathValidator)
+	flowRegistry, err := flows.NewRegistry(duplicateFlow, missingContentFlow)
 	if err != nil {
 		panic(fmt.Sprintf("create execution flow registry: %v", err))
 	}
@@ -185,6 +187,31 @@ func (a *FrontendApp) GetResults() []models.FileHash {
 	return append([]models.FileHash(nil), a.lastResults...)
 }
 
+// GetMissingContentResult returns the last completed coverage result.
+func (a *FrontendApp) GetMissingContentResult() *models.MissingContentResult {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	if a.lastMissingContentResult == nil {
+		return nil
+	}
+	result := *a.lastMissingContentResult
+	result.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
+	return &result
+}
+
+// GetScanDiagnostics returns skipped paths from the last completed execution.
+func (a *FrontendApp) GetScanDiagnostics() *models.ScanDiagnostics {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	if a.lastScanDiagnostics == nil {
+		return nil
+	}
+	diagnostics := *a.lastScanDiagnostics
+	diagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
+	diagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
+	return &diagnostics
+}
+
 // SelectFolder opens a native folder selection dialog and returns the selected path.
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) SelectFolder() (string, error) {
@@ -245,6 +272,7 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	a.Args = args
 	a.lastResults = nil
 	a.lastMissingContentResult = nil
+	a.lastScanDiagnostics = nil
 	a.stateMu.Unlock()
 
 	// Flows report their concrete result to this collector. FrontendApp only
@@ -290,6 +318,7 @@ func (a *FrontendApp) executionContext() context.Context {
 type executionResultPublisher struct {
 	duplicate      *models.DuplicateResult
 	missingContent *models.MissingContentResult
+	diagnostics    *models.ScanDiagnostics
 }
 
 func (p *executionResultPublisher) PublishDuplicateResult(result models.DuplicateResult) {
@@ -304,12 +333,22 @@ func (p *executionResultPublisher) PublishMissingContentResult(result models.Mis
 	p.missingContent = &copyResult
 }
 
+func (p *executionResultPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
+	copyDiagnostics := diagnostics
+	copyDiagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
+	copyDiagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
+	p.diagnostics = &copyDiagnostics
+}
+
 func (p *executionResultPublisher) PublishTo(app *FrontendApp) {
 	if p.duplicate != nil {
 		app.PublishDuplicateResult(*p.duplicate)
 	}
 	if p.missingContent != nil {
 		app.PublishMissingContentResult(*p.missingContent)
+	}
+	if p.diagnostics != nil {
+		app.PublishScanDiagnostics(*p.diagnostics)
 	}
 }
 
@@ -326,5 +365,15 @@ func (a *FrontendApp) PublishMissingContentResult(result models.MissingContentRe
 	copyResult.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
 	a.stateMu.Lock()
 	a.lastMissingContentResult = &copyResult
+	a.stateMu.Unlock()
+}
+
+// PublishScanDiagnostics records non-fatal skipped paths from the last completed execution.
+func (a *FrontendApp) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
+	copyDiagnostics := diagnostics
+	copyDiagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
+	copyDiagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
+	a.stateMu.Lock()
+	a.lastScanDiagnostics = &copyDiagnostics
 	a.stateMu.Unlock()
 }

@@ -14,8 +14,16 @@ export function FullReset() {
   return window['go']['processing']['FrontendApp']['FullReset']();
 }
 
+export function GetMissingContentResult() {
+  return window['go']['processing']['FrontendApp']['GetMissingContentResult']();
+}
+
 export function GetResults() {
   return window['go']['processing']['FrontendApp']['GetResults']();
+}
+
+export function GetScanDiagnostics() {
+  return window['go']['processing']['FrontendApp']['GetScanDiagnostics']();
 }
 
 export function PublishDuplicateResult(arg1) {
@@ -24,6 +32,10 @@ export function PublishDuplicateResult(arg1) {
 
 export function PublishMissingContentResult(arg1) {
   return window['go']['processing']['FrontendApp']['PublishMissingContentResult'](arg1);
+}
+
+export function PublishScanDiagnostics(arg1) {
+  return window['go']['processing']['FrontendApp']['PublishScanDiagnostics'](arg1);
 }
 
 export function RevealInExplorer(arg1) {

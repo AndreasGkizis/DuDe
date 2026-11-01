@@ -2,7 +2,6 @@ package unit_tests
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 	"testing"
@@ -93,7 +92,7 @@ func TestStartExecutionReportsValidationFailures(t *testing.T) {
 	}
 }
 
-func TestStartExecutionDoesNotRouteFindMissingContentToDuplicateRunner(t *testing.T) {
+func TestStartExecutionRunsFindMissingContentFlow(t *testing.T) {
 	reporter := capturingReporter{failures: make(chan string, 1)}
 	app := processing.NewApp(reporter)
 	app.Startup(context.Background())
@@ -103,17 +102,11 @@ func TestStartExecutionDoesNotRouteFindMissingContentToDuplicateRunner(t *testin
 		FindMissingSourceDir: t.TempDir(),
 		FindMissingTargetDir: t.TempDir(),
 	})
-
-	if !errors.Is(err, processing.ErrExecutionModeUnavailable) {
-		t.Fatalf("expected ErrExecutionModeUnavailable, got %v", err)
+	if err != nil {
+		t.Fatalf("run find-missing-content execution: %v", err)
 	}
-	select {
-	case message := <-reporter.failures:
-		if message == "" {
-			t.Fatal("expected a useful unavailable-mode message")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("expected unavailable mode to be reported to the UI")
+	if result := app.GetMissingContentResult(); result == nil || result.TotalSourceFiles != 0 {
+		t.Fatalf("unexpected coverage result: %#v", result)
 	}
 }
 
@@ -142,7 +135,6 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 	tracker.Start()
 	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
-	failedCount := 0
 	errChan := make(chan error, 2)
 
 	if err := services.CreateHashes(
@@ -152,7 +144,6 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 		tracker,
 		memoryManager,
 		&memory,
-		&failedCount,
 		errChan,
 	); err != nil {
 		t.Fatalf("create hashes: %v", err)
@@ -185,7 +176,6 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "test")
 	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
-	failedCount := 0
 
 	err := services.CreateHashes(
 		context.Background(),
@@ -194,7 +184,6 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 		tracker,
 		memoryManager,
 		&memory,
-		&failedCount,
 		errChan,
 	)
 	if err != nil {

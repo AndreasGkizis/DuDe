@@ -59,7 +59,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	errorLogger := newExecutionErrorLogger(100)
 	defer errorLogger.CloseAndWait()
 
-	failedCounter := 0
 	memory := services.NewMemoryManager(&args, args.BufferSizeBytes, 1)
 	hashMemory := memory.LoadMemory()
 	cacheWarningReported := false
@@ -70,7 +69,9 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	memory.Start()
 	defer memory.CloseAndWait()
 
-	files, err := services.NewFileDiscovery().Discover(ctx, args.Directories, reporter)
+	discovery := services.NewFileDiscovery()
+
+	files, err := discovery.Discover(ctx, args.Directories, reporter)
 	if err != nil {
 		return err
 	}
@@ -102,7 +103,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	hashing := visuals.NewProgressTracker(ctx, reporter, "Hashing")
 	hashing.Start()
-	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, &failedCounter, errorLogger.channel); err != nil {
+	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, errorLogger.channel); err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		return err
 	}
@@ -162,7 +163,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	}
 
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
-	log.InfoWithFuncName(fmt.Sprintf("Failed %d times to send to memoryChan", failedCounter))
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)

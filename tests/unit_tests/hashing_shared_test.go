@@ -70,7 +70,7 @@ func TestCreateHashesReturnsCancellation(t *testing.T) {
 	manager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := map[string]models.FileHash{}
 
-	err := services.CreateHashes(ctx, files, 1, tracker, manager, &memory, new(int), make(chan error, 1))
+	err := services.CreateHashes(ctx, files, 1, tracker, manager, &memory, make(chan error, 1))
 	tracker.Wait()
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation, got %v", err)
@@ -86,7 +86,7 @@ func TestCreateHashesRejectsZeroWorkers(t *testing.T) {
 	tracker.Start()
 	manager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 
-	err := services.CreateHashes(ctx, &sync.Map{}, 0, tracker, manager, &map[string]models.FileHash{}, new(int), make(chan error, 1))
+	err := services.CreateHashes(ctx, &sync.Map{}, 0, tracker, manager, &map[string]models.FileHash{}, make(chan error, 1))
 	tracker.Wait()
 	if err == nil {
 		t.Fatal("expected zero workers to be rejected")
@@ -98,7 +98,7 @@ func hashFilesForTest(t *testing.T, files *sync.Map, manager *services.MemoryMan
 	ctx := context.Background()
 	tracker := visuals.NewProgressTracker(ctx, reporting.NoOpReporter{}, "Hashing")
 	tracker.Start()
-	if err := services.CreateHashes(ctx, files, 1, tracker, manager, memory, new(int), make(chan error, 1)); err != nil {
+	if err := services.CreateHashes(ctx, files, 1, tracker, manager, memory, make(chan error, 1)); err != nil {
 		t.Fatalf("hash files: %v", err)
 	}
 	tracker.Wait()

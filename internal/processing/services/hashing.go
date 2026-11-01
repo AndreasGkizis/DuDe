@@ -17,7 +17,21 @@ import (
 	"time"
 )
 
-func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, failedCount *int, errChan chan error) error {
+// HashError identifies a file that could not be inspected during hashing.
+type HashError struct {
+	Path string
+	Err  error
+}
+
+func (e HashError) Error() string {
+	return fmt.Sprintf("hash %q: %v", e.Path, e.Err)
+}
+
+func (e HashError) Unwrap() error {
+	return e.Err
+}
+
+func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, errChan chan error) error {
 	defer pt.Complete()
 
 	if maxWorkers < 1 {
@@ -74,7 +88,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 
 			currentFileDiskStats, err := os.Stat(val.FilePath)
 			if err != nil {
-				errChan <- err
+				errChan <- HashError{Path: val.FilePath, Err: err}
 				sourceFiles.Delete(val.FilePath)
 				pt.DecrementFromTotal() // remove for progress bar
 				return                  // stop this iteration
@@ -98,7 +112,7 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 				if err != nil {
 					sourceFiles.Delete(val.FilePath)
 					pt.DecrementFromTotal() // remove for progress bar
-					errChan <- err
+					errChan <- HashError{Path: val.FilePath, Err: err}
 					return // stop this iteration
 				}
 
@@ -112,7 +126,6 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 
 				sourceFiles.Store(path, newMem)
 				mm.Push(newMem)
-				// sendWithRetry(mm.Channel, newMem, 500*time.Millisecond, 5*time.Second, failedCount)
 
 			} else {
 				sourceFiles.Store(path, memoryOfFile)
@@ -403,21 +416,3 @@ func GetFlattened(input *sync.Map) []models.ResultEntry {
 	})
 	return result
 }
-
-// FIXME : unreachable code
-// func sendWithRetry(ch chan models.FileHash, value models.FileHash, baseDelay, maxRetryDelay time.Duration, failedCount *int) error {
-// 	retryDelay := baseDelay
-// 	for {
-// 		select {
-// 		case ch <- value:
-// 			return nil
-// 		default:
-// 			(*failedCount)++
-// 			time.Sleep(retryDelay)
-// 			retryDelay *= 2
-// 			if retryDelay > maxRetryDelay {
-// 				retryDelay = maxRetryDelay
-// 			}
-// 		}
-// 	}
-// }

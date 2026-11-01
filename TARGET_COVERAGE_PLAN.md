@@ -103,7 +103,7 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 2. Inaccessible or unreadable filesystem entries are skipped using the existing walker behavior, logged, and recorded as separate scan diagnostics; they do not by themselves make the execution inconclusive.
 3. Complete and Missing outcomes must indicate when skipped paths occurred, because coverage applies only to successfully discovered files.
 4. Failure to read or compare a discovered, potentially matching target file makes the execution inconclusive when it is a processing failure rather than an ordinary skipped filesystem entry.
-5. An unreadable target-only file may be ignored when its known size proves it cannot match any source file.
+5. An unreadable target-only file whose known size cannot match any source file is excluded from hashing and matching, but remains visible in scan diagnostics.
 6. Do not present partial coverage counts as a trustworthy result after an inconclusive run.
 7. Route processing errors through the existing `Reporter.ReportError` and `errorUpdate` flow.
 8. Keep user cancellation as a normal stopped state rather than a processing failure.
@@ -257,7 +257,7 @@ The feature reports findings only. It does not copy, move, rename, or delete fil
 21. Test ordinary inaccessible source/target entries are logged, skipped, and recorded as separate diagnostics.
 22. Test source processing and hashing errors.
 23. Test relevant target hashing and comparison errors.
-24. Test irrelevant target files that cannot match by size.
+24. Test irrelevant target files that cannot match by size are excluded from hashing and matching while remaining visible in diagnostics.
 25. Test cancellation during each expensive phase.
 26. Test deterministic missing-file ordering.
 27. Test coverage-result state clearing between executions.
@@ -403,7 +403,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Reuse `MemoryManager`, configured workers and buffer, reporter events, and cancellation checks.
   - Preserve ordinary inaccessible-entry skips as separate diagnostics while continuing coverage over discovered files.
   - Convert processing failures and relevant target read/comparison failures into Inconclusive.
-  - Ignore unreadable target-only files only when their known size cannot match any source file.
+  - Exclude target-only files whose known size cannot match any source file from hashing and matching, while retaining their skipped-path diagnostics.
   - Publish discovered coverage results together with diagnostics after a completed run; publish no result after cancellation or inconclusive failure.
   - Review boundary: backend coverage execution and progress only; no CSV or frontend rendering.
   - Verification: runner tests for every outcome, phase completion, relevant/irrelevant failures, cache fallback, and cancellation during expensive phases.

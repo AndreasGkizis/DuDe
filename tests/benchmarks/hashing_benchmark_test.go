@@ -55,7 +55,6 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 				hashTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Hashing")
 				findTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Finding")
 				errChan := make(chan error, len(files))
-				failedCount := 0
 				b.StartTimer()
 
 				services.RemoveUniqueSizeFiles(sourceFiles)
@@ -66,7 +65,6 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 					hashTracker,
 					memoryManager,
 					&hashMemory,
-					&failedCount,
 					errChan,
 				)
 				if err != nil {

@@ -125,6 +125,23 @@ func TestMatchCoverageParanoidModeRejectsHashCollision(t *testing.T) {
 	}
 }
 
+func TestMatchCoverageReturnsRelevantTargetReadErrors(t *testing.T) {
+	root := t.TempDir()
+	sourcePath := filepath.Join(root, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := services.MatchCoverage(context.Background(), []models.FileHash{{
+		FileName: "source.txt", FilePath: sourcePath, FileSize: 7, Hash: "same",
+	}}, []models.FileHash{{
+		FileName: "target.txt", FilePath: filepath.Join(root, "missing-target.txt"), FileSize: 7, Hash: "same",
+	}}, true)
+	if err == nil {
+		t.Fatal("expected relevant target read error")
+	}
+}
+
 func TestMatchCoverageStopsOnCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

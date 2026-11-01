@@ -1,7 +1,7 @@
 import './style.css';
 import htmlTemplate from './template.html?raw';
 
-import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, RevealInExplorer, FullReset } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, GetMissingContentResult, GetScanDiagnostics, RevealInExplorer, FullReset } from '../wailsjs/go/processing/FrontendApp';
 import { FrontEnd_DuplicateGroup } from './models.js';
 
 document.querySelector('#app').innerHTML = htmlTemplate;
@@ -23,7 +23,6 @@ const duplicateFolders = document.getElementById('duplicateFolders');
 const coverageFolders = document.getElementById('coverageFolders');
 const sourceDir = document.getElementById('sourceDir');
 const targetDir = document.getElementById('targetDir');
-const folderRelationshipWarning = document.getElementById('folderRelationshipWarning');
 const coverageSummary = document.getElementById('coverage-summary');
 const coverageOutcome = document.getElementById('coverage-outcome');
 const coverageCovered = document.getElementById('coverage-covered');
@@ -40,6 +39,7 @@ const PAGE_SIZE_OPTIONS = [3, 5, 10, 25, 50];
 const EXECUTION_MODE_DUPLICATES = 1;
 const EXECUTION_MODE_FIND_MISSING_CONTENT = 2;
 let allGroups = [];
+let allMissingFiles = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let activePhase = '';
@@ -72,9 +72,6 @@ window.selectAndSetDir = function (target) {
             if (!path) return;
             if (typeof target === 'string') {
                 document.getElementById(target).value = path;
-                if (target === 'sourceDir' || target === 'targetDir') {
-                    updateFolderRelationshipWarning();
-                }
             } else {
                 // target is the Select button inside a .dir-row; find the sibling input
                 target.closest('.dir-row').querySelector('input').value = path;
@@ -97,29 +94,8 @@ function resetFolderSelections() {
         </div>`;
     sourceDir.value = '';
     targetDir.value = '';
-    updateFolderRelationshipWarning();
 }
 
-function normalizeFolderPath(path) {
-    let normalized = path.trim().replace(/\\/g, '/');
-    if (normalized !== '/' && !/^[a-z]:\/$/i.test(normalized)) {
-        normalized = normalized.replace(/\/+$/, '');
-    }
-    return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized;
-}
-
-function foldersOverlap(sourcePath, targetPath) {
-    const source = normalizeFolderPath(sourcePath);
-    const target = normalizeFolderPath(targetPath);
-    if (!source || !target) return false;
-    const sourcePrefix = source.endsWith('/') ? source : `${source}/`;
-    const targetPrefix = target.endsWith('/') ? target : `${target}/`;
-    return source === target || source.startsWith(targetPrefix) || target.startsWith(sourcePrefix);
-}
-
-function updateFolderRelationshipWarning() {
-    folderRelationshipWarning.hidden = !foldersOverlap(sourceDir.value, targetDir.value);
-}
 
 function updateModePresentation() {
     const isFindMissingContent = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT;
@@ -130,15 +106,15 @@ function updateModePresentation() {
     pageSizeLabel.textContent = isFindMissingContent ? 'Missing files per page' : 'Groups per page';
     resultsCountLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Results';
     startText.textContent = 'Start';
-    startButton.title = isFindMissingContent ? 'Missing-content processing will be enabled with the backend implementation.' : '';
-    startButton.disabled = executionActive || isFindMissingContent;
+    startButton.title = '';
+    startButton.disabled = executionActive;
     showResultsButton.disabled = true;
 }
 
 function setExecutionActive(isActive) {
     executionActive = isActive;
     modeInputs.forEach(input => { input.disabled = isActive; });
-    startButton.disabled = isActive || currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT;
+    startButton.disabled = isActive;
 }
 
 window.changeOperationMode = function (mode) {
@@ -246,9 +222,6 @@ window.toggleAdvanced = function () {
 
 // --- Execution Start Handler ---
 window.startProcess = function () {
-    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) return;
-
-    // 1. Gather data
     const dirInputs = document.querySelectorAll('#dirList .dir-row input');
     const directories = Array.from(dirInputs)
         .map(input => input.value.trim())
@@ -256,7 +229,9 @@ window.startProcess = function () {
 
     const params = {
         mode: currentMode,
-        directories: directories,
+        directories: currentMode === EXECUTION_MODE_DUPLICATES ? directories : [],
+        findMissingSourceDir: currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? sourceDir.value.trim() : '',
+        findMissingTargetDir: currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? targetDir.value.trim() : '',
         useCache: document.getElementById('keepMemory').checked,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
@@ -279,6 +254,7 @@ window.startProcess = function () {
     // Hide previous results
     resultsSection.style.display = 'none';
     allGroups = [];
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
     resultsList.innerHTML = '';
@@ -391,6 +367,7 @@ window.fullReset = function () {
 window.clearResults = function () {
     // Reset in-memory state
     allGroups = [];
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
 
@@ -524,9 +501,15 @@ function setupStatusListeners() {
     fullResetButton.disabled = false;
 
     // Fetch and display duplicate groups
-    GetResults()
-        .then(groups => renderResults(groups))
-        .catch(err => console.error('GetResults error:', err));
+    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) {
+        Promise.all([GetMissingContentResult(), GetScanDiagnostics()])
+            .then(([result, diagnostics]) => renderCoverageResult(result, diagnostics))
+            .catch(err => console.error('GetMissingContentResult error:', err));
+    } else {
+        GetResults()
+            .then(groups => renderResults(groups))
+            .catch(err => console.error('GetResults error:', err));
+    }
 });
 
     // fullReset event: backend notifies the frontend after FullReset() completes
@@ -559,7 +542,7 @@ window.changeResultsPageSize = function (value) {
     currentPage = Math.floor(firstVisibleGroupIndex / pageSize) + 1;
     window.currentPage = currentPage;
 
-    if (allGroups.length > 0) {
+    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles.length > 0 : allGroups.length > 0) {
         renderPage(currentPage, false);
     }
 };
@@ -661,22 +644,122 @@ function createResultCard(group) {
     return card;
 }
 
+function createMissingFileCard(file) {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+
+    const header = document.createElement('div');
+    header.className = 'result-card-header';
+
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'result-file-info';
+
+    const name = document.createElement('span');
+    name.className = 'result-filename';
+    name.textContent = file.Filename || file.filename || '(unnamed)';
+
+    const path = file.FullPath || file.fullPath || '';
+    const pathSpan = document.createElement('span');
+    pathSpan.className = 'result-filepath';
+    pathSpan.textContent = path;
+    pathSpan.title = path;
+
+    const size = document.createElement('span');
+    size.className = 'result-filepath';
+    size.textContent = `${file.Size ?? file.size ?? 0} bytes`;
+
+    fileInfo.append(name, pathSpan, size);
+
+    const showButton = document.createElement('button');
+    showButton.className = 'btn btn-show';
+    showButton.textContent = 'Show';
+    showButton.onclick = () => window.revealInExplorer(path);
+
+    header.appendChild(fileInfo);
+    header.appendChild(showButton);
+    card.appendChild(header);
+    return card;
+}
+
+function renderCoverageResult(result, diagnostics) {
+    const coverage = result || { TotalSourceFiles: 0, MissingFiles: [] };
+    const total = coverage.TotalSourceFiles ?? coverage.totalSourceFiles ?? 0;
+    const missing = coverage.MissingFiles || coverage.missingFiles || [];
+    const skippedSource = diagnostics?.SkippedSourcePaths || diagnostics?.skippedSourcePaths || [];
+    const skippedTarget = diagnostics?.SkippedTargetPaths || diagnostics?.skippedTargetPaths || [];
+    const skippedCount = skippedSource.length + skippedTarget.length;
+    const covered = Math.max(0, total - missing.length);
+
+    coverageCovered.textContent = `${covered} / ${total}`;
+    coverageMissing.textContent = String(missing.length);
+    coverageOutcome.textContent = total === 0
+        ? 'No source files found'
+        : missing.length > 0
+            ? `Missing files${skippedCount ? ' — some paths skipped' : ''}`
+            : `All files covered${skippedCount ? ' — some paths skipped' : ''}`;
+    statusDuplicates.textContent = String(missing.length);
+    statusDuplicates.classList.toggle('status-value--orange', missing.length > 0);
+
+    allMissingFiles = missing;
+    allGroups = [];
+    currentPage = 1;
+    window.currentPage = 1;
+    resultsList.innerHTML = '';
+    resultsCountLabel.textContent = `Missing Files — ${missing.length}`;
+
+    if (missing.length === 0) {
+        resultsSection.style.display = skippedCount > 0 ? 'block' : 'none';
+        clearResultsButton.disabled = skippedCount === 0;
+        resultsPageSize.disabled = true;
+    } else {
+        resultsSection.style.display = 'block';
+        clearResultsButton.disabled = false;
+        resultsPageSize.disabled = false;
+        resultsPageSize.value = String(pageSize);
+        renderPage(1);
+    }
+
+    if (skippedCount > 0) {
+        const skippedNotice = document.createElement('div');
+        skippedNotice.className = 'inline-notice inline-notice--warning';
+        const heading = document.createElement('strong');
+        heading.textContent = `${skippedCount} source or target path${skippedCount === 1 ? '' : 's'} could not be inspected.`;
+        skippedNotice.appendChild(heading);
+        const list = document.createElement('ul');
+        [...skippedSource.map(item => ['Source', item]), ...skippedTarget.map(item => ['Target', item])]
+            .forEach(([scope, item]) => {
+                const entry = document.createElement('li');
+                entry.textContent = `${scope}: ${item.path || '(unknown path)'} — ${item.reason || 'unknown reason'}`;
+                list.appendChild(entry);
+            });
+        skippedNotice.appendChild(list);
+        resultsList.prepend(skippedNotice);
+    }
+}
+
 /**
  * Renders one page of duplicate groups into the results list.
  * @param {number} page 1-based page number
  * @param {boolean} scrollToResults whether to scroll the result section into view
  */
 function renderPage(page, scrollToResults = true) {
-    const totalPages = Math.max(1, Math.ceil(allGroups.length / pageSize));
+    const itemCount = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles.length : allGroups.length;
+    const totalPages = Math.max(1, Math.ceil(itemCount / pageSize));
     currentPage = Math.max(1, Math.min(page, totalPages));
     window.currentPage = currentPage;
 
     const start = (currentPage - 1) * pageSize;
     const end = Math.min(start + pageSize, allGroups.length);
-    const pageGroups = allGroups.slice(start, end);
+    const pageItems = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT
+        ? allMissingFiles.slice(start, end)
+        : allGroups.slice(start, end);
 
     resultsList.innerHTML = '';
-    pageGroups.forEach(group => resultsList.appendChild(createResultCard(group)));
+    pageItems.forEach(item => resultsList.appendChild(
+        currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT
+            ? createMissingFileCard(item)
+            : createResultCard(item)
+    ));
 
     const pageText = `Page ${currentPage} of ${totalPages}`;
     pageIndicatorTop.textContent = pageText;
@@ -703,6 +786,7 @@ function renderPage(page, scrollToResults = true) {
  */
 function renderResults(rawGroups) {
     allGroups = (rawGroups || []).map(FrontEnd_DuplicateGroup.fromFileHash);
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
 

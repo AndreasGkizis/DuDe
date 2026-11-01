@@ -108,6 +108,7 @@ export namespace models {
 	export class MissingSourceFile {
 	    filename: string;
 	    fullPath: string;
+	    size: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new MissingSourceFile(source);
@@ -117,6 +118,7 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.filename = source["filename"];
 	        this.fullPath = source["fullPath"];
+	        this.size = source["size"];
 	    }
 	}
 	export class MissingContentResult {
@@ -133,6 +135,53 @@ export namespace models {
 	        this.totalSourceFiles = source["totalSourceFiles"];
 	        this.missingFiles = this.convertValues(source["missingFiles"], MissingSourceFile);
 	        this.reportPath = source["reportPath"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class SkippedPath {
+	    path: string;
+	    reason: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkippedPath(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.reason = source["reason"];
+	    }
+	}
+	export class ScanDiagnostics {
+	    skippedSourcePaths: SkippedPath[];
+	    skippedTargetPaths: SkippedPath[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ScanDiagnostics(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.skippedSourcePaths = this.convertValues(source["skippedSourcePaths"], SkippedPath);
+	        this.skippedTargetPaths = this.convertValues(source["skippedTargetPaths"], SkippedPath);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

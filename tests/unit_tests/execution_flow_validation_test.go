@@ -4,8 +4,11 @@ import (
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/models"
 	"DuDe/internal/processing/flows"
+	"DuDe/internal/reporting"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -76,13 +79,87 @@ func TestFindMissingContentFlowRequiresSourceAndTarget(t *testing.T) {
 	}
 }
 
-func TestFindMissingContentFlowRunIsUnavailableUntilImplemented(t *testing.T) {
+type missingContentPublisher struct {
+	result      models.MissingContentResult
+	diagnostics models.ScanDiagnostics
+}
+
+func (p *missingContentPublisher) PublishDuplicateResult(models.DuplicateResult) {}
+func (p *missingContentPublisher) PublishMissingContentResult(result models.MissingContentResult) {
+	p.result = result
+}
+func (p *missingContentPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
+	p.diagnostics = diagnostics
+}
+
+func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {
 	flow := flows.NewFindMissingContentFlow(validation.MockValidator{})
+	publisher := &missingContentPublisher{}
 
-	err := flow.Run(context.Background(), models.ExecutionParams{}, nil, nil)
+	err := flow.Run(context.Background(), models.ExecutionParams{
+		FindMissingSourceDir: t.TempDir(),
+		FindMissingTargetDir: t.TempDir(),
+		WorkerCount:          1,
+		BufferSizeBytes:      1,
+	}, reporting.NoOpReporter{}, publisher)
 
-	if !errors.Is(err, flows.ErrExecutionModeUnavailable) {
-		t.Fatalf("expected unavailable execution mode, got %v", err)
+	if err != nil {
+		t.Fatalf("run find-missing-content flow: %v", err)
+	}
+	if publisher.result.TotalSourceFiles != 0 || len(publisher.result.MissingFiles) != 0 {
+		t.Fatalf("unexpected empty coverage result: %#v", publisher.result)
+	}
+}
+
+func TestFindMissingContentFlowMatchesFilesThroughTheExecutionPipeline(t *testing.T) {
+	sourceDir := t.TempDir()
+	targetDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(sourceDir, "covered.txt"), []byte("covered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "missing.txt"), []byte("missing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "renamed.txt"), []byte("covered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	flow := flows.NewFindMissingContentFlow(validation.MockValidator{})
+	publisher := &missingContentPublisher{}
+	err := flow.Run(context.Background(), models.ExecutionParams{
+		FindMissingSourceDir: sourceDir,
+		FindMissingTargetDir: targetDir,
+		WorkerCount:          1,
+		BufferSizeBytes:      1,
+	}, reporting.NoOpReporter{}, publisher)
+	if err != nil {
+		t.Fatalf("run find-missing-content flow: %v", err)
+	}
+	if publisher.result.TotalSourceFiles != 2 || len(publisher.result.MissingFiles) != 1 {
+		t.Fatalf("unexpected coverage result: %#v", publisher.result)
+	}
+	if publisher.result.MissingFiles[0].FullPath != filepath.Join(sourceDir, "missing.txt") {
+		t.Fatalf("unexpected missing file: %#v", publisher.result.MissingFiles[0])
+	}
+}
+
+func TestFindMissingContentFlowStopsWithoutPublishingOnCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	flow := flows.NewFindMissingContentFlow(validation.MockValidator{})
+	publisher := &missingContentPublisher{}
+
+	err := flow.Run(ctx, models.ExecutionParams{
+		FindMissingSourceDir: t.TempDir(),
+		FindMissingTargetDir: t.TempDir(),
+		WorkerCount:          1,
+		BufferSizeBytes:      1,
+	}, reporting.NoOpReporter{}, publisher)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation, got %v", err)
+	}
+	if publisher.result.TotalSourceFiles != 0 || publisher.result.MissingFiles != nil {
+		t.Fatalf("expected no published coverage result, got %#v", publisher.result)
 	}
 }
 

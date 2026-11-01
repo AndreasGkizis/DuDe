@@ -23,6 +23,7 @@ var (
 type ResultPublisher interface {
 	PublishDuplicateResult(result models.DuplicateResult)
 	PublishMissingContentResult(result models.MissingContentResult)
+	PublishScanDiagnostics(diagnostics models.ScanDiagnostics)
 }
 
 // ExecutionFlow is one executable operation supported by the application.
