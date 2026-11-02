@@ -106,7 +106,11 @@ func (app *FrontendApp) FullReset() error {
 	app.stateMu.Unlock()
 
 	app.gate.EndReset()
-	runtime.EventsEmit(app.wailsCtx, "fullReset", nil)
+	// Tests and headless callers may provide a plain context rather than the
+	// Wails lifecycle context. There is no frontend to notify in that case.
+	if app.wailsCtx != nil && app.wailsCtx.Value("frontend") != nil {
+		runtime.EventsEmit(app.wailsCtx, "fullReset", nil)
+	}
 	return nil
 }
 

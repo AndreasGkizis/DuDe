@@ -424,7 +424,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: backend routing and lifecycle integration; the coverage flow is registered and manually runnable through the early frontend adapter.
   - Verification: routing, state-clearing, cancellation, concurrent-start, and Full Reset regression tests, including `go test -race` for focused packages.
 
-- [ ] **11. Finish the coverage frontend.**
+- [x] **11. Finish the coverage frontend.**
   - The initial frontend adapter is implemented: it sends coverage parameters, enables Start, fetches the typed result and diagnostics, and renders missing files and skipped paths.
   - Finish distinct presentation for Complete, Missing, skipped-path, Empty Source, Inconclusive, cancellation, and reset states.
   - Verify report-path handling and **Open Results Folder** behavior for the current run.
@@ -438,7 +438,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: deterministic successful and incomplete executions only.
   - Verification: focused coverage E2E tests followed by the unchanged duplicate E2E suite.
 
-- [ ] **13. Add failure and lifecycle end-to-end tests.**
+- [x] **13. Add failure and lifecycle end-to-end tests.**
   - Cover Paranoid Mode acceptance and simulated collision rejection.
   - Cover skipped inaccessible source/target entries and diagnostics, relevant target failures, and inconclusive result suppression.
   - Cover cancellation and Full Reset while coverage is active, including worker/cache cleanup and default-mode restoration.
@@ -454,13 +454,10 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 
 ## Continuation Point
 
-The backend runner, coverage CSV reporting, Wails lifecycle routing, and an initial manual frontend adapter are implemented. The next session should:
+The backend runner, coverage CSV reporting, Wails lifecycle routing, coverage frontend, and failure/lifecycle E2E coverage are implemented. The next session should:
 
-1. Finish the coverage frontend states and manually verify both operation modes.
-2. Add coverage happy-path end-to-end tests, including exact CSV output and report-path behavior.
-3. Add failure and lifecycle end-to-end tests for skipped paths, relevant read failures, cancellation, and Full Reset.
-4. Decide whether to align coverage with the duplicate flow's asynchronous error logger; this is intentionally deferred and does not block current coverage behavior.
-5. Run final regression, race, frontend, and Wails verification, then update the plan status and TODO item.
+1. Decide whether to align coverage with the duplicate flow's asynchronous error logger; this is intentionally deferred and does not block current coverage behavior.
+2. Run final regression, race, frontend, and Wails verification, then update the plan status and TODO item.
 
 ## Persistence Verification
 
