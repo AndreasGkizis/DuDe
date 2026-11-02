@@ -27,6 +27,8 @@ const coverageSummary = document.getElementById('coverage-summary');
 const coverageOutcome = document.getElementById('coverage-outcome');
 const coverageCovered = document.getElementById('coverage-covered');
 const coverageMissing = document.getElementById('coverage-missing');
+const coverageReportStatus = document.getElementById('coverage-report-status');
+const coverageDiagnostics = document.getElementById('coverage-diagnostics');
 const statusMetricLabel = document.getElementById('status-metric-label');
 const pageSizeLabel = document.getElementById('page-size-label');
 
@@ -40,6 +42,7 @@ const EXECUTION_MODE_DUPLICATES = 1;
 const EXECUTION_MODE_FIND_MISSING_CONTENT = 2;
 let allGroups = [];
 let allMissingFiles = [];
+let currentCoverageDiagnostics = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let activePhase = '';
@@ -102,7 +105,7 @@ function updateModePresentation() {
     duplicateFolders.hidden = isFindMissingContent;
     coverageFolders.hidden = !isFindMissingContent;
     coverageSummary.hidden = !isFindMissingContent;
-    statusMetricLabel.textContent = isFindMissingContent ? 'Missing Content' : 'Duplicates Found';
+    statusMetricLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Duplicates Found';
     pageSizeLabel.textContent = isFindMissingContent ? 'Missing files per page' : 'Groups per page';
     resultsCountLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Results';
     startText.textContent = 'Start';
@@ -249,6 +252,14 @@ window.startProcess = function () {
     statusDuplicates.classList.remove('status-value--orange');
     statusError.textContent = "";
     statusError.style.display = "none";
+    coverageOutcome.textContent = 'Running coverage...';
+    coverageCovered.textContent = '\u2014';
+    coverageMissing.textContent = '\u2014';
+    coverageReportStatus.textContent = '';
+    coverageReportStatus.hidden = true;
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = true;
+    currentCoverageDiagnostics = [];
     resetProgressBar();
 
     // Hide previous results
@@ -385,9 +396,14 @@ window.clearResults = function () {
     statusFiles.textContent = '\u2014';
     statusDuplicates.textContent = '\u2014';
     statusDuplicates.classList.remove('status-value--orange');
-    coverageOutcome.textContent = 'Awaiting a missing-content run';
+    coverageOutcome.textContent = 'Awaiting a coverage run';
     coverageCovered.textContent = '\u2014';
     coverageMissing.textContent = '\u2014';
+    coverageReportStatus.textContent = '';
+    coverageReportStatus.hidden = true;
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = true;
+    currentCoverageDiagnostics = [];
     statusError.textContent = '';
     statusError.style.display = 'none';
     resetProgressBar();
@@ -466,6 +482,15 @@ function setupStatusListeners() {
     // 2. Detailed log / cancellation messages route to the job field
     runtime.EventsOn("detailedLog", (message) => {
         statusJob.textContent = message;
+        if (message === 'Process Stopped.') {
+            statusJob.classList.remove('status-value--success');
+            statusError.textContent = '';
+            statusError.style.display = 'none';
+            setExecutionActive(false);
+            stopButton.disabled = true;
+            fullResetButton.disabled = false;
+            toggleStartSpinner(false);
+        }
     });
 
     // 2a. Files count update
@@ -483,6 +508,13 @@ function setupStatusListeners() {
         statusJob.classList.remove('status-value--success');
         statusError.textContent = message;
         statusError.style.display = '';
+        if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) {
+            coverageOutcome.textContent = 'Inconclusive — no coverage result was published';
+            coverageReportStatus.textContent = '';
+            coverageReportStatus.hidden = true;
+            coverageDiagnostics.textContent = '';
+            coverageDiagnostics.hidden = true;
+        }
         markActivePhaseFailed();
 
         showResultsButton.disabled = true;
@@ -695,10 +727,16 @@ function renderCoverageResult(result, diagnostics) {
     coverageCovered.textContent = `${covered} / ${total}`;
     coverageMissing.textContent = String(missing.length);
     coverageOutcome.textContent = total === 0
-        ? 'No source files found'
+        ? `Empty source${skippedCount ? ' — some paths skipped' : ''}`
         : missing.length > 0
-            ? `Missing files${skippedCount ? ' — some paths skipped' : ''}`
-            : `All files covered${skippedCount ? ' — some paths skipped' : ''}`;
+            ? `Incomplete coverage${skippedCount ? ' — some paths skipped' : ''}`
+            : `Complete${skippedCount ? ' — some paths skipped' : ''}`;
+    statusJob.textContent = total === 0
+        ? 'No source files were discovered; coverage was not assessed.'
+        : missing.length > 0
+            ? 'Coverage incomplete: source files are missing from the target.'
+            : 'Coverage complete: all discovered source files are covered.';
+    statusJob.classList.toggle('status-value--success', total > 0 && missing.length === 0);
     statusDuplicates.textContent = String(missing.length);
     statusDuplicates.classList.toggle('status-value--orange', missing.length > 0);
 
@@ -721,22 +759,27 @@ function renderCoverageResult(result, diagnostics) {
         renderPage(1);
     }
 
+    currentCoverageDiagnostics = [
+        ...skippedSource.map(item => ['Source', item]),
+        ...skippedTarget.map(item => ['Target', item]),
+    ];
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = skippedCount === 0;
     if (skippedCount > 0) {
-        const skippedNotice = document.createElement('div');
-        skippedNotice.className = 'inline-notice inline-notice--warning';
         const heading = document.createElement('strong');
-        heading.textContent = `${skippedCount} source or target path${skippedCount === 1 ? '' : 's'} could not be inspected.`;
-        skippedNotice.appendChild(heading);
+        heading.textContent = `${skippedCount} source or target path${skippedCount === 1 ? '' : 's'} skipped; coverage applies only to discovered files.`;
+        coverageDiagnostics.appendChild(heading);
         const list = document.createElement('ul');
-        [...skippedSource.map(item => ['Source', item]), ...skippedTarget.map(item => ['Target', item])]
-            .forEach(([scope, item]) => {
-                const entry = document.createElement('li');
-                entry.textContent = `${scope}: ${item.path || '(unknown path)'} — ${item.reason || 'unknown reason'}`;
-                list.appendChild(entry);
-            });
-        skippedNotice.appendChild(list);
-        resultsList.prepend(skippedNotice);
+        currentCoverageDiagnostics.forEach(([scope, item]) => {
+            const entry = document.createElement('li');
+            entry.textContent = `${scope}: ${item.path || '(unknown path)'} — ${item.reason || 'unknown reason'}`;
+            list.appendChild(entry);
+        });
+        coverageDiagnostics.appendChild(list);
     }
+
+    coverageReportStatus.textContent = reportPath ? 'Coverage report generated for this run.' : '';
+    coverageReportStatus.hidden = !reportPath;
 }
 
 /**
@@ -751,10 +794,9 @@ function renderPage(page, scrollToResults = true) {
     window.currentPage = currentPage;
 
     const start = (currentPage - 1) * pageSize;
-    const end = Math.min(start + pageSize, allGroups.length);
-    const pageItems = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT
-        ? allMissingFiles.slice(start, end)
-        : allGroups.slice(start, end);
+    const items = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles : allGroups;
+    const end = Math.min(start + pageSize, items.length);
+    const pageItems = items.slice(start, end);
 
     resultsList.innerHTML = '';
     pageItems.forEach(item => resultsList.appendChild(

@@ -1,6 +1,6 @@
 # Target Coverage Using DuDe’s Duplicate Rules
 
-**Status:** Planned  
+**Status:** In Progress
 **Decision date:** 2026-08-18
 
 ## Summary
@@ -356,7 +356,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Require an explicit recognized mode and reject empty or unknown values.
   - Require `Directories` in duplicate mode and both Source Folder and Target Folder in coverage mode.
   - Preserve shared cache directory, results directory, worker-count, and buffer-size resolution.
-  - Review boundary: models and argument validation only; coverage runner routing remains disconnected and the coverage Start button remains disabled.
+  - Review boundary: models and argument validation only; coverage runner routing and frontend execution are outside this step.
   - Verification: focused resolver/model tests, then `GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests/handlers/validation ./tests/unit_tests`.
 
 - [x] **3. Add missing-content result models and synchronized application state.**
@@ -417,23 +417,22 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: coverage report creation only.
   - Verification: exact-output tests plus injected write, flush, close, and cleanup failures.
 
-- [ ] **10. Route coverage through the Wails execution lifecycle.**
+- [x] **10. Route coverage through the Wails execution lifecycle.**
   - Select the duplicate or coverage runner from the resolved execution mode.
   - Route both modes through the existing `ExecutionGate`, reporter error flow, cancellation path, and execution-finished signaling.
   - Ensure execution start, failure, cancellation, and Full Reset clear the correct state without publishing stale results.
-  - Review boundary: backend routing and lifecycle integration only; the frontend Start button remains disconnected from coverage.
+  - Review boundary: backend routing and lifecycle integration; the coverage flow is registered and manually runnable through the early frontend adapter.
   - Verification: routing, state-clearing, cancellation, concurrent-start, and Full Reset regression tests, including `go test -race` for focused packages.
 
-- [ ] **11. Connect and complete the coverage frontend.**
-  - Send mode, source directory, and target directory in `StartExecution` parameters and enable Start in coverage mode.
-  - Fetch `GetMissingContentResult()` only for find-missing-content executions and keep duplicate rendering unchanged.
-  - Render Complete, Missing, Complete/Missing with skipped-path diagnostics, Empty Source, Inconclusive, cancellation, and reset as distinct states.
-  - Render every missing file with filename, full path, byte size, pagination, and Show action.
-  - Enable Open Results Folder only when the current execution produced a report.
-  - Review boundary: frontend-to-backend wiring and coverage presentation only.
+- [ ] **11. Finish the coverage frontend.**
+  - The initial frontend adapter is implemented: it sends coverage parameters, enables Start, fetches the typed result and diagnostics, and renders missing files and skipped paths.
+  - Finish distinct presentation for Complete, Missing, skipped-path, Empty Source, Inconclusive, cancellation, and reset states.
+  - Verify report-path handling and **Open Results Folder** behavior for the current run.
+  - Keep duplicate rendering unchanged.
+  - Review boundary: final frontend presentation and manual verification only.
   - Verification: frontend build, Wails binding generation/build, and manual checks of both modes.
 
-- [ ] **12. Add coverage happy-path end-to-end tests.**
+- [x] **12. Add coverage happy-path end-to-end tests.**
   - Cover complete coverage with renamed/reorganized files, partial coverage and ordered CSV, one target covering multiple sources, source-only duplicates, empty source, and empty target.
   - Assert result counts, ordered missing paths, report presence or absence, and target-extra behavior.
   - Review boundary: deterministic successful and incomplete executions only.
@@ -455,15 +454,13 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 
 ## Continuation Point
 
-Implementation should begin test-first:
+The backend runner, coverage CSV reporting, Wails lifecycle routing, and an initial manual frontend adapter are implemented. The next session should:
 
-1. Add coverage models and mode-aware validation tests.
-2. Add deterministic processing tests proving directional matching.
-3. Extract the shared discovery/hash/equality components without changing duplicate behavior.
-4. Implement the coverage runner and report writer.
-5. Add Wails-facing result state and APIs.
-6. Implement the mode-specific frontend controls and results.
-7. Add end-to-end tests and complete the full verification sequence.
+1. Finish the coverage frontend states and manually verify both operation modes.
+2. Add coverage happy-path end-to-end tests, including exact CSV output and report-path behavior.
+3. Add failure and lifecycle end-to-end tests for skipped paths, relevant read failures, cancellation, and Full Reset.
+4. Decide whether to align coverage with the duplicate flow's asynchronous error logger; this is intentionally deferred and does not block current coverage behavior.
+5. Run final regression, race, frontend, and Wails verification, then update the plan status and TODO item.
 
 ## Persistence Verification
 

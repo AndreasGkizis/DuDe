@@ -819,6 +819,36 @@ label {
     letter-spacing: 0.04em;
 }
 
+.coverage-report-status,
+.coverage-diagnostics {
+    margin-top: 12px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.coverage-report-status {
+    color: var(--color-accent);
+    background-color: rgba(90, 200, 120, 0.08);
+}
+
+.coverage-diagnostics {
+    color: var(--color-info);
+    border: 1px solid var(--color-info);
+    background-color: rgba(255, 183, 77, 0.08);
+}
+
+.coverage-report-status[hidden],
+.coverage-diagnostics[hidden] {
+    display: none;
+}
+
+.coverage-diagnostics ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
 /* -------------------------------------------
  * 7. FOOTER
  * ------------------------------------------- */
