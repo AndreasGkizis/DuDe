@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"DuDe/internal/models"
-	"DuDe/internal/processing"
+	"DuDe/internal/processing/services"
 )
 
 func TestWriteResultsCSVReturnsFlushErrors(t *testing.T) {
 	expectedErr := errors.New("disk write failed")
 	output := &failAfterFirstWrite{err: expectedErr}
 
-	err := processing.WriteResultsCSV(output, []models.ResultEntry{{
+	err := services.WriteResultsCSV(output, []models.ResultEntry{{
 		Filename:          "original.txt",
 		FullPath:          "/files/original.txt",
 		DuplicateFilename: "duplicate.txt",

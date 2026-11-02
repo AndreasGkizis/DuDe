@@ -23,11 +23,12 @@ func Test_SingleFolder_EmptyFolder(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 
 	err := app.StartExecution(args)
@@ -63,11 +64,12 @@ func Test_SingleFolder_NoDuplicates(t *testing.T) {
 	os.MkdirAll(testCacheDir, 0755)
 
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 	err := app.StartExecution(args)
 	if err != nil {
@@ -107,11 +109,12 @@ func Test_SingleFolder_WithDuplicates(t *testing.T) {
 
 	// 4. Prepare Arguments
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 
 	err := app.StartExecution(args)
@@ -150,11 +153,12 @@ func Test_SingleFolder_HiddenFiles(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 
 	// 4. Execute the logic
@@ -194,11 +198,12 @@ func Test_SingleFolder_SpecialCharacters(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 
 	// 4. Execute the logic
@@ -238,11 +243,12 @@ func Test_SingleFolder_DifferentSizes(t *testing.T) {
 
 	// 3. Prepare Arguments
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir: testResultsDir,
 		CacheDir:   testCacheDir,
-		CPUs:       1,
-		BufSize:    1024,
+		WorkerCount:       1,
+		BufferSizeBytes:    1024,
 	}
 
 	// 4. Execute the logic
@@ -300,11 +306,12 @@ func Test_SingleFolder_ShouldNotInclude_If_Md5Collision(t *testing.T) {
 
 	// 3. Prepare Arguments: Crucially enable ParanoidMode
 	args := models.ExecutionParams{
+		Mode: models.ExecutionModeDuplicates,
 		Directories: []string{tempDir},
 		ResultsDir:   testResultsDir,
 		CacheDir:     testCacheDir,
-		CPUs:         1,
-		BufSize:      1024,
+		WorkerCount:         1,
+		BufferSizeBytes:      1024,
 		ParanoidMode: true, // <-- Enable full byte-by-byte comparison
 	}
 

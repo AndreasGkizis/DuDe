@@ -9,9 +9,9 @@ import (
 )
 
 // Helper to set up a Validator with the mock
-func setupValidator(_ *testing.T, mockFS fs.MockFS) val.Validator {
+func setupValidator(_ *testing.T, mockFS fs.MockFS) val.FilesystemValidator {
 	// Note: We use the actual package name for injection
-	return val.Validator{FS: mockFS}
+	return val.FilesystemValidator{FS: mockFS}
 }
 
 // --- ReadableDir Tests ---

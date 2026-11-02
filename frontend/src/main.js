@@ -1,7 +1,7 @@
 import './style.css';
 import htmlTemplate from './template.html?raw';
 
-import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, RevealInExplorer, FullReset } from '../wailsjs/go/processing/FrontendApp';
+import { SelectFolder, StartExecution, ShowResults, CancelExecution, CheckIfResultsExist, GetResults, GetMissingContentResult, GetScanDiagnostics, RevealInExplorer, FullReset } from '../wailsjs/go/processing/FrontendApp';
 import { FrontEnd_DuplicateGroup } from './models.js';
 
 document.querySelector('#app').innerHTML = htmlTemplate;
@@ -18,6 +18,19 @@ const clearResultsButton = document.getElementById('clearResultsButton');
 const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const fullResetButton = document.getElementById('fullResetButton');
+const modeInputs = Array.from(document.querySelectorAll('input[name="operationMode"]'));
+const duplicateFolders = document.getElementById('duplicateFolders');
+const coverageFolders = document.getElementById('coverageFolders');
+const sourceDir = document.getElementById('sourceDir');
+const targetDir = document.getElementById('targetDir');
+const coverageSummary = document.getElementById('coverage-summary');
+const coverageOutcome = document.getElementById('coverage-outcome');
+const coverageCovered = document.getElementById('coverage-covered');
+const coverageMissing = document.getElementById('coverage-missing');
+const coverageReportStatus = document.getElementById('coverage-report-status');
+const coverageDiagnostics = document.getElementById('coverage-diagnostics');
+const statusMetricLabel = document.getElementById('status-metric-label');
+const pageSizeLabel = document.getElementById('page-size-label');
 
 const startText = document.getElementById('startText');
 const startButtonSpinner = document.getElementById('startButtonSpinner');
@@ -25,10 +38,16 @@ const startButtonSpinner = document.getElementById('startButtonSpinner');
 // --- Duplicate Results State ---
 const DEFAULT_PAGE_SIZE = 3;
 const PAGE_SIZE_OPTIONS = [3, 5, 10, 25, 50];
+const EXECUTION_MODE_DUPLICATES = 1;
+const EXECUTION_MODE_FIND_MISSING_CONTENT = 2;
 let allGroups = [];
+let allMissingFiles = [];
+let currentCoverageDiagnostics = [];
 let currentPage = 1;
 let pageSize = DEFAULT_PAGE_SIZE;
 let activePhase = '';
+let currentMode = EXECUTION_MODE_DUPLICATES;
+let executionActive = false;
 
 const resultsSection = document.getElementById('results-section');
 const resultsList = document.getElementById('results-list');
@@ -66,6 +85,54 @@ window.selectAndSetDir = function (target) {
         });
 };
 
+// --- Operation Mode Handlers ---
+
+function resetFolderSelections() {
+    const dirList = document.getElementById('dirList');
+    dirList.innerHTML = `
+        <div class="dir-row" data-index="0">
+            <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
+            <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
+            <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
+        </div>`;
+    sourceDir.value = '';
+    targetDir.value = '';
+}
+
+
+function updateModePresentation() {
+    const isFindMissingContent = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT;
+    duplicateFolders.hidden = isFindMissingContent;
+    coverageFolders.hidden = !isFindMissingContent;
+    coverageSummary.hidden = !isFindMissingContent;
+    statusMetricLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Duplicates Found';
+    pageSizeLabel.textContent = isFindMissingContent ? 'Missing files per page' : 'Groups per page';
+    resultsCountLabel.textContent = isFindMissingContent ? 'Missing Files' : 'Results';
+    startText.textContent = 'Start';
+    startButton.title = '';
+    startButton.disabled = executionActive;
+    showResultsButton.disabled = true;
+}
+
+function setExecutionActive(isActive) {
+    executionActive = isActive;
+    modeInputs.forEach(input => { input.disabled = isActive; });
+    startButton.disabled = isActive;
+}
+
+window.changeOperationMode = function (mode) {
+    const selectedMode = Number(mode);
+    if (executionActive || (selectedMode !== EXECUTION_MODE_DUPLICATES && selectedMode !== EXECUTION_MODE_FIND_MISSING_CONTENT)) {
+        modeInputs.forEach(input => { input.checked = Number(input.value) === currentMode; });
+        return;
+    }
+
+    currentMode = selectedMode;
+    resetFolderSelections();
+    clearResults();
+    updateModePresentation();
+};
+
 // --- Dynamic Directory List Handlers ---
 
 /**
@@ -94,6 +161,26 @@ window.removeDir = function (btn) {
     const row = btn.closest('.dir-row');
     row.remove();
     _updateRemoveButtons();
+};
+
+/**
+ * Steps a themed number input while preserving its native min/max behavior.
+ * @param {string} inputId The number input to update.
+ * @param {number} direction Positive to increment, negative to decrement.
+ */
+window.stepNumberInput = function (inputId, direction) {
+    const input = document.getElementById(inputId);
+    if (!input || input.disabled) return;
+
+    if (direction > 0) {
+        input.stepUp();
+    } else {
+        input.stepDown();
+    }
+
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus({ preventScroll: true });
 };
 
 /** Disables the remove button when only one row remains. */
@@ -138,20 +225,22 @@ window.toggleAdvanced = function () {
 
 // --- Execution Start Handler ---
 window.startProcess = function () {
-    // 1. Gather data
     const dirInputs = document.querySelectorAll('#dirList .dir-row input');
     const directories = Array.from(dirInputs)
         .map(input => input.value.trim())
         .filter(v => v !== '');
 
     const params = {
-        directories: directories,
+        mode: currentMode,
+        directories: currentMode === EXECUTION_MODE_DUPLICATES ? directories : [],
+        findMissingSourceDir: currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? sourceDir.value.trim() : '',
+        findMissingTargetDir: currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? targetDir.value.trim() : '',
         useCache: document.getElementById('keepMemory').checked,
         cacheDir: document.getElementById('cacheDir').value,
         resultsDir: document.getElementById('resultsDir').value,
         paranoidMode: document.getElementById('paranoidMode').checked,
-        cpus: parseInt(document.getElementById('cpus').value) || 0,
-        bufSize: parseInt(document.getElementById('bufSize').value) || 0,
+        workerCount: parseInt(document.getElementById('cpus').value) || 0,
+        bufferSizeBytes: parseInt(document.getElementById('bufSize').value) || 0,
         debugMode: document.getElementById('debugMode').checked,
     };
 
@@ -163,11 +252,20 @@ window.startProcess = function () {
     statusDuplicates.classList.remove('status-value--orange');
     statusError.textContent = "";
     statusError.style.display = "none";
+    coverageOutcome.textContent = 'Running coverage...';
+    coverageCovered.textContent = '\u2014';
+    coverageMissing.textContent = '\u2014';
+    coverageReportStatus.textContent = '';
+    coverageReportStatus.hidden = true;
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = true;
+    currentCoverageDiagnostics = [];
     resetProgressBar();
 
     // Hide previous results
     resultsSection.style.display = 'none';
     allGroups = [];
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
     resultsList.innerHTML = '';
@@ -175,7 +273,7 @@ window.startProcess = function () {
 
 
     // UI State: Running
-    startButton.disabled = true;
+    setExecutionActive(true);
     stopButton.disabled = false;
     showResultsButton.disabled = true;
     clearResultsButton.disabled = true;
@@ -187,7 +285,7 @@ window.startProcess = function () {
     StartExecution(params)
         .then((result) => {
             if (result) statusJob.textContent = result;
-            startButton.disabled = false;
+            setExecutionActive(false);
             stopButton.disabled = true;
             fullResetButton.disabled = false;
             toggleStartSpinner(false);
@@ -199,7 +297,7 @@ window.startProcess = function () {
             statusError.style.display = '';
             markActivePhaseFailed();
             showResultsButton.disabled = true;
-            startButton.disabled = false;
+            setExecutionActive(false);
             stopButton.disabled = true;
             fullResetButton.disabled = false;
             toggleStartSpinner(false);
@@ -240,14 +338,9 @@ window.showResults = function () {
  * Called both from window.fullReset() and from the backend "fullReset" Wails event.
  */
 function _applyUIReset() {
-    // Reset directory list to a single empty row
-    const dirList = document.getElementById('dirList');
-    dirList.innerHTML = `
-        <div class="dir-row" data-index="0">
-            <input class="input dir-input" type="text" readonly placeholder="Nothing selected!">
-            <button class="btn btn-select" onclick="selectAndSetDir(this)">Select</button>
-            <button class="btn btn-remove-dir" onclick="removeDir(this)" disabled title="Remove directory">−</button>
-        </div>`;
+    currentMode = EXECUTION_MODE_DUPLICATES;
+    modeInputs.forEach(input => { input.checked = Number(input.value) === currentMode; });
+    resetFolderSelections();
 
     // Reset advanced settings
     document.getElementById('cacheDir').value = '';
@@ -262,10 +355,11 @@ function _applyUIReset() {
     clearResults();
 
     // Restore button states
-    startButton.disabled = false;
+    setExecutionActive(false);
     stopButton.disabled = true;
     fullResetButton.disabled = false;
     toggleStartSpinner(false);
+    updateModePresentation();
 }
 
 window.fullReset = function () {
@@ -284,6 +378,7 @@ window.fullReset = function () {
 window.clearResults = function () {
     // Reset in-memory state
     allGroups = [];
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
 
@@ -293,6 +388,7 @@ window.clearResults = function () {
     resultsCountLabel.textContent = 'Results';
     clearResultsButton.disabled = true;
     resultsPageSize.disabled = true;
+    showResultsButton.disabled = true;
 
     // Reset status area to clean slate
     statusJob.textContent = 'Ready to run.';
@@ -300,9 +396,18 @@ window.clearResults = function () {
     statusFiles.textContent = '\u2014';
     statusDuplicates.textContent = '\u2014';
     statusDuplicates.classList.remove('status-value--orange');
+    coverageOutcome.textContent = 'Awaiting a coverage run';
+    coverageCovered.textContent = '\u2014';
+    coverageMissing.textContent = '\u2014';
+    coverageReportStatus.textContent = '';
+    coverageReportStatus.hidden = true;
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = true;
+    currentCoverageDiagnostics = [];
     statusError.textContent = '';
     statusError.style.display = 'none';
     resetProgressBar();
+    updateModePresentation();
 };
 
 function resetProgressBar() {
@@ -377,6 +482,15 @@ function setupStatusListeners() {
     // 2. Detailed log / cancellation messages route to the job field
     runtime.EventsOn("detailedLog", (message) => {
         statusJob.textContent = message;
+        if (message === 'Process Stopped.') {
+            statusJob.classList.remove('status-value--success');
+            statusError.textContent = '';
+            statusError.style.display = 'none';
+            setExecutionActive(false);
+            stopButton.disabled = true;
+            fullResetButton.disabled = false;
+            toggleStartSpinner(false);
+        }
     });
 
     // 2a. Files count update
@@ -394,10 +508,18 @@ function setupStatusListeners() {
         statusJob.classList.remove('status-value--success');
         statusError.textContent = message;
         statusError.style.display = '';
+        if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) {
+            coverageOutcome.textContent = 'Inconclusive — no coverage result was published';
+            coverageReportStatus.textContent = '';
+            coverageReportStatus.hidden = true;
+            coverageDiagnostics.textContent = '';
+            coverageDiagnostics.hidden = true;
+        }
         markActivePhaseFailed();
 
         showResultsButton.disabled = true;
         fullResetButton.disabled = false;
+        setExecutionActive(false);
 
         toggleStartSpinner(false);
     });
@@ -406,14 +528,20 @@ function setupStatusListeners() {
     statusJob.textContent = "Process Complete.";
     statusJob.classList.add('status-value--success');
     toggleStartSpinner(false);
-    startButton.disabled = false;
+    setExecutionActive(false);
     stopButton.disabled = true;
     fullResetButton.disabled = false;
 
     // Fetch and display duplicate groups
-    GetResults()
-        .then(groups => renderResults(groups))
-        .catch(err => console.error('GetResults error:', err));
+    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT) {
+        Promise.all([GetMissingContentResult(), GetScanDiagnostics()])
+            .then(([result, diagnostics]) => renderCoverageResult(result, diagnostics))
+            .catch(err => console.error('GetMissingContentResult error:', err));
+    } else {
+        GetResults()
+            .then(groups => renderResults(groups))
+            .catch(err => console.error('GetResults error:', err));
+    }
 });
 
     // fullReset event: backend notifies the frontend after FullReset() completes
@@ -426,6 +554,7 @@ function setupStatusListeners() {
 // Run setup after DOM load
 setupStatusListeners();
 refreshResultsButtonState();
+updateModePresentation();
 
 // --- Results: public page navigation (called from template onclick) ---
 window.currentPage = currentPage; // expose for onclick expressions
@@ -445,7 +574,7 @@ window.changeResultsPageSize = function (value) {
     currentPage = Math.floor(firstVisibleGroupIndex / pageSize) + 1;
     window.currentPage = currentPage;
 
-    if (allGroups.length > 0) {
+    if (currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles.length > 0 : allGroups.length > 0) {
         renderPage(currentPage, false);
     }
 };
@@ -547,22 +676,134 @@ function createResultCard(group) {
     return card;
 }
 
+function createMissingFileCard(file) {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+
+    const header = document.createElement('div');
+    header.className = 'result-card-header';
+
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'result-file-info';
+
+    const name = document.createElement('span');
+    name.className = 'result-filename';
+    name.textContent = file.Filename || file.filename || '(unnamed)';
+
+    const path = file.FullPath || file.fullPath || '';
+    const pathSpan = document.createElement('span');
+    pathSpan.className = 'result-filepath';
+    pathSpan.textContent = path;
+    pathSpan.title = path;
+
+    const size = document.createElement('span');
+    size.className = 'result-filepath';
+    size.textContent = `${file.Size ?? file.size ?? 0} bytes`;
+
+    fileInfo.append(name, pathSpan, size);
+
+    const showButton = document.createElement('button');
+    showButton.className = 'btn btn-show';
+    showButton.textContent = 'Show';
+    showButton.onclick = () => window.revealInExplorer(path);
+
+    header.appendChild(fileInfo);
+    header.appendChild(showButton);
+    card.appendChild(header);
+    return card;
+}
+
+function renderCoverageResult(result, diagnostics) {
+    const coverage = result || { TotalSourceFiles: 0, MissingFiles: [] };
+    const total = coverage.TotalSourceFiles ?? coverage.totalSourceFiles ?? 0;
+    const missing = coverage.MissingFiles || coverage.missingFiles || [];
+    const reportPath = coverage.ReportPath || coverage.reportPath || '';
+    showResultsButton.disabled = !reportPath;
+    const skippedSource = diagnostics?.SkippedSourcePaths || diagnostics?.skippedSourcePaths || [];
+    const skippedTarget = diagnostics?.SkippedTargetPaths || diagnostics?.skippedTargetPaths || [];
+    const skippedCount = skippedSource.length + skippedTarget.length;
+    const covered = Math.max(0, total - missing.length);
+
+    coverageCovered.textContent = `${covered} / ${total}`;
+    coverageMissing.textContent = String(missing.length);
+    coverageOutcome.textContent = total === 0
+        ? `Empty source${skippedCount ? ' — some paths skipped' : ''}`
+        : missing.length > 0
+            ? `Incomplete coverage${skippedCount ? ' — some paths skipped' : ''}`
+            : `Complete${skippedCount ? ' — some paths skipped' : ''}`;
+    statusJob.textContent = total === 0
+        ? 'No source files were discovered; coverage was not assessed.'
+        : missing.length > 0
+            ? 'Coverage incomplete: source files are missing from the target.'
+            : 'Coverage complete: all discovered source files are covered.';
+    statusJob.classList.toggle('status-value--success', total > 0 && missing.length === 0);
+    statusDuplicates.textContent = String(missing.length);
+    statusDuplicates.classList.toggle('status-value--orange', missing.length > 0);
+
+    allMissingFiles = missing;
+    allGroups = [];
+    currentPage = 1;
+    window.currentPage = 1;
+    resultsList.innerHTML = '';
+    resultsCountLabel.textContent = `Missing Files — ${missing.length}`;
+
+    if (missing.length === 0) {
+        resultsSection.style.display = skippedCount > 0 ? 'block' : 'none';
+        clearResultsButton.disabled = skippedCount === 0;
+        resultsPageSize.disabled = true;
+    } else {
+        resultsSection.style.display = 'block';
+        clearResultsButton.disabled = false;
+        resultsPageSize.disabled = false;
+        resultsPageSize.value = String(pageSize);
+        renderPage(1);
+    }
+
+    currentCoverageDiagnostics = [
+        ...skippedSource.map(item => ['Source', item]),
+        ...skippedTarget.map(item => ['Target', item]),
+    ];
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = skippedCount === 0;
+    if (skippedCount > 0) {
+        const heading = document.createElement('strong');
+        heading.textContent = `${skippedCount} source or target path${skippedCount === 1 ? '' : 's'} skipped; coverage applies only to discovered files.`;
+        coverageDiagnostics.appendChild(heading);
+        const list = document.createElement('ul');
+        currentCoverageDiagnostics.forEach(([scope, item]) => {
+            const entry = document.createElement('li');
+            entry.textContent = `${scope}: ${item.path || '(unknown path)'} — ${item.reason || 'unknown reason'}`;
+            list.appendChild(entry);
+        });
+        coverageDiagnostics.appendChild(list);
+    }
+
+    coverageReportStatus.textContent = reportPath ? 'Coverage report generated for this run.' : '';
+    coverageReportStatus.hidden = !reportPath;
+}
+
 /**
  * Renders one page of duplicate groups into the results list.
  * @param {number} page 1-based page number
  * @param {boolean} scrollToResults whether to scroll the result section into view
  */
 function renderPage(page, scrollToResults = true) {
-    const totalPages = Math.max(1, Math.ceil(allGroups.length / pageSize));
+    const itemCount = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles.length : allGroups.length;
+    const totalPages = Math.max(1, Math.ceil(itemCount / pageSize));
     currentPage = Math.max(1, Math.min(page, totalPages));
     window.currentPage = currentPage;
 
     const start = (currentPage - 1) * pageSize;
-    const end = Math.min(start + pageSize, allGroups.length);
-    const pageGroups = allGroups.slice(start, end);
+    const items = currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT ? allMissingFiles : allGroups;
+    const end = Math.min(start + pageSize, items.length);
+    const pageItems = items.slice(start, end);
 
     resultsList.innerHTML = '';
-    pageGroups.forEach(group => resultsList.appendChild(createResultCard(group)));
+    pageItems.forEach(item => resultsList.appendChild(
+        currentMode === EXECUTION_MODE_FIND_MISSING_CONTENT
+            ? createMissingFileCard(item)
+            : createResultCard(item)
+    ));
 
     const pageText = `Page ${currentPage} of ${totalPages}`;
     pageIndicatorTop.textContent = pageText;
@@ -589,6 +830,7 @@ function renderPage(page, scrollToResults = true) {
  */
 function renderResults(rawGroups) {
     allGroups = (rawGroups || []).map(FrontEnd_DuplicateGroup.fromFileHash);
+    allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
 
