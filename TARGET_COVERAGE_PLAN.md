@@ -1,6 +1,6 @@
 # Target Coverage Using DuDe’s Duplicate Rules
 
-**Status:** In Progress
+**Status:** Complete
 **Decision date:** 2026-08-18
 
 ## Summary
@@ -445,7 +445,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
   - Review boundary: failure, cancellation, and reset behavior only.
   - Verification: focused E2E tests and the full unit/E2E race command.
 
-- [ ] **14. Complete final regression and release verification.**
+- [x] **14. Complete final regression and release verification.**
   - Run every command in Verification Commands, including the full race suite, frontend build, and forced Wails build.
   - Manually verify both operation modes, result-folder enablement, cancellation, and Full Reset.
   - Confirm no duplicate-mode result, CSV, lifecycle, or UI behavior regressed.
@@ -454,10 +454,7 @@ Use this section as the implementation tracker. Each numbered checkbox is intend
 
 ## Continuation Point
 
-The backend runner, coverage CSV reporting, Wails lifecycle routing, coverage frontend, and failure/lifecycle E2E coverage are implemented. The next session should:
-
-1. Decide whether to align coverage with the duplicate flow's asynchronous error logger; this is intentionally deferred and does not block current coverage behavior.
-2. Run final regression, race, frontend, and Wails verification, then update the plan status and TODO item.
+The target coverage feature is implemented and has completed the planned regression verification. The deferred asynchronous error-logger alignment remains optional and does not block the feature.
 
 ## Persistence Verification
 

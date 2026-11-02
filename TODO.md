@@ -1,6 +1,6 @@
 ## Planned Features
 
-1. [Target Coverage Check](TARGET_COVERAGE_PLAN.md) — Verify every source file has equivalent content in a target folder using DuDe's existing duplicate rules.
+1. [x] [Target Coverage Check](TARGET_COVERAGE_PLAN.md) — Verify every source file has equivalent content in a target folder using DuDe's existing duplicate rules.
 
 ## Later
 
