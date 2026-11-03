@@ -281,17 +281,18 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	result := &executionResultPublisher{}
 	err = flow.Run(execCtx, args, a.reporter, result, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if errors.Is(err, context.Canceled) {
-		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		a.publishExecutionState(executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusCancelled)})
+		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
 		return nil
 	}
 	if err != nil {
-		a.reporter.ReportError(a.wailsCtx, err.Error())
 		a.publishExecutionState(executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusInconclusive)})
+		a.reporter.ReportError(a.wailsCtx, err.Error())
 		return err
 	}
 
 	result.PublishTo(a)
+	a.reporter.FinishExecution(a.wailsCtx)
 	return nil
 }
 

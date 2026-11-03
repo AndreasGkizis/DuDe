@@ -38,6 +38,9 @@ type ResultPublisher interface {
 }
 
 // ExecutionFlow is one executable operation supported by the application.
+// Run reports progress and publishes its result before returning nil, including
+// for empty results. The runner publishes terminal application state and sends
+// the completion, error, or cancellation notification after Run returns.
 type ExecutionFlow interface {
 	Mode() models.ExecutionMode
 	Validate(args *models.ExecutionParams) error

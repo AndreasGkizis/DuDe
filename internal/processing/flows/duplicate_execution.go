@@ -105,7 +105,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		reporter.LogDetailedStatus(ctx, "No possible duplicates found: every file has a unique size")
 		reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 		reporter.LogProgress(ctx, "Done", 100)
-		reporter.FinishExecution(ctx)
 		sink.Close()
 		diagnostics := sink.CompletedSnapshot()
 		reportPath, reportErr := saveDuplicateReportIfNeeded(files, diagnostics, args.ResultsDir)
@@ -119,12 +118,13 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	hashing := visuals.NewProgressTracker(ctx, reporter, "Hashing")
 	hashing.Start()
-	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeDuplicate); err != nil {
+	err = services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeDuplicate)
+	hashing.Wait()
+	if err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
 		sink.Close()
 		return err
 	}
-	hashing.Wait()
 
 	memory.WaitForCache(ctx, func(completed, total int64) {
 		percentage := float64(completed) / float64(total) * 100
@@ -186,7 +186,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	reporter.LogProgress(ctx, "Done", 100)
-	reporter.FinishExecution(ctx)
 	publisher.PublishScanDiagnostics(diagnostics)
 	publisher.PublishDuplicateResult(models.DuplicateResult{Groups: groups, ReportPath: reportPath, Diagnostics: diagnostics})
 	return nil

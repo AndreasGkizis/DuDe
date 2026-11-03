@@ -723,20 +723,27 @@ internal/processing/flows/find_missing_content.go:146:16: undefined: completedDi
 
 Acceptance: normal builds and tests pass without a simulator-specific configuration. No CI check for the removed build tag is needed. The failure above is retained as historical review evidence.
 
-### R2 — High: terminal notifications precede application-state publication
+### R2 — Resolved: publish terminal state before notifications
 
-- [ ] Make the runner own the terminal completion notification after successful state publication.
-- [ ] Remove premature completion notifications from production flows. The debug simulator was removed under R1.
-- [ ] Publish cancelled/inconclusive state before sending the corresponding terminal notification.
-- [ ] Add a reporter test that reads getters immediately during the terminal notification.
+- [x] Make the runner own the terminal completion notification after successful state publication.
+- [x] Remove premature completion notifications from production flows. The debug simulator was removed under R1.
+- [x] Publish cancelled/inconclusive state before sending the corresponding terminal notification.
+- [x] Add a reporter test that reads getters immediately during the terminal notification.
+- [x] Wait for hashing progress trackers on error/cancellation paths before returning from either flow.
 
 Locations: `internal/processing/flows/duplicate_execution.go:110,191`, `internal/processing/flows/find_missing_content.go:167`, and `internal/processing/runner.go:284–294` at the reviewed head.
 
-Flows currently emit `executionFinished` before their collected result is published by the runner. The frontend can therefore fetch a nil result or diagnostics still marked `running`. In the duplicate no-candidates branch, completion is even emitted before diagnostic report creation, which may subsequently fail.
+At the reviewed head, flows emitted `executionFinished` before their collected result was published by the runner. The frontend could therefore fetch a nil result or diagnostics still marked `running`. In the duplicate no-candidates branch, completion was even emitted before diagnostic report creation, which could subsequently fail. The notification-ordering problem predated parts of this PR, but undermined the new atomic-publication guarantee.
 
-The notification-ordering problem predates parts of this PR, but it undermines the new atomic-publication guarantee.
+Implementation: `StartExecution` now publishes completed state before calling `FinishExecution`, publishes inconclusive state before `ReportError`, and publishes cancelled state before the `Process Stopped.` status message. Flows determine their outcome by returning a result or error; they no longer send completion notifications. Empty duplicate scans now also receive the runner's completion notification. Validation and gate rejections still leave existing execution state untouched.
 
-Acceptance: successful flow return → completed state publication → completion notification. Failed report generation must never emit successful completion. Getters invoked during terminal notifications must observe the corresponding terminal state.
+Regression coverage: `tests/unit_tests/execution_notification_test.go`, `TestExecutionPublishesStateBeforeTerminalNotification`, exercises both modes with empty input, unique sizes, same-size different content, duplicate content, report failure, and cancellation. Reporter callbacks synchronously check terminal state, mode-specific results, report availability where expected, and exactly one terminal notification. The test failed before the fix and passed afterward.
+
+Race verification also exposed hashing progress trackers outliving cancelled flows. Both flows now wait for those trackers on error paths as well as successful paths, preventing late progress/logging after terminal publication.
+
+Acceptance verified: successful flow return → completed state publication → completion notification. Failed report generation emits no successful completion. Getters invoked during terminal notifications observe the corresponding terminal state.
+
+Verification: `go test -race -count=1 ./...`, the focused notification test repeated 25 times under `-race`, `go build ./...`, `go vet ./...`, and `git diff --check` passed. Interactive Wails UI behavior was not exercised. Discovery cancellation remains separate work under R3.
 
 ### R3 — High: discovery cancellation can deadlock on progress reporting
 

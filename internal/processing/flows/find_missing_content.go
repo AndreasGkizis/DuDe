@@ -115,19 +115,21 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 
 	sourceHashing := visuals.NewProgressTracker(ctx, reporter, "Hashing Source")
 	sourceHashing.Start()
-	if err := services.CreateHashes(ctx, filteredSourceFiles, args.WorkerCount, sourceHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeSource); err != nil {
+	err = services.CreateHashes(ctx, filteredSourceFiles, args.WorkerCount, sourceHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeSource)
+	sourceHashing.Wait()
+	if err != nil {
 		sink.Close()
 		return err
 	}
-	sourceHashing.Wait()
 
 	targetHashing := visuals.NewProgressTracker(ctx, reporter, "Hashing Target")
 	targetHashing.Start()
-	if err := services.CreateHashes(ctx, hashTargetMap, args.WorkerCount, targetHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeTarget); err != nil {
+	err = services.CreateHashes(ctx, hashTargetMap, args.WorkerCount, targetHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeTarget)
+	targetHashing.Wait()
+	if err != nil {
 		sink.Close()
 		return err
 	}
-	targetHashing.Wait()
 
 	memory.WaitForCache(ctx, func(completed, total int64) {
 		reporter.LogProgress(ctx, "Caching", percentage(completed, total))
@@ -164,7 +166,6 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	result.Diagnostics = diagnostics
 	reporter.LogProgress(ctx, "Reporting", 100)
 	reporter.LogProgress(ctx, "Done", 100)
-	reporter.FinishExecution(ctx)
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
 	publisher.PublishMissingContentResult(result)
 	return nil
