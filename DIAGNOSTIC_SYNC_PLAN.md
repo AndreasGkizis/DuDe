@@ -841,26 +841,34 @@ Acceptance verified: one documented admission decision, no retained rejected eve
 
 Verification: both lifecycle tests passed 100 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
-### R7 — Medium: CI does not execute all test packages
+### R7 — Resolved: run all Go and frontend tests in CI
 
-- [ ] Run recursive Go package tests so service-package and nested validation tests execute in CI.
-- [ ] Include race, vet, and normal build checks without introducing an elaborate pipeline.
-- [ ] Run frontend behavioral tests (`npm --prefix frontend test`) after installing development dependencies.
+- [x] Run recursive Go package tests so service-package and nested validation tests execute in CI.
+- [x] Include race, vet, and normal build checks without introducing an elaborate pipeline.
+- [x] Run frontend behavioral tests (`npm --prefix frontend test`) after installing development dependencies.
 
 Location: `.github/workflows/ci.yml:29,47` at the reviewed head.
 
-CI currently runs only `./tests/unit_tests` and `./tests/e2e_tests`. It skips the new tests under `internal/processing/services` and nested validation tests.
+At the reviewed head, CI ran only `./tests/unit_tests` and `./tests/e2e_tests`. It skipped tests under `internal/processing/services`, nested validation tests, and frontend behavioral tests.
 
-Suggested checks:
+Implementation: a single sequential `All checks` job now sets up Go from `go.mod` and Node 18 (matching the existing release workflow), installs locked frontend development dependencies, runs frontend tests/build, and runs all Go tests with race detection, vet, and compilation. npm caching uses `frontend/package-lock.json`; Go caching remains enabled. Existing workflow triggers, permissions, and the ten-minute job timeout are unchanged.
+
+A single job avoids artifact handoffs or duplicate frontend builds: `main.go` embeds the ignored `frontend/dist` directory, so building frontend assets must precede recursive Go checks on a fresh checkout. Separate Go test commands are not run concurrently, avoiding the shared E2E cleanup issue tracked under S6. No separate normal test run is needed because the race-enabled command already runs every test package.
+
+Checks, also documented in `development.md`:
 
 ```sh
-go test -count=1 ./...
-go test -race -count=1 ./...
+npm --prefix frontend ci --include=dev
+npm --prefix frontend test
+npm --prefix frontend run build
+go test -race -v -count=1 ./...
 go vet ./...
 go build ./...
 ```
 
-Acceptance: every test package is exercised and the normal build is checked by CI. The simulator-specific regression in R1 was resolved by removing that configuration.
+Acceptance verified locally: every test package is included, frontend tests and compilation pass, and the normal Go build succeeds. Benchmarks are discoverable under `./...` but timing benchmarks remain an explicit manual command, not a CI performance gate. The simulator-specific regression in R1 was resolved by removing that configuration.
+
+Verification: clean frontend dependency installation passed; frontend behavioral tests and production build passed under Node 18.20.8; `go test -race -count=1 ./...`, `go vet ./...`, `go build ./...`, workflow validation with actionlint v1.7.7, and `git diff --check` passed. The GitHub-hosted job itself has not yet run. Existing npm audit findings remain unchanged.
 
 ### S1 — Cleanup: remove obsolete code and duplicate cleanup
 

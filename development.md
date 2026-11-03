@@ -47,17 +47,20 @@ npm --prefix frontend run build
 
 ## Tests
 
-```bash
-go test ./tests/unit_tests
-go test ./tests/e2e_tests
-```
-
-Frontend behavioral tests use Node.js's built-in test runner and JSDOM, with Vite loading the actual frontend modules:
+Run the same checks as CI, including every Go test package and the frontend behavioral tests:
 
 ```bash
 npm --prefix frontend ci --include=dev
 npm --prefix frontend test
+npm --prefix frontend run build
+go test -race -v -count=1 ./...
+go vet ./...
+go build ./...
 ```
+
+Build the frontend before the Go checks: `main.go` embeds `frontend/dist`, which is absent on a fresh checkout. Frontend behavioral tests use Node.js's built-in test runner and JSDOM, with Vite loading the actual frontend modules.
+
+Run Go test commands sequentially; separate E2E test processes currently share a cleanup directory.
 
 ## Benchmarks
 
