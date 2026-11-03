@@ -80,16 +80,12 @@ func TestFindMissingContentFlowRequiresSourceAndTarget(t *testing.T) {
 }
 
 type missingContentPublisher struct {
-	result      models.MissingContentResult
-	diagnostics models.ScanDiagnostics
+	result models.MissingContentResult
 }
 
 func (p *missingContentPublisher) PublishDuplicateResult(models.DuplicateResult) {}
 func (p *missingContentPublisher) PublishMissingContentResult(result models.MissingContentResult) {
 	p.result = result
-}
-func (p *missingContentPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
-	p.diagnostics = diagnostics
 }
 
 func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {

@@ -147,7 +147,6 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	diagnostics = sink.CompletedSnapshot()
 	deleteSkippedFiles(sourceFiles, diagnostics.Diagnostics, models.DiagnosticScopeSource)
 	deleteSkippedFiles(targetFiles, diagnostics.Diagnostics, models.DiagnosticScopeTarget)
-	publisher.PublishScanDiagnostics(diagnostics)
 	reporter.LogProgress(ctx, "Comparing", 0)
 	result, err := services.MatchCoverage(ctx, syncMapValues(sourceFiles), syncMapValues(targetFiles), args.ParanoidMode)
 	if err != nil {

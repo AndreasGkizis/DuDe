@@ -90,7 +90,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		if reportErr != nil {
 			return reportErr
 		}
-		publisher.PublishScanDiagnostics(diagnostics)
 		publisher.PublishDuplicateResult(models.DuplicateResult{ReportPath: reportPath, Diagnostics: diagnostics})
 		return nil
 	}
@@ -111,7 +110,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		if reportErr != nil {
 			return reportErr
 		}
-		publisher.PublishScanDiagnostics(diagnostics)
 		publisher.PublishDuplicateResult(models.DuplicateResult{ReportPath: reportPath, Diagnostics: diagnostics})
 		return nil
 	}
@@ -186,7 +184,6 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	reporter.LogProgress(ctx, "Done", 100)
-	publisher.PublishScanDiagnostics(diagnostics)
 	publisher.PublishDuplicateResult(models.DuplicateResult{Groups: groups, ReportPath: reportPath, Diagnostics: diagnostics})
 	return nil
 }

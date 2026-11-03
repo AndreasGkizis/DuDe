@@ -879,12 +879,18 @@ The sink-based path remains the sole discovery/hash diagnostic implementation. T
 
 Verification: `go test -race -count=1 ./...`, `go vet ./...`, `go build ./...`, and `git diff --check` passed. S2 and logging-queue memory policy remain unchanged.
 
-### S2 — Consistency: use one completed diagnostic source of truth
+### S2 — Resolved: derive completed diagnostics from the concrete result
 
-- [ ] Evaluate removing separate completed diagnostic publication when diagnostics are already part of the concrete result.
-- [ ] Ensure publisher inputs cannot silently disagree about completed diagnostics.
+- [x] Remove separate completed diagnostic publication when diagnostics are already part of the concrete result.
+- [x] Ensure publisher inputs cannot silently disagree about completed diagnostics.
 
-The publisher currently accepts result diagnostics and a separate diagnostic snapshot, then overwrites result diagnostics in `PublishTo`. Prefer deriving completed diagnostics from the concrete result where possible; preserve the standalone running/cancelled/inconclusive application state.
+Removed `PublishScanDiagnostics` from `ResultPublisher`, both flows, the runner collector, and the test publisher. Removed the collector's separate diagnostic field and the `PublishTo` overwrite/default logic. Each successful flow now supplies completed diagnostics only inside its concrete result; the runner derives standalone application diagnostic state from that result. Existing defensive copy boundaries are preserved.
+
+`GetScanDiagnostics()` and frontend bindings remain unchanged. Running, cancelled, and inconclusive state remain runner-owned, and terminal notifications still follow state publication. Earlier plan snippets describing separate diagnostic publication are superseded by this decision.
+
+Regression coverage: `internal/processing/runner_test.go`, `TestExecutionResultPublisherDerivesDiagnosticsFromResult`, covers both result types with empty and non-empty diagnostics, verifies collection owns its diagnostic copy, and checks the result and standalone getter retain matching diagnostics. Non-empty cases failed before the change because the old publisher replaced result diagnostics with an empty default when no separate publication was supplied. Existing terminal-notification tests continue to cover success, empty results, failure, and cancellation.
+
+Verification: `go test -race -count=1 ./...`, `npm --prefix frontend test`, `go vet ./...`, `go build ./...`, and `git diff --check` passed.
 
 ### S3 — Correctness: defensive copies must include nested duplicate slices
 

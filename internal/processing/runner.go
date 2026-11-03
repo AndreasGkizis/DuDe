@@ -321,7 +321,6 @@ func (a *FrontendApp) executionContext() context.Context {
 type executionResultPublisher struct {
 	duplicate      *models.DuplicateResult
 	missingContent *models.MissingContentResult
-	diagnostics    *models.ScanDiagnostics
 }
 
 func (p *executionResultPublisher) PublishDuplicateResult(result models.DuplicateResult) {
@@ -338,26 +337,15 @@ func (p *executionResultPublisher) PublishMissingContentResult(result models.Mis
 	p.missingContent = &copyResult
 }
 
-func (p *executionResultPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
-	copyDiagnostics := copyScanDiagnostics(diagnostics)
-	p.diagnostics = &copyDiagnostics
-}
-
 func (p *executionResultPublisher) PublishTo(app *FrontendApp) {
-	diagnostics := models.NewScanDiagnostics(models.DiagnosticStatusCompleted)
-	if p.diagnostics != nil {
-		diagnostics = copyScanDiagnostics(*p.diagnostics)
-	}
 	if p.duplicate != nil {
 		result := copyDuplicateResult(p.duplicate)
-		result.Diagnostics = copyScanDiagnostics(diagnostics)
-		app.publishExecutionState(executionState{DuplicateResult: result, ScanDiagnostics: diagnostics})
+		app.publishExecutionState(executionState{DuplicateResult: result, ScanDiagnostics: result.Diagnostics})
 		return
 	}
 	if p.missingContent != nil {
 		result := copyMissingContentResult(p.missingContent)
-		result.Diagnostics = copyScanDiagnostics(diagnostics)
-		app.publishExecutionState(executionState{MissingContentResult: result, ScanDiagnostics: diagnostics})
+		app.publishExecutionState(executionState{MissingContentResult: result, ScanDiagnostics: result.Diagnostics})
 	}
 }
 

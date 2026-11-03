@@ -19,8 +19,6 @@ var (
 	ErrUnknownExecutionMode           = errors.New("unknown execution mode")
 )
 
-// ResultPublisher publishes concrete successful flow results. It deliberately
-// has one method per result type instead of introducing a shared result model.
 // RunOptions contains required per-execution diagnostic behavior.
 type RunOptions struct {
 	HandleDiagnostic services.DiagnosticHandler
@@ -31,10 +29,11 @@ func DefaultDiagnosticHandler(services.DiagnosticEvent) services.ErrorDispositio
 	return services.ErrorDiagnostic
 }
 
+// ResultPublisher collects concrete results, including their completed
+// diagnostics. The runner publishes application state after Run succeeds.
 type ResultPublisher interface {
 	PublishDuplicateResult(result models.DuplicateResult)
 	PublishMissingContentResult(result models.MissingContentResult)
-	PublishScanDiagnostics(diagnostics models.ScanDiagnostics)
 }
 
 // ExecutionFlow is one executable operation supported by the application.
