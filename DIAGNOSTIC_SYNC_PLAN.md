@@ -776,17 +776,25 @@ Acceptance verified: cancellation and fatal discovery errors return promptly, wi
 
 Verification: both targeted tests passed 100 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
-### R4 — Medium: duplicate report access and diagnostic-only clearing are disabled
+### R4 — Resolved: restore duplicate report access and diagnostic-only clearing
 
-- [ ] Set the duplicate report button state from the published result/report path, consistently with coverage rendering.
-- [ ] Enable clearing results for diagnostic-only duplicate runs.
-- [ ] Add behavioral frontend tests for groups with a report, diagnostics only with a report, and no report.
+- [x] Set the duplicate report button state from the published result/report path, consistently with coverage rendering.
+- [x] Enable clearing results for diagnostic-only duplicate runs.
+- [x] Add behavioral frontend tests for groups with a report, diagnostics only with a report, and no report.
 
 Location: `frontend/src/main.js:838`, `renderResults`, at the reviewed head.
 
-Execution startup disables `showResultsButton`; duplicate rendering never re-enables it. `refreshResultsButtonState()` only runs at initialization. Diagnostic-only rendering also returns without enabling the clear-results control. The existing HTML substring test cannot detect these behavioral failures.
+At the reviewed head, execution startup disabled `showResultsButton`, but duplicate rendering never re-enabled it. `refreshResultsButtonState()` only ran at initialization. Diagnostic-only rendering also returned without enabling the clear-results control. The existing HTML substring test could not detect these behavioral failures.
 
-Acceptance: completed duplicate reports can be opened, diagnostic-only output can be cleared, and absent reports do not enable report access.
+Implementation: `renderResults` sets report access from `reportPath`/`ReportPath`, consistently with coverage rendering, and sets clear-results availability from the presence of groups or diagnostics before any early return. The duplicate-group list stays hidden when there are no groups; diagnostics remain in their existing independent container. No backend behavior changed.
+
+Regression coverage: `frontend/tests/duplicate-results.test.mjs` loads the real frontend through Vite, runs the execution-finished listener with mocked Wails bindings, and inspects button states and DOM output using JSDOM. Six scenarios cover groups and diagnostics with/without reports, empty results, and null results. Tests also exercise clearing the rendered output. Report-access and diagnostic-only clear tests failed before the fix and pass afterward.
+
+Frontend tests use Node.js's built-in test runner (`npm --prefix frontend test`) and a Node 18-compatible JSDOM development dependency. `development.md` documents installation and execution. CI integration remains under R7.
+
+Acceptance verified: completed duplicate reports enable report access, diagnostic-only output can be cleared, and absent report paths do not enable report access. This matches coverage's path-based button policy; interactive OS folder opening and external report deletion were not exercised by the DOM tests.
+
+Verification: `npm --prefix frontend test`, `npm --prefix frontend run build`, `go test -race -count=1 ./...`, and `git diff --check` passed. npm audit reports six vulnerabilities in the existing Vite toolchain dependencies (one moderate, five high); dependency-toolchain remediation is outside this button fix.
 
 ### R5 — Medium: report path selection is not atomic
 
@@ -820,6 +828,7 @@ Acceptance: the documented contract is unambiguous; rejected submissions do not 
 
 - [ ] Run recursive Go package tests so service-package and nested validation tests execute in CI.
 - [ ] Include race, vet, and normal build checks without introducing an elaborate pipeline.
+- [ ] Run frontend behavioral tests (`npm --prefix frontend test`) after installing development dependencies.
 
 Location: `.github/workflows/ci.yml:29,47` at the reviewed head.
 

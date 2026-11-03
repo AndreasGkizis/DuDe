@@ -838,6 +838,8 @@ function renderPage(page, scrollToResults = true) {
 function renderResults(result) {
     const rawGroups = result?.groups || result?.Groups || [];
     const diagnostics = result?.diagnostics || result?.Diagnostics;
+    const reportPath = result?.reportPath || result?.ReportPath || '';
+    showResultsButton.disabled = !reportPath;
     allGroups = rawGroups.map(FrontEnd_DuplicateGroup.fromFileHash);
     renderDiagnostics(diagnostics);
     allMissingFiles = [];
@@ -850,6 +852,7 @@ function renderResults(result) {
     statusDuplicates.classList.toggle('status-value--orange', totalDups > 0);
 
     const diagnosticItems = diagnostics?.diagnostics || diagnostics?.Diagnostics || [];
+    clearResultsButton.disabled = groupCount === 0 && diagnosticItems.length === 0;
     if (groupCount === 0 && diagnosticItems.length === 0) {
         resultsCountLabel.textContent = 'Results';
         resultsSection.style.display = 'none';
@@ -866,7 +869,6 @@ function renderResults(result) {
     resultsCountLabel.textContent =
         `Results — ${groupCount} group${groupCount !== 1 ? 's' : ''}, ${totalDups} duplicate${totalDups !== 1 ? 's' : ''}`;
     resultsSection.style.display = 'block';
-    clearResultsButton.disabled = false;
     resultsPageSize.disabled = false;
     resultsPageSize.value = String(pageSize);
     renderPage(1);

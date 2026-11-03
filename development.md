@@ -52,6 +52,13 @@ go test ./tests/unit_tests
 go test ./tests/e2e_tests
 ```
 
+Frontend behavioral tests use Node.js's built-in test runner and JSDOM, with Vite loading the actual frontend modules:
+
+```bash
+npm --prefix frontend ci --include=dev
+npm --prefix frontend test
+```
+
 ## Benchmarks
 
 ```bash
