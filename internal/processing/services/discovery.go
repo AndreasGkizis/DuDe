@@ -127,7 +127,11 @@ func storeFilePathsWithSink(ctx context.Context, result *sync.Map, pt *visuals.P
 				FileSize: info.Size(),
 				ModTime:  info.ModTime().Format(common.TimeFrmt),
 			})
-			pt.Channel <- 1
+			select {
+			case pt.Channel <- 1:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
 		return nil
 	}

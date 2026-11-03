@@ -745,18 +745,23 @@ Acceptance verified: successful flow return → completed state publication → 
 
 Verification: `go test -race -count=1 ./...`, the focused notification test repeated 25 times under `-race`, `go build ./...`, `go vet ./...`, and `git diff --check` passed. Interactive Wails UI behavior was not exercised. Discovery cancellation remains separate work under R3.
 
-### R3 — High: discovery cancellation can deadlock on progress reporting
+### R3 — Resolved: make discovery progress sends cancellation-aware
 
-- [ ] Make the discovery progress send select on `ctx.Done()`.
-- [ ] Add cancellation-during-progress and multi-root fatal-disposition regression tests.
+- [x] Make the discovery progress send select on `ctx.Done()`.
+- [x] Add cancellation-during-progress and multi-root fatal-disposition regression tests.
 
 Location: `internal/processing/services/discovery.go:130` at the reviewed head.
 
-The unconditional `pt.Channel <- 1` can block forever if cancellation stops the progress receiver after the callback's initial context check. Discovery then waits forever for its senders. A fatal disposition from one root can trigger this while another root is discovering files.
+At the reviewed head, the unconditional `pt.Channel <- 1` could block forever if cancellation stopped the progress receiver after the callback's initial context check. Discovery then waited forever for its senders. A fatal disposition from one root could trigger this while another root was discovering files. The unsafe send existed previously; fatal-disposition cancellation added another trigger.
 
-A temporary review test reproduced the blocked callback by cancelling during `DirEntry.Info()` and waiting for the progress receiver to exit. The temporary test was removed after verification. The unsafe send existed previously; fatal-disposition cancellation adds another trigger.
+Implementation: the blocking send now selects on `ctx.Done()` and returns `ctx.Err()` when cancelled. The initial cancellation check and normal discovery behavior remain unchanged; no new production abstraction was introduced.
 
-Suggested implementation:
+The original temporary review reproduction has been replaced by permanent regression tests in `internal/processing/services/discovery_cancellation_test.go`:
+
+- `TestDiscoveryCancellationBetweenContextCheckAndProgressSend` cancels during `DirEntry.Info()` and waits for the progress receiver to exit before allowing the callback to send. It failed before the fix and passes afterward. Its failure path unblocks the old send and joins the test producer rather than leaking it.
+- `TestDiscoverWithSinkFatalErrorCancelsOtherRoots` exercises an active root alongside a missing root, holding the progress receiver until cancellation. It verifies discovery returns the original missing-root error (not context cancellation), joins its progress receiver, and retains no fatal/cancellation diagnostics.
+
+The progress send now uses:
 
 ```go
 select {
@@ -767,7 +772,9 @@ case <-ctx.Done():
 }
 ```
 
-Acceptance: cancellation and fatal discovery errors return promptly, with all walkers and progress goroutines joined.
+Acceptance verified: cancellation and fatal discovery errors return promptly, with walkers and progress goroutines joined. The existing `reading.Wait()` still joins discovery producers and the receiver before discovery returns.
+
+Verification: both targeted tests passed 100 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
 ### R4 — Medium: duplicate report access and diagnostic-only clearing are disabled
 
