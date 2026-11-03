@@ -5,7 +5,6 @@ import (
 	"DuDe/internal/models"
 	"sort"
 	"sync"
-	"sync/atomic"
 )
 
 // DiagnosticSeverity controls the severity used by the asynchronous logger.
@@ -37,18 +36,17 @@ const (
 )
 
 // DiagnosticSink retains accepted diagnostics and logs submitted events
-// asynchronously. Retention is intentionally mutex-protected and lossless;
-// only logging uses an asynchronous queue.
+// asynchronously. One mutex protects admission, retention, and queueing;
+// logging runs outside the lock. Submit and Close may be called concurrently.
 type DiagnosticSink struct {
-	recordMu sync.Mutex
+	mu       sync.Mutex
 	records  []models.Diagnostic
+	logQueue []DiagnosticEvent
+	closed   bool
 
-	logMu     sync.Mutex
-	logQueue  []DiagnosticEvent
 	wake      chan struct{}
 	stop      chan struct{}
 	logDone   chan struct{}
-	closed    atomic.Bool
 	closeOnce sync.Once
 }
 
@@ -63,26 +61,20 @@ func NewDiagnosticSink() *DiagnosticSink {
 	return sink
 }
 
-// Submit logs every event and retains only diagnostic events. It returns false
-// when called after the sink has been closed.
+// Submit queues every accepted event for logging and retains diagnostic events.
+// It returns false without modifying the sink if closure has begun. Acceptance
+// is decided under the same lock as Close, even when they run concurrently.
 func (s *DiagnosticSink) Submit(event DiagnosticEvent, disposition ErrorDisposition) bool {
-	if s.closed.Load() {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
 		return false
 	}
-
 	if disposition == ErrorDiagnostic {
-		s.recordMu.Lock()
 		s.records = append(s.records, event.Diagnostic)
-		s.recordMu.Unlock()
-	}
-
-	s.logMu.Lock()
-	if s.closed.Load() {
-		s.logMu.Unlock()
-		return false
 	}
 	s.logQueue = append(s.logQueue, event)
-	s.logMu.Unlock()
+	s.mu.Unlock()
 
 	select {
 	case s.wake <- struct{}{}:
@@ -91,24 +83,24 @@ func (s *DiagnosticSink) Submit(event DiagnosticEvent, disposition ErrorDisposit
 	return true
 }
 
-// Close stops logging after all queued events have been processed.
+// Close rejects further submissions and waits for all accepted events to be
+// logged. It is safe to call concurrently or repeatedly. Snapshots remain stable
+// after Close returns.
 func (s *DiagnosticSink) Close() {
 	s.closeOnce.Do(func() {
-		s.closed.Store(true)
+		s.mu.Lock()
+		s.closed = true
 		close(s.stop)
-		select {
-		case s.wake <- struct{}{}:
-		default:
-		}
+		s.mu.Unlock()
 	})
 	<-s.logDone
 }
 
 // Snapshot returns a deterministic defensive copy of retained diagnostics.
 func (s *DiagnosticSink) Snapshot() []models.Diagnostic {
-	s.recordMu.Lock()
+	s.mu.Lock()
 	result := append([]models.Diagnostic(nil), s.records...)
-	s.recordMu.Unlock()
+	s.mu.Unlock()
 
 	sort.Slice(result, func(i, j int) bool {
 		left, right := result[i], result[j]
@@ -141,25 +133,21 @@ func (s *DiagnosticSink) CompletedSnapshot() models.ScanDiagnostics {
 func (s *DiagnosticSink) logLoop() {
 	defer close(s.logDone)
 	for {
-		s.logMu.Lock()
+		s.mu.Lock()
 		queue := s.logQueue
 		s.logQueue = nil
-		s.logMu.Unlock()
+		closed := s.closed
+		s.mu.Unlock()
 		for _, event := range queue {
 			s.logEvent(event)
+		}
+		if closed {
+			return
 		}
 
 		select {
 		case <-s.wake:
 		case <-s.stop:
-			s.logMu.Lock()
-			remaining := s.logQueue
-			s.logQueue = nil
-			s.logMu.Unlock()
-			for _, event := range remaining {
-				s.logEvent(event)
-			}
-			return
 		}
 	}
 }

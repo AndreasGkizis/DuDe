@@ -816,19 +816,30 @@ Acceptance verified: exclusive creation prevents overwriting existing reports, a
 
 Verification: targeted report-file tests passed 50 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
-### R6 — Medium: `DiagnosticSink.Submit` and `Close` have inconsistent admission semantics
+### R6 — Resolved: use one mutex for sink admission and state
 
-- [ ] Choose and document the sink's producer/closure concurrency contract.
-- [ ] Prefer one mutex for closed-state admission, retention, and enqueueing unless measurement justifies a more complex design.
-- [ ] Add concurrent submission/closure tests.
+- [x] Choose and document the sink's producer/closure concurrency contract.
+- [x] Use one mutex for closed-state admission, retention, and enqueueing.
+- [x] Add concurrent submission/closure tests.
 
 Location: `internal/processing/services/diagnostics.go:68–103` at the reviewed head.
 
-A submission can pass the initial closed check, be delayed until `Close` returns, append a retained diagnostic, and then return false at the second closed check without queueing the log event. Thus a rejected submission can alter a post-close snapshot. Current flows generally join producers first, but the API does not clearly state that restriction.
+At the reviewed head, a submission could pass the initial closed check, be delayed until `Close` returned, append a retained diagnostic, and then return false at the second closed check without queueing the log event. Thus a rejected submission could alter a post-close snapshot. Current flows generally join producers first; this fix hardens the sink's concurrency contract without changing their lifecycle.
 
-Alternatively, explicitly require all producers to finish before `Close` and simplify the implementation around that contract.
+Implementation: one `sync.Mutex` now protects the closed flag, retained records, and logging queue. Removed the atomic flag and separate record/log mutexes. Submission either queues the event (and retains it when its disposition is diagnostic) or returns false without modifying the sink. `Close` marks the sink closed under that same mutex, signals shutdown, and waits outside the lock. `sync.Once` preserves concurrent/repeated closure safety. Logging and snapshot sorting remain outside the lock.
 
-Acceptance: the documented contract is unambiguous; rejected submissions do not appear in retained diagnostics, and closure/draining behavior is covered by tests.
+The logger now uses a single batch-draining path: it copies the closed flag and takes the queue under the mutex, logs the batch outside it, and exits only after draining a batch observed with the sink closed. Asynchronous logging, disposition behavior, deterministic defensive snapshots, and the unbounded queue policy remain unchanged.
+
+Contract: `Submit` and `Close` may run concurrently. Accepted events are logged before `Close` returns; rejected events are neither queued nor retained. Retained snapshots remain stable after closure. An in-flight submission's acceptance is determined by mutex acquisition order, not when its caller began executing.
+
+Regression coverage: `internal/processing/services/diagnostics_lifecycle_test.go` includes:
+
+- `TestDiagnosticSinkConcurrentSubmitAndClose`: 32 producers race submissions against closure; retained paths must match accepted submissions exactly and snapshots must remain stable after `Close` returns. Repeated runs reproduced the old rejection/retention mismatch, including a post-close snapshot change.
+- `TestDiagnosticSinkConcurrentCloseWaitsForAllAcceptedLogs`: blocks an in-flight log through a test error, queues events of all three dispositions, and starts eight concurrent closers. It verifies closure waits for in-flight and queued logging, late submissions are rejected, only diagnostic events are retained, and the queue is drained. No production logging hook was added.
+
+Acceptance verified: one documented admission decision, no retained rejected events, stable post-close snapshots, and fully drained accepted logs before closure returns.
+
+Verification: both lifecycle tests passed 100 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
 ### R7 — Medium: CI does not execute all test packages
 
