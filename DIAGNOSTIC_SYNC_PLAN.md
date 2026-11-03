@@ -853,7 +853,7 @@ At the reviewed head, CI ran only `./tests/unit_tests` and `./tests/e2e_tests`. 
 
 Implementation: a single sequential `All checks` job now sets up Go from `go.mod` and Node 18 (matching the existing release workflow), installs locked frontend development dependencies, runs frontend tests/build, and runs all Go tests with race detection, vet, and compilation. npm caching uses `frontend/package-lock.json`; Go caching remains enabled. Existing workflow triggers, permissions, and the ten-minute job timeout are unchanged.
 
-A single job avoids artifact handoffs or duplicate frontend builds: `main.go` embeds the ignored `frontend/dist` directory, so building frontend assets must precede recursive Go checks on a fresh checkout. Separate Go test commands are not run concurrently, avoiding the shared E2E cleanup issue tracked under S6. No separate normal test run is needed because the race-enabled command already runs every test package.
+A single job avoids artifact handoffs or duplicate frontend builds: `main.go` embeds the ignored `frontend/dist` directory, so building frontend assets must precede recursive Go checks on a fresh checkout. Separate Go test commands are not run concurrently, avoiding the shared E2E cleanup issue tracked in root `TODO.md`. No separate normal test run is needed because the race-enabled command already runs every test package.
 
 Checks, also documented in `development.md`:
 
@@ -892,33 +892,26 @@ Regression coverage: `internal/processing/runner_test.go`, `TestExecutionResultP
 
 Verification: `go test -race -count=1 ./...`, `npm --prefix frontend test`, `go vet ./...`, `go build ./...`, and `git diff --check` passed.
 
-### S3 — Correctness: defensive copies must include nested duplicate slices
+### S3 — Resolved: deep-copy nested duplicate slices
 
-- [ ] Copy nested `FileHash.DuplicatesFound` slices at publication/getter boundaries.
-- [ ] Add a mutation-isolation test for nested duplicate results.
+- [x] Copy nested `FileHash.DuplicatesFound` slices at publication/getter boundaries.
+- [x] Add mutation-isolation tests for nested duplicate results.
 
-Location: `internal/processing/runner.go`, `copyDuplicateResult` and `PublishDuplicateResult`.
+Location: `internal/processing/runner.go`, `copyFileHashes`, `copyDuplicateResult`, and `PublishDuplicateResult`.
 
-Copying only the outer `Groups` slice leaves nested duplicates aliased to stored state. Mutating a result returned by a getter must not alter later getter results.
+Implementation: a small recursive `copyFileHashes` helper uses standard-library `slices.Clone` to copy each level while preserving nil and empty slices. `copyDuplicateResult` uses it for groups, and `PublishDuplicateResult` reuses `copyDuplicateResult` rather than maintaining separate copying logic. No models, frontend APIs, CSV behavior, or matching logic changed.
 
-### S4 — Simplicity: avoid speculative classification layers
+This fixes defensive-copy isolation for Go callers, not a demonstrated error in normal saving/display: the flow saves reports before publication, and Wails serializes results for JavaScript. The issue requires later mutation through shared nested slices.
 
-- [ ] Reassess the handler abstraction only if simplification is warranted; do not add more classification layers without concrete production policies.
+Regression coverage: `internal/processing/duplicate_result_test.go` tests mutation isolation at collection, application publication, and getter boundaries, including two nested duplicate levels. It also covers nil results and nil/empty group and duplicate slices. All three mutation cases failed before the fix and pass afterward.
 
-The production handler always returns `ErrorDiagnostic`. Keeping that policy is currently accepted. This is a design consideration, not a requirement to invent new classifications or remove an otherwise justified callback.
+Verification: `go test -race -count=1 ./...`, `npm --prefix frontend test`, `go vet ./...`, `go build ./...`, and `git diff --check` passed.
 
-### S5 — Measurement: asynchronous logging memory trade-off
+### S4 — Decision: keep the diagnostic handler as-is
 
-- [ ] Add a high-volume failure test or benchmark measuring queue size, peak memory, and logger throughput.
-- [ ] Revisit asynchronous logging only with evidence; synchronous logging may be simpler if adequate.
+- [x] Retain the existing handler abstraction and default classification policy without further changes.
 
-The unbounded log queue retains original errors in addition to retained diagnostics. This remains an acknowledged trade-off, not an automatic merge blocker. Do not introduce dropped diagnostics or worker-blocking behavior without explicitly reconsidering the lossless requirement.
-
-### S6 — Test isolation: E2E cleanup shares a directory across test processes
-
-- [ ] Give each E2E test its own `t.TempDir()` and scope cleanup to that directory.
-
-Separate concurrent test commands interfered through shared `./test_files/` cleanup. Isolated reruns passed. This is a test infrastructure limitation observed during review, not evidence of a production data race.
+The production handler continues to return `ErrorDiagnostic`. No additional classification layers or handler simplification are planned for this PR. Logging-memory investigation and E2E fixture isolation have been moved to the general backlog in root `TODO.md`, outside this plan.
 
 ## Review Verification Baseline
 
@@ -941,6 +934,6 @@ go test -count=1 -coverpkg=./internal/... -coverprofile=/tmp/dude-cover.out ./..
 go tool cover -func=/tmp/dude-cover.out
 ```
 
-Do not run separate E2E-bearing test commands concurrently until S6 is resolved. Wails desktop build and interactive UI behavior were not verified during this review; the frontend production build is not a substitute for behavioral UI tests.
+Do not run separate E2E-bearing test commands concurrently until the E2E fixture-isolation task in root `TODO.md` is resolved. Wails desktop build and interactive UI behavior were not verified during this review; the frontend production build is not a substitute for behavioral UI tests.
 
 After addressing the checklist, rerun all checks, update this section with current results, and mark only verified items complete.

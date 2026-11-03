@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	"sync"
 
@@ -324,10 +325,7 @@ type executionResultPublisher struct {
 }
 
 func (p *executionResultPublisher) PublishDuplicateResult(result models.DuplicateResult) {
-	copyResult := result
-	copyResult.Groups = append([]models.FileHash(nil), result.Groups...)
-	copyResult.Diagnostics = copyScanDiagnostics(result.Diagnostics)
-	p.duplicate = &copyResult
+	p.duplicate = copyDuplicateResult(&result)
 }
 
 func (p *executionResultPublisher) PublishMissingContentResult(result models.MissingContentResult) {
@@ -370,9 +368,18 @@ func copyDuplicateResult(source *models.DuplicateResult) *models.DuplicateResult
 		return nil
 	}
 	result := *source
-	result.Groups = append([]models.FileHash(nil), source.Groups...)
+	result.Groups = copyFileHashes(source.Groups)
 	result.Diagnostics = copyScanDiagnostics(source.Diagnostics)
 	return &result
+}
+
+// copyFileHashes copies each nested duplicate slice, preserving nil and empty slices.
+func copyFileHashes(source []models.FileHash) []models.FileHash {
+	result := slices.Clone(source)
+	for i := range result {
+		result[i].DuplicatesFound = copyFileHashes(source[i].DuplicatesFound)
+	}
+	return result
 }
 
 func copyMissingContentResult(source *models.MissingContentResult) *models.MissingContentResult {

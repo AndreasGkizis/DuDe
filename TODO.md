@@ -8,6 +8,8 @@
 - Remove unused code.
 - Make `ExecutionParams` immutable after separating raw requests from resolved execution configuration.
 - Review log levels and details.
+- Measure diagnostic logging queue size, peak memory, and throughput under high-volume failures. Revisit the unbounded asynchronous queue only with evidence; preserve lossless diagnostic retention unless the requirements explicitly change.
+- Isolate E2E test data with per-test `t.TempDir()` ownership and scoped cleanup. Separate test processes currently interfere through shared `./test_files/` cleanup; verify concurrent test commands no longer delete one another's fixtures.
 - Test with large files and constrained buffers.
 - Throttle or summarize repeated filesystem errors before sending them to the UI.
 - Simplify frontend state flow.
