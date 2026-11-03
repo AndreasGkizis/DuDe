@@ -588,7 +588,7 @@ The following implementation issues were fixed and covered by regression tests:
 3. Discovery submits events from the walking producer path.
 4. Hashing submits events from worker error paths and stops promptly on `ErrorFatal`.
 5. JSON and CSV scope values are consistently lowercase.
-6. Reports use second-level timestamps with a numeric suffix for sequential collisions. Concurrent path reservation is not yet safe; see R5 below.
+6. Reports use second-level timestamps with a numeric suffix for collisions. Exclusive file creation now prevents overwriting existing reports; see R5 below.
 7. `CheckIfResultsExist()` verifies that the current report exists and is a regular file.
 8. Duplicate report create, write, flush, close, cleanup, and inconclusive publication behavior is tested.
 
@@ -796,19 +796,25 @@ Acceptance verified: completed duplicate reports enable report access, diagnosti
 
 Verification: `npm --prefix frontend test`, `npm --prefix frontend run build`, `go test -race -count=1 ./...`, and `git diff --check` passed. npm audit reports six vulnerabilities in the existing Vite toolchain dependencies (one moderate, five high); dependency-toolchain remediation is outside this button fix.
 
-### R5 — Medium: report path selection is not atomic
+### R5 — Resolved: reserve report paths with exclusive creation
 
-- [ ] Replace `Stat` followed by `Create` with atomic exclusive file creation shared by both report types.
-- [ ] Retry the numeric suffix only for `os.ErrExist`; return other errors.
-- [ ] Add concurrent-writer tests that verify distinct paths and preservation of existing contents.
+- [x] Replace `Stat` followed by `Create` with atomic exclusive file creation shared by both report types.
+- [x] Retry the numeric suffix only for `os.ErrExist`; return other errors.
+- [x] Add concurrent-writer tests that verify distinct paths and preservation of existing contents.
 
 Location: `internal/processing/services/duplicate_report.go:19–60` at the reviewed head; coverage uses the same path-selection helper.
 
-Two application instances or concurrent writers can select the same free path. `os.Create` then truncates the existing report. The helper also incorrectly treats every `Stat` error as evidence that a path is available. The existing sequential rapid-run test does not cover concurrent reservation.
+Scope clarification: the application's execution gate already prevents parallel runs within one application instance. This is defensive hardening against external writers or separate processes, not a supported parallel-execution workflow.
 
-Use `os.OpenFile` with `os.O_WRONLY|os.O_CREATE|os.O_EXCL` and the existing timestamp/suffix naming policy.
+At the reviewed head, separate writers could select the same free path and `os.Create` could truncate an existing report. The helper also treated every `Stat` error as evidence that a path was available. The sequential rapid-run test did not cover atomic reservation.
 
-Acceptance: concurrent writers cannot overwrite one another, and non-collision filesystem errors are returned without suffix retries.
+Implementation: both report writers now use `os.OpenFile` with `os.O_WRONLY|os.O_CREATE|os.O_EXCL`. The shared `createReportFile` helper in `internal/processing/services/report_file.go` attempts creation directly, increments the existing numeric suffix only on `os.ErrExist`, and returns other errors immediately. Timestamp formatting, permissions, report contents, and incomplete-file cleanup behavior remain unchanged. No locks or parallel application execution were added.
+
+Regression coverage: `internal/processing/services/report_file_test.go` simulates a file appearing just before creation for both report types, verifies retry naming and preservation of the original content, and checks permission/missing-directory errors are returned without retries. A service-level concurrency test checks distinct paths and matching contents for 16 simultaneous report writers of each type. The deterministic collision tests failed before the change and pass afterward; existing report write/close/cleanup tests still pass.
+
+Acceptance verified: exclusive creation prevents overwriting existing reports, and non-collision filesystem errors return without suffix retries.
+
+Verification: targeted report-file tests passed 50 repetitions under `-race`; `go test -race -count=1 ./...`, `go build ./...`, `go vet ./...`, and `git diff --check` passed.
 
 ### R6 — Medium: `DiagnosticSink.Submit` and `Close` have inconsistent admission semantics
 

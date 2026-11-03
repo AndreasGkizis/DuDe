@@ -93,13 +93,12 @@ type CoverageReportRow struct {
 // SaveCoverageReport writes exactly one report for a completed coverage run.
 func SaveCoverageReport(result models.MissingContentResult, diagnostics models.ScanDiagnostics, directory string) (string, error) {
 	return saveCoverageReport(result, diagnostics, directory, func(path string) (io.WriteCloser, error) {
-		return os.Create(path)
+		return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	}, os.Remove)
 }
 
 func saveCoverageReport(result models.MissingContentResult, diagnostics models.ScanDiagnostics, directory string, create func(string) (io.WriteCloser, error), remove func(string) error) (string, error) {
-	path := nextAvailableReportPath(directory, "coverage_report")
-	file, err := create(path)
+	path, file, err := createReportFile(directory, "coverage_report", create)
 	if err != nil {
 		return "", fmt.Errorf("create coverage report: %w", err)
 	}

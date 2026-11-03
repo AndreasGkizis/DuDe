@@ -8,17 +8,15 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync"
-	"time"
 )
 
 // SaveDuplicateReport writes duplicate and skipped diagnostic rows. It returns
 // an empty path when there are no rows to write.
 func SaveDuplicateReport(data *sync.Map, diagnostics models.ScanDiagnostics, directory string) (string, error) {
 	return saveDuplicateReport(data, diagnostics, directory, func(path string) (io.WriteCloser, error) {
-		return os.Create(path)
+		return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	}, os.Remove)
 }
 
@@ -28,8 +26,7 @@ func saveDuplicateReport(data *sync.Map, diagnostics models.ScanDiagnostics, dir
 		return "", nil
 	}
 
-	path := nextAvailableReportPath(directory, "duplicate_results")
-	file, err := create(path)
+	path, file, err := createReportFile(directory, "duplicate_results", create)
 	if err != nil {
 		return "", fmt.Errorf("create duplicate report: %w", err)
 	}
@@ -43,22 +40,6 @@ func saveDuplicateReport(data *sync.Map, diagnostics models.ScanDiagnostics, dir
 		return "", errors.Join(fmt.Errorf("close duplicate report: %w", err), removeErr)
 	}
 	return path, nil
-}
-
-func nextAvailableReportPath(directory, prefix string) string {
-	timestamp := time.Now().Format("_2006_01_02_15_04_05")
-	suffix := 0
-	for {
-		name := fmt.Sprintf("%s%s.%s", prefix, timestamp, common.Results_file_extension)
-		if suffix > 0 {
-			name = fmt.Sprintf("%s%s_%d.%s", prefix, timestamp, suffix, common.Results_file_extension)
-		}
-		path := filepath.Join(directory, name)
-		if _, err := os.Stat(path); err != nil {
-			return path
-		}
-		suffix++
-	}
 }
 
 // duplicateReportRow is intentionally separate from coverage report rows.
