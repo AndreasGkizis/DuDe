@@ -54,7 +54,7 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 				memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, len(files), 1)
 				hashTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Hashing")
 				findTracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "Finding")
-				errChan := make(chan error, len(files))
+				sink := services.NewDiagnosticSink()
 				b.StartTimer()
 
 				services.RemoveUniqueSizeFiles(sourceFiles)
@@ -65,7 +65,9 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 					hashTracker,
 					memoryManager,
 					&hashMemory,
-					errChan,
+					sink,
+					func(services.DiagnosticEvent) services.ErrorDisposition { return services.ErrorDiagnostic },
+					models.DiagnosticScopeDuplicate,
 				)
 				if err != nil {
 					b.Fatalf("create hashes: %v", err)
@@ -73,11 +75,7 @@ func BenchmarkHashAndGroupPipeline(b *testing.B) {
 
 				services.FindDuplicatesInMap(context.Background(), sourceFiles, findTracker)
 
-				select {
-				case err := <-errChan:
-					b.Fatalf("pipeline error: %v", err)
-				default:
-				}
+				sink.Close()
 			}
 		})
 	}

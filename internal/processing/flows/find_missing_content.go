@@ -52,11 +52,16 @@ func (flow FindMissingContentFlow) Validate(args *models.ExecutionParams) error 
 
 // Run discovers, hashes, and matches source files against target files. Files
 // skipped by discovery are reported separately and do not abort the run.
-func (flow FindMissingContentFlow) Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher) error {
+func (flow FindMissingContentFlow) Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher, options RunOptions) error {
 	//start-up
 	log.Initialize(args.DebugMode)
 	timer := time.Now()
 	log.LogModelArgs(args)
+	if options.HandleDiagnostic == nil {
+		return errors.New("diagnostic handler is required")
+	}
+	sink := services.NewDiagnosticSink()
+	defer sink.Close()
 
 	memory := services.NewMemoryManager(&args, args.BufferSizeBytes, 2)
 	defer memory.CloseAndWait()
@@ -74,23 +79,19 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	discovery := services.NewFileDiscovery()
 
 	reporter.LogDetailedStatus(ctx, "Reading source files")
-	sourceDiscovery, err := discovery.DiscoverWithDiagnostics(ctx, []string{args.FindMissingSourceDir}, reporter)
+	sourceFiles, err := discovery.DiscoverWithSink(ctx, []string{args.FindMissingSourceDir}, reporter, sink, options.HandleDiagnostic, models.DiagnosticScopeSource)
 	if err != nil {
+		sink.Close()
 		return err
 	}
 	reporter.LogDetailedStatus(ctx, "Reading target files")
-	targetDiscovery, err := discovery.DiscoverWithDiagnostics(ctx, []string{args.FindMissingTargetDir}, reporter)
+	targetFiles, err := discovery.DiscoverWithSink(ctx, []string{args.FindMissingTargetDir}, reporter, sink, options.HandleDiagnostic, models.DiagnosticScopeTarget)
 	if err != nil {
+		sink.Close()
 		return err
 	}
 
-	diagnostics := models.ScanDiagnostics{
-		SkippedSourcePaths: append([]models.SkippedPath(nil), sourceDiscovery.SkippedPaths...),
-		SkippedTargetPaths: append([]models.SkippedPath(nil), targetDiscovery.SkippedPaths...),
-	}
-
-	sourceFiles := sourceDiscovery.Files
-	targetFiles := targetDiscovery.Files
+	diagnostics := models.NewScanDiagnostics(models.DiagnosticStatusCompleted)
 	totalFiles := common.LenSyncMap(sourceFiles) + common.LenSyncMap(targetFiles)
 	reporter.LogProgress(ctx, "Reading", 100)
 	reporter.LogFilesCount(ctx, int64(totalFiles), int64(totalFiles))
@@ -112,26 +113,21 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	reporter.LogProgress(ctx, "Filtering", 100)
 	reporter.LogFilesCount(ctx, int64(candidateCount), int64(totalFiles))
 
-	hashErrors := make(chan error, candidateCount+1)
 	sourceHashing := visuals.NewProgressTracker(ctx, reporter, "Hashing Source")
 	sourceHashing.Start()
-	if err := services.CreateHashes(ctx, filteredSourceFiles, args.WorkerCount, sourceHashing, memory, &hashMemory, hashErrors); err != nil {
+	if err := services.CreateHashes(ctx, filteredSourceFiles, args.WorkerCount, sourceHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeSource); err != nil {
+		sink.Close()
 		return err
 	}
 	sourceHashing.Wait()
-	for _, hashErr := range drainHashErrors(hashErrors) {
-		diagnostics.SkippedSourcePaths = append(diagnostics.SkippedSourcePaths, hashErr)
-	}
 
 	targetHashing := visuals.NewProgressTracker(ctx, reporter, "Hashing Target")
 	targetHashing.Start()
-	if err := services.CreateHashes(ctx, hashTargetMap, args.WorkerCount, targetHashing, memory, &hashMemory, hashErrors); err != nil {
+	if err := services.CreateHashes(ctx, hashTargetMap, args.WorkerCount, targetHashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeTarget); err != nil {
+		sink.Close()
 		return err
 	}
 	targetHashing.Wait()
-	for _, hashErr := range drainHashErrors(hashErrors) {
-		diagnostics.SkippedTargetPaths = append(diagnostics.SkippedTargetPaths, hashErr)
-	}
 
 	memory.WaitForCache(ctx, func(completed, total int64) {
 		reporter.LogProgress(ctx, "Caching", percentage(completed, total))
@@ -146,8 +142,10 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 
 	mergeHashedInto(sourceFiles, filteredSourceFiles)
 	mergeHashedInto(targetFiles, hashTargetMap)
-	deleteSkippedFiles(sourceFiles, diagnostics.SkippedSourcePaths)
-	deleteSkippedFiles(targetFiles, diagnostics.SkippedTargetPaths)
+	sink.Close()
+	diagnostics = completedDiagnosticsFromSnapshot(sink.Snapshot())
+	deleteSkippedFiles(sourceFiles, diagnostics.Diagnostics, models.DiagnosticScopeSource)
+	deleteSkippedFiles(targetFiles, diagnostics.Diagnostics, models.DiagnosticScopeTarget)
 	publisher.PublishScanDiagnostics(diagnostics)
 	reporter.LogProgress(ctx, "Comparing", 0)
 	result, err := services.MatchCoverage(ctx, syncMapValues(sourceFiles), syncMapValues(targetFiles), args.ParanoidMode)
@@ -163,6 +161,7 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 		return err
 	}
 	result.ReportPath = reportPath
+	result.Diagnostics = diagnostics
 	reporter.LogProgress(ctx, "Reporting", 100)
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)
@@ -187,25 +186,25 @@ func mergeHashedInto(all, hashed *sync.Map) {
 	})
 }
 
-func deleteSkippedFiles(files *sync.Map, skipped []models.SkippedPath) {
-	for _, path := range skipped {
-		if path.Path != "" {
-			files.Delete(path.Path)
+func deleteSkippedFiles(files *sync.Map, diagnostics []models.Diagnostic, scope models.DiagnosticScope) {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Scope == scope && diagnostic.Path != "" {
+			files.Delete(diagnostic.Path)
 		}
 	}
 }
 
-func drainHashErrors(errorsChannel <-chan error) []models.SkippedPath {
-	var skipped []models.SkippedPath
+func drainHashErrors(errorsChannel <-chan error, scope models.DiagnosticScope) []models.Diagnostic {
+	var skipped []models.Diagnostic
 	for {
 		select {
 		case err := <-errorsChannel:
 			log.WarnWithFuncName(err.Error())
 			var hashErr services.HashError
 			if errors.As(err, &hashErr) {
-				skipped = append(skipped, models.SkippedPath{Path: hashErr.Path, Reason: hashErr.Err.Error()})
+				skipped = append(skipped, models.Diagnostic{Path: hashErr.Path, Reason: hashErr.Err.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope})
 			} else {
-				skipped = append(skipped, models.SkippedPath{Reason: err.Error()})
+				skipped = append(skipped, models.Diagnostic{Reason: err.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope})
 			}
 		default:
 			return skipped

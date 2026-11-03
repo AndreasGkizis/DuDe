@@ -7,7 +7,6 @@ import (
 	database "DuDe/internal/db"
 	"DuDe/internal/handlers/validation"
 	"DuDe/internal/processing/flows"
-	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"DuDe/internal/models"
 	"context"
 	"fmt"
+	"os"
 
 	"sync"
 
@@ -22,20 +22,24 @@ import (
 )
 
 // FrontendApp struct
+type executionState struct {
+	DuplicateResult      *models.DuplicateResult
+	MissingContentResult *models.MissingContentResult
+	ScanDiagnostics      models.ScanDiagnostics
+}
+
 type FrontendApp struct {
 	wailsCtx context.Context
 	execCtx  context.Context
 	gate     *ExecutionGate
 	stateMu  sync.RWMutex
 
-	platform                 string
-	Args                     models.ExecutionParams
-	reporter                 reporting.Reporter
-	pathValidator            validation.PathValidator
-	flowRegistry             *flows.Registry
-	lastResults              []models.FileHash // duplicate groups from the last completed execution
-	lastMissingContentResult *models.MissingContentResult
-	lastScanDiagnostics      *models.ScanDiagnostics
+	platform       string
+	Args           models.ExecutionParams
+	reporter       reporting.Reporter
+	pathValidator  validation.PathValidator
+	flowRegistry   *flows.Registry
+	executionState executionState
 }
 
 // NewApp creates a new App application struct
@@ -45,9 +49,10 @@ func NewApp(reporter reporting.Reporter) *FrontendApp {
 	}
 
 	app := &FrontendApp{
-		reporter:      reporter,
-		pathValidator: pathValidator,
-		gate:          NewExecutionGate(),
+		reporter:       reporter,
+		pathValidator:  pathValidator,
+		gate:           NewExecutionGate(),
+		executionState: executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusNotStarted)},
 	}
 
 	duplicateFlow := flows.NewDuplicateFlow(pathValidator)
@@ -101,8 +106,7 @@ func (app *FrontendApp) FullReset() error {
 	// Reset transient state only.
 	app.stateMu.Lock()
 	app.Args = models.ExecutionParams{}
-	app.lastResults = nil
-	app.lastMissingContentResult = nil
+	app.executionState = executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusNotStarted)}
 	app.stateMu.Unlock()
 
 	app.gate.EndReset()
@@ -121,17 +125,22 @@ func (a *FrontendApp) Startup(ctx context.Context) {
 	a.platform = runtime.Environment(a.wailsCtx).Platform
 }
 
-// CheckIfResultsExist returns true if the results JSON file is found on disk
+// CheckIfResultsExist returns true when the current report exists on disk.
 func (a *FrontendApp) CheckIfResultsExist() bool {
-	var resultsDir string
-	args := a.executionArgs()
-
-	if args.ResultsDir == "" {
-		resultsDir = common.GetSafeResultsDir(a.platform)
-	} else {
-		resultsDir = args.ResultsDir
+	a.stateMu.RLock()
+	var reportPath string
+	if a.executionState.DuplicateResult != nil {
+		reportPath = a.executionState.DuplicateResult.ReportPath
+	} else if a.executionState.MissingContentResult != nil {
+		reportPath = a.executionState.MissingContentResult.ReportPath
 	}
-	return services.ResultsFileExist(resultsDir)
+	a.stateMu.RUnlock()
+
+	if reportPath == "" {
+		return false
+	}
+	info, err := os.Stat(reportPath)
+	return err == nil && info.Mode().IsRegular()
 }
 
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
@@ -182,38 +191,27 @@ func (a *FrontendApp) RevealInExplorer(path string) error {
 	return nil
 }
 
-// GetResults returns the duplicate groups found in the last completed execution.
-// Each FileHash in the returned slice has DuplicatesFound populated.
-// Returns nil if no execution has completed yet.
-func (a *FrontendApp) GetResults() []models.FileHash {
+// GetResults returns the last completed duplicate result, or nil when no
+// completed duplicate execution exists.
+func (a *FrontendApp) GetResults() *models.DuplicateResult {
 	a.stateMu.RLock()
 	defer a.stateMu.RUnlock()
-	return append([]models.FileHash(nil), a.lastResults...)
+	return copyDuplicateResult(a.executionState.DuplicateResult)
 }
 
 // GetMissingContentResult returns the last completed coverage result.
 func (a *FrontendApp) GetMissingContentResult() *models.MissingContentResult {
 	a.stateMu.RLock()
 	defer a.stateMu.RUnlock()
-	if a.lastMissingContentResult == nil {
-		return nil
-	}
-	result := *a.lastMissingContentResult
-	result.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
-	return &result
+	return copyMissingContentResult(a.executionState.MissingContentResult)
 }
 
-// GetScanDiagnostics returns skipped paths from the last completed execution.
+// GetScanDiagnostics returns the current execution diagnostics state.
 func (a *FrontendApp) GetScanDiagnostics() *models.ScanDiagnostics {
 	a.stateMu.RLock()
 	defer a.stateMu.RUnlock()
-	if a.lastScanDiagnostics == nil {
-		return nil
-	}
-	diagnostics := *a.lastScanDiagnostics
-	diagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
-	diagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
-	return &diagnostics
+	result := copyScanDiagnostics(a.executionState.ScanDiagnostics)
+	return &result
 }
 
 // SelectFolder opens a native folder selection dialog and returns the selected path.
@@ -274,22 +272,22 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	a.stateMu.Lock()
 	a.execCtx = execCtx
 	a.Args = args
-	a.lastResults = nil
-	a.lastMissingContentResult = nil
-	a.lastScanDiagnostics = nil
+	a.executionState = executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusRunning)}
 	a.stateMu.Unlock()
 
 	// Flows report their concrete result to this collector. FrontendApp only
 	// publishes it to synchronized application state after Run returns
 	// successfully, so failed or cancelled executions cannot publish results.
 	result := &executionResultPublisher{}
-	err = flow.Run(execCtx, args, a.reporter, result)
+	err = flow.Run(execCtx, args, a.reporter, result, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if errors.Is(err, context.Canceled) {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Process Stopped.")
+		a.publishExecutionState(executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusCancelled)})
 		return nil
 	}
 	if err != nil {
 		a.reporter.ReportError(a.wailsCtx, err.Error())
+		a.publishExecutionState(executionState{ScanDiagnostics: models.NewScanDiagnostics(models.DiagnosticStatusInconclusive)})
 		return err
 	}
 
@@ -328,56 +326,72 @@ type executionResultPublisher struct {
 func (p *executionResultPublisher) PublishDuplicateResult(result models.DuplicateResult) {
 	copyResult := result
 	copyResult.Groups = append([]models.FileHash(nil), result.Groups...)
+	copyResult.Diagnostics = copyScanDiagnostics(result.Diagnostics)
 	p.duplicate = &copyResult
 }
 
 func (p *executionResultPublisher) PublishMissingContentResult(result models.MissingContentResult) {
 	copyResult := result
 	copyResult.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
+	copyResult.Diagnostics = copyScanDiagnostics(result.Diagnostics)
 	p.missingContent = &copyResult
 }
 
 func (p *executionResultPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
-	copyDiagnostics := diagnostics
-	copyDiagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
-	copyDiagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
+	copyDiagnostics := copyScanDiagnostics(diagnostics)
 	p.diagnostics = &copyDiagnostics
 }
 
 func (p *executionResultPublisher) PublishTo(app *FrontendApp) {
+	diagnostics := models.NewScanDiagnostics(models.DiagnosticStatusCompleted)
+	if p.diagnostics != nil {
+		diagnostics = copyScanDiagnostics(*p.diagnostics)
+	}
 	if p.duplicate != nil {
-		app.PublishDuplicateResult(*p.duplicate)
+		result := copyDuplicateResult(p.duplicate)
+		result.Diagnostics = copyScanDiagnostics(diagnostics)
+		app.publishExecutionState(executionState{DuplicateResult: result, ScanDiagnostics: diagnostics})
+		return
 	}
 	if p.missingContent != nil {
-		app.PublishMissingContentResult(*p.missingContent)
+		result := copyMissingContentResult(p.missingContent)
+		result.Diagnostics = copyScanDiagnostics(diagnostics)
+		app.publishExecutionState(executionState{MissingContentResult: result, ScanDiagnostics: diagnostics})
 	}
-	if p.diagnostics != nil {
-		app.PublishScanDiagnostics(*p.diagnostics)
+}
+
+func (a *FrontendApp) publishExecutionState(state executionState) {
+	state.ScanDiagnostics.Diagnostics = append([]models.Diagnostic{}, state.ScanDiagnostics.Diagnostics...)
+	a.stateMu.Lock()
+	a.executionState = state
+	a.stateMu.Unlock()
+}
+
+func copyScanDiagnostics(source models.ScanDiagnostics) models.ScanDiagnostics {
+	result := source
+	result.Diagnostics = append([]models.Diagnostic{}, source.Diagnostics...)
+	if result.Diagnostics == nil {
+		result.Diagnostics = []models.Diagnostic{}
 	}
+	return result
 }
 
-// PublishDuplicateResult records the last successful duplicate result.
-func (a *FrontendApp) PublishDuplicateResult(result models.DuplicateResult) {
-	a.stateMu.Lock()
-	a.lastResults = append([]models.FileHash(nil), result.Groups...)
-	a.stateMu.Unlock()
+func copyDuplicateResult(source *models.DuplicateResult) *models.DuplicateResult {
+	if source == nil {
+		return nil
+	}
+	result := *source
+	result.Groups = append([]models.FileHash(nil), source.Groups...)
+	result.Diagnostics = copyScanDiagnostics(source.Diagnostics)
+	return &result
 }
 
-// PublishMissingContentResult records the last successful missing-content result.
-func (a *FrontendApp) PublishMissingContentResult(result models.MissingContentResult) {
-	copyResult := result
-	copyResult.MissingFiles = append([]models.MissingSourceFile(nil), result.MissingFiles...)
-	a.stateMu.Lock()
-	a.lastMissingContentResult = &copyResult
-	a.stateMu.Unlock()
-}
-
-// PublishScanDiagnostics records non-fatal skipped paths from the last completed execution.
-func (a *FrontendApp) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
-	copyDiagnostics := diagnostics
-	copyDiagnostics.SkippedSourcePaths = append([]models.SkippedPath(nil), diagnostics.SkippedSourcePaths...)
-	copyDiagnostics.SkippedTargetPaths = append([]models.SkippedPath(nil), diagnostics.SkippedTargetPaths...)
-	a.stateMu.Lock()
-	a.lastScanDiagnostics = &copyDiagnostics
-	a.stateMu.Unlock()
+func copyMissingContentResult(source *models.MissingContentResult) *models.MissingContentResult {
+	if source == nil {
+		return nil
+	}
+	result := *source
+	result.MissingFiles = append([]models.MissingSourceFile(nil), source.MissingFiles...)
+	result.Diagnostics = copyScanDiagnostics(source.Diagnostics)
+	return &result
 }

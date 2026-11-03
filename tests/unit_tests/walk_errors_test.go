@@ -1,30 +1,30 @@
 package unit_tests
 
 import (
+	"DuDe/internal/models"
 	"context"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"sync"
 	"testing"
-
-	"DuDe/internal/processing/services"
-	"DuDe/internal/reporting"
-	"DuDe/internal/visuals"
 )
 
 func TestWalkDirMissingRootDoesNotPanic(t *testing.T) {
 	missingRoot := filepath.Join(t.TempDir(), "removed")
-	files := &sync.Map{}
-
-	panicked := runWalkDirAndCapturePanic(missingRoot, files, reporting.NoOpReporter{})
-
-	if panicked {
-		t.Fatal("expected a missing root directory to return without panicking")
+	files, diagnostics, err := discoverFiles(context.Background(), []string{missingRoot})
+	if err != nil {
+		t.Fatalf("expected missing root to be recoverable, got %v", err)
 	}
-	if countSyncMapEntries(files) != 0 {
+	count := 0
+	files.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	if count != 0 {
 		t.Fatal("expected a missing root directory to produce no files")
+	}
+	if len(diagnostics) != 1 || diagnostics[0].Path != missingRoot {
+		t.Fatalf("expected a diagnostic for the missing root, got %#v", diagnostics)
 	}
 }
 
@@ -55,12 +55,9 @@ func TestWalkDirReportsUnreadableDirectoryAndContinuesWithSiblings(t *testing.T)
 		t.Skip("current user can still read permissionless directories")
 	}
 
-	reporter := &walkErrorReporter{}
-	files := &sync.Map{}
-	panicked := runWalkDirAndCapturePanic(root, files, reporter)
-
-	if panicked {
-		t.Fatal("expected an unreadable child directory to be skipped without panicking")
+	files, diagnostics, err := discoverFiles(context.Background(), []string{root})
+	if err != nil {
+		t.Fatalf("expected unreadable directory to be recoverable, got %v", err)
 	}
 	if _, exists := files.Load(accessibleFile); !exists {
 		t.Fatal("expected scanning to continue with accessible sibling files")
@@ -68,56 +65,7 @@ func TestWalkDirReportsUnreadableDirectoryAndContinuesWithSiblings(t *testing.T)
 	if _, exists := files.Load(blockedFile); exists {
 		t.Fatal("expected files below the unreadable directory to be skipped")
 	}
-	if !reporter.contains("blocked") {
-		t.Fatal("expected the unreadable directory to be reported to the frontend")
+	if len(diagnostics) == 0 || diagnostics[0].Scope != models.DiagnosticScopeDuplicate {
+		t.Fatalf("expected an unreadable-directory diagnostic, got %#v", diagnostics)
 	}
 }
-
-func runWalkDirAndCapturePanic(path string, files *sync.Map, reporter reporting.Reporter) (panicked bool) {
-	counter := visuals.NewProgressCounter(context.Background(), reporter, "Reading", 1)
-	counter.Start()
-
-	func() {
-		defer func() {
-			panicked = recover() != nil
-		}()
-		services.WalkDir(context.Background(), path, files, counter)
-	}()
-
-	counter.WaitForSenders()
-	counter.Wg.Wait()
-	return panicked
-}
-
-func countSyncMapEntries(values *sync.Map) int {
-	count := 0
-	values.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	return count
-}
-
-type walkErrorReporter struct {
-	messages []string
-}
-
-func (*walkErrorReporter) LogProgress(context.Context, string, float64) {}
-func (*walkErrorReporter) LogFilesCount(context.Context, int64, int64)  {}
-func (*walkErrorReporter) ReportError(context.Context, string)          {}
-func (*walkErrorReporter) FinishExecution(context.Context)              {}
-
-func (reporter *walkErrorReporter) LogDetailedStatus(_ context.Context, message string) {
-	reporter.messages = append(reporter.messages, message)
-}
-
-func (reporter *walkErrorReporter) contains(fragment string) bool {
-	for _, message := range reporter.messages {
-		if strings.Contains(message, fragment) {
-			return true
-		}
-	}
-	return false
-}
-
-var _ reporting.Reporter = (*walkErrorReporter)(nil)

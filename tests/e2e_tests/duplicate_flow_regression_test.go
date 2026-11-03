@@ -46,12 +46,52 @@ func TestDuplicateFlowPublishesGroupsAfterSuccessfulExecution(t *testing.T) {
 		t.Fatalf("duplicate execution failed: %v", err)
 	}
 
-	groups := app.GetResults()
-	if len(groups) != 1 {
-		t.Fatalf("expected one duplicate group, got %d", len(groups))
+	result := app.GetResults()
+	if result == nil || len(result.Groups) != 1 {
+		t.Fatalf("expected one duplicate group, got %#v", result)
 	}
-	if len(groups[0].DuplicatesFound) != 1 {
-		t.Fatalf("expected one duplicate in the group, got %d", len(groups[0].DuplicatesFound))
+	if len(result.Groups[0].DuplicatesFound) != 1 {
+		t.Fatalf("expected one duplicate in the group, got %d", len(result.Groups[0].DuplicatesFound))
+	}
+}
+
+func TestDuplicateFlowSuppressesResultAfterInconclusiveReportFailure(t *testing.T) {
+	root, cleanup := createTestFilesByteArray(t, map[string][]byte{
+		"one.txt": []byte("same content"),
+		"two.txt": []byte("same content"),
+	})
+	defer func() {
+		cleanup()
+		deleteTestFolder(t)
+	}()
+
+	resultsDir := filepath.Join(root, "results")
+	cacheDir := filepath.Join(root, "cache")
+	if err := os.MkdirAll(resultsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	reporter := &removeDuplicateResultsReporter{resultsDir: resultsDir}
+	app := processing.NewApp(reporter)
+	app.Startup(context.Background())
+	if err := app.StartExecution(models.ExecutionParams{
+		Mode:            models.ExecutionModeDuplicates,
+		Directories:     []string{root},
+		ResultsDir:      resultsDir,
+		CacheDir:        cacheDir,
+		WorkerCount:     1,
+		BufferSizeBytes: 1024,
+	}); err == nil {
+		t.Fatal("expected report failure to make duplicate execution inconclusive")
+	}
+	if result := app.GetResults(); result != nil {
+		t.Fatalf("expected no published duplicate result, got %#v", result)
+	}
+	if diagnostics := app.GetScanDiagnostics(); diagnostics == nil || diagnostics.Status != models.DiagnosticStatusInconclusive {
+		t.Fatalf("expected inconclusive diagnostics state, got %#v", diagnostics)
 	}
 }
 
@@ -87,8 +127,8 @@ func TestCancelledDuplicateFlowDoesNotPublishStaleResults(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("initial duplicate execution failed: %v", err)
 	}
-	if got := len(app.GetResults()); got != 1 {
-		t.Fatalf("expected initial execution to publish one group, got %d", got)
+	if result := app.GetResults(); result == nil || len(result.Groups) != 1 {
+		t.Fatalf("expected initial execution to publish one group, got %#v", result)
 	}
 
 	root, cleanup := createTestFilesByteArray(t, duplicateFiles(200))
@@ -130,8 +170,20 @@ func TestCancelledDuplicateFlowDoesNotPublishStaleResults(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatalf("cancelled duplicate execution failed: %v", err)
 	}
-	if groups := app.GetResults(); groups != nil {
-		t.Fatalf("expected cancelled execution to publish no groups, got %d", len(groups))
+	if result := app.GetResults(); result != nil {
+		t.Fatalf("expected cancelled execution to publish no groups, got %#v", result)
+	}
+}
+
+type removeDuplicateResultsReporter struct {
+	reporting.NoOpReporter
+	resultsDir string
+	once       sync.Once
+}
+
+func (r *removeDuplicateResultsReporter) LogProgress(_ context.Context, title string, _ float64) {
+	if title == "Collecting" {
+		r.once.Do(func() { _ = os.RemoveAll(r.resultsDir) })
 	}
 }
 

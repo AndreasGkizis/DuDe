@@ -98,8 +98,7 @@ func SaveCoverageReport(result models.MissingContentResult, diagnostics models.S
 }
 
 func saveCoverageReport(result models.MissingContentResult, diagnostics models.ScanDiagnostics, directory string, create func(string) (io.WriteCloser, error), remove func(string) error) (string, error) {
-	filename := fmt.Sprintf("coverage_report%s.%s", time.Now().Format("_2006_01_02_15_04_05"), common.Results_file_extension)
-	path := filepath.Join(directory, filename)
+	path := nextAvailableReportPath(directory, "coverage_report")
 	file, err := create(path)
 	if err != nil {
 		return "", fmt.Errorf("create coverage report: %w", err)
@@ -123,22 +122,24 @@ func WriteCoverageCSV(output io.Writer, result models.MissingContentResult, diag
 		return fmt.Errorf("failed to write coverage UTF-8 BOM: %w", err)
 	}
 
-	rows := make([]CoverageReportRow, 0, len(result.MissingFiles)+len(diagnostics.SkippedSourcePaths)+len(diagnostics.SkippedTargetPaths))
+	rows := make([]CoverageReportRow, 0, len(result.MissingFiles)+len(diagnostics.Diagnostics))
 	for _, missing := range result.MissingFiles {
 		rows = append(rows, CoverageReportRow{
 			Type:     "Missing",
-			Scope:    "Source",
+			Scope:    "source",
 			Filename: missing.Filename,
 			FullPath: missing.FullPath,
 			Size:     strconv.FormatInt(missing.Size, 10),
 			Reason:   "Not found in target",
 		})
 	}
-	for _, skipped := range diagnostics.SkippedSourcePaths {
-		rows = append(rows, CoverageReportRow{Type: "Skipped", Scope: "Source", FullPath: skipped.Path, Reason: skipped.Reason})
-	}
-	for _, skipped := range diagnostics.SkippedTargetPaths {
-		rows = append(rows, CoverageReportRow{Type: "Skipped", Scope: "Target", FullPath: skipped.Path, Reason: skipped.Reason})
+	for _, diagnostic := range diagnostics.Diagnostics {
+		rows = append(rows, CoverageReportRow{
+			Type:     "Skipped",
+			Scope:    string(diagnostic.Scope),
+			FullPath: diagnostic.Path,
+			Reason:   diagnosticReason(diagnostic),
+		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].Scope != rows[j].Scope {
@@ -165,6 +166,13 @@ func WriteCoverageCSV(output io.Writer, result models.MissingContentResult, diag
 		return fmt.Errorf("failed to flush coverage report: %w", err)
 	}
 	return nil
+}
+
+func diagnosticReason(diagnostic models.Diagnostic) string {
+	if diagnostic.Phase == "" {
+		return diagnostic.Reason
+	}
+	return fmt.Sprintf("%s (phase: %s)", diagnostic.Reason, diagnostic.Phase)
 }
 
 func ResultsFileExist(path string) bool {

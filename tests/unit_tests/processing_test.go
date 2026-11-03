@@ -73,12 +73,10 @@ func TestWalkDirStoresFileMetadata(t *testing.T) {
 		t.Fatalf("write test file: %v", err)
 	}
 
-	files := &sync.Map{}
-	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "test", 1)
-	counter.Start()
-	services.WalkDir(context.Background(), directory, files, counter)
-	counter.WaitForSenders()
-	counter.Wg.Wait()
+	files, _, err := discoverFiles(context.Background(), []string{directory})
+	if err != nil {
+		t.Fatalf("discover directory: %v", err)
+	}
 
 	stored, ok := files.Load(path)
 	if !ok {
@@ -120,12 +118,10 @@ func TestWalkDirCountsFilesButNotDirectories(t *testing.T) {
 		}
 	}
 
-	files := &sync.Map{}
-	counter := visuals.NewProgressCounter(context.Background(), reporting.NoOpReporter{}, "test", 1)
-	counter.Start()
-	services.WalkDir(context.Background(), directory, files, counter)
-	counter.WaitForSenders()
-	counter.Wg.Wait()
+	files, _, err := discoverFiles(context.Background(), []string{directory})
+	if err != nil {
+		t.Fatalf("discover directory: %v", err)
+	}
 
 	fileCount := 0
 	files.Range(func(_, _ any) bool {
@@ -251,7 +247,7 @@ func TestSameSizeDifferentFilesAreHashedButNotDuplicates(t *testing.T) {
 		t.Fatalf("expected 2 candidates and 0 skipped files, got %d and %d", candidates, skipped)
 	}
 
-	runCreateHashes(t, files, make(chan error, 2))
+	runCreateHashes(t, files)
 	first := loadFileHash(t, files, firstPath)
 	second := loadFileHash(t, files, secondPath)
 	if first.Hash == "" || second.Hash == "" {

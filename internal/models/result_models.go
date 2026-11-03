@@ -17,10 +17,12 @@ type MissingContentResult struct {
 	TotalSourceFiles int                 `json:"totalSourceFiles"`
 	MissingFiles     []MissingSourceFile `json:"missingFiles"`
 	ReportPath       string              `json:"reportPath,omitempty"`
+	Diagnostics      ScanDiagnostics     `json:"diagnostics"`
 }
 
 // DuplicateResult contains the result of a successfully completed duplicate flow.
 type DuplicateResult struct {
-	Groups     []FileHash `json:"groups"`
-	ReportPath string     `json:"reportPath,omitempty"`
+	Groups      []FileHash      `json:"groups"`
+	ReportPath  string          `json:"reportPath,omitempty"`
+	Diagnostics ScanDiagnostics `json:"diagnostics"`
 }

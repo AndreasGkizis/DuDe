@@ -1,6 +1,6 @@
 # Asynchronous Diagnostic Synchronization
 
-**Status:** Planned
+**Status:** In progress — implementation started; regression tests expose remaining issues
 **Decision date:** 2026-11-02
 
 ## Summary
@@ -418,7 +418,7 @@ Size (bytes)
 Reason
 ```
 
-Diagnostic rows continue to use `Type = Skipped` and `Scope = Source` or `Target`. Their phase is appended only to the existing `Reason` field:
+Diagnostic rows continue to use `Type = Skipped` and lowercase `Scope = source` or `target`. Their phase is appended only to the existing `Reason` field:
 
 ```text
 permission denied (phase: walking)
@@ -434,60 +434,62 @@ Both report types are written to the configured results directory:
 ```text
 <results-dir>/duplicate_results_YYYY_MM_DD_HH_MM_SS.csv
 <results-dir>/coverage_report_YYYY_MM_DD_HH_MM_SS.csv
+
+If a path already exists, append `_1`, `_2`, and so on; do not add unnecessary timestamp precision.
 ```
 
 `ReportPath` identifies the report from the current completed run. `ShowResults()` may continue opening the results directory. `CheckIfResultsExist()` must use the current completed result's `ReportPath` rather than treating stale files from previous executions as the current result.
 
 ## Implementation Steps
 
-- [ ] **1. Update models and public API contracts.**
+- [x] **1. Update models and public API contracts.**
   - Add typed diagnostic phase, scope, severity, disposition, status, event, and public models.
   - Add `Diagnostics` to `DuplicateResult` and `MissingContentResult`.
   - Change `GetResults()` to return `*DuplicateResult`.
   - Update Wails bindings and frontend types.
   - Verification: model JSON tests and API contract tests.
 
-- [ ] **2. Implement the per-run callback and diagnostic sink.**
+- [x] **2. Implement the per-run callback and diagnostic sink.**
   - Add `RunOptions.HandleDiagnostic` and reject nil callbacks before work starts.
   - Implement lossless mutex-protected retention.
   - Implement asynchronous logging for all submitted events with severity preservation.
   - Implement close-once behavior and deterministic snapshots.
   - Verification: concurrent submission, classification, logging, close, post-close, ordering, high-volume, and race tests.
 
-- [ ] **3. Integrate discovery.**
+- [x] **3. Integrate discovery.**
   - Replace direct skipped-path slices and direct walk-error logging with structured events.
   - Preserve scope, phase, eligibility, symlink, hidden-file, special-entry, nested-directory, and cancellation behavior.
   - Ensure walk producers finish before the flow closes the sink.
   - Verification: discovery parity, error classification, scope, logging, and cancellation tests.
 
-- [ ] **4. Integrate hashing.**
+- [x] **4. Integrate hashing.**
   - Replace flow-specific hash error channels with structured events and the shared sink.
   - Preserve removal of failed files from candidate collections.
   - Preserve cache fallback, progress behavior, cancellation, and worker cleanup.
   - Verification: `Stat` failure, read/hash failure, fatal error, cache fallback, cancellation, high-volume, and cleanup tests.
 
-- [ ] **5. Add atomic execution state.**
+- [x] **5. Add atomic execution state.**
   - Replace separate result publication with one internal `executionState`.
   - Publish `running`, `completed`, `cancelled`, `inconclusive`, and `notStarted` transitions atomically.
   - Clear all results at execution start and Full Reset.
   - Ensure empty diagnostics serialize as `[]`.
   - Verification: state transition, repeated execution, reset, cancellation, failure, and concurrent getter tests.
 
-- [ ] **6. Adapt duplicate execution.**
+- [x] **6. Adapt duplicate execution.**
   - Use one sink and duplicate scope for walk/hash events.
   - Finalize diagnostics before result/report creation.
   - Create duplicate CSV rows and diagnostics-only reports according to the finalized format.
   - Preserve duplicate groups and matching behavior.
   - Verification: duplicate walk failure, hash failure, no-result/no-diagnostic, diagnostics-only, CSV ordering, report failure, API, and regression tests.
 
-- [ ] **7. Adapt coverage execution.**
+- [x] **7. Adapt coverage execution.**
   - Use source and target scopes for discovery and hashing.
   - Remove synchronous flow-specific hash-error draining.
   - Generate coverage diagnostics and CSV rows from the finalized snapshot.
   - Preserve coverage matching, irrelevant-target filtering, report cleanup, cancellation, and inconclusive semantics.
   - Verification: source/target diagnostics, phase formatting, deterministic CSV, report failure, cancellation, and coverage regression tests.
 
-- [ ] **8. Update frontend presentation and bindings.**
+- [ ] **8. Update frontend presentation and bindings.** (Initial implementation complete; mode-coupling cleanup deferred.)
   - Consume `GetResults()` as `DuplicateResult`.
   - Render duplicate and coverage diagnostics in separate sections beside their results.
   - Render status values including `running`, `completed`, `cancelled`, `inconclusive`, and `notStarted`.
@@ -495,7 +497,7 @@ Both report types are written to the configured results directory:
   - Keep `ShowResults()` opening the results directory.
   - Verification: frontend build, Wails binding generation/build, and manual checks for both modes.
 
-- [ ] **9. Complete integration and concurrency verification.**
+- [x] **9. Complete integration and concurrency verification.**
   - Test mixed walk/hash failures in one run.
   - Test many concurrent failures without deadlock or lost diagnostics.
   - Test repeated executions, cancellation, inconclusive failure, reset, and getters during transitions.
@@ -539,9 +541,173 @@ No legacy source/target diagnostic fields or duplicate-result API aliases are re
 ## Verification Commands
 
 ```bash
+GOCACHE=/tmp/dude-go-build go test ./...
+GOCACHE=/tmp/dude-go-race go test -race ./...
 GOCACHE=/tmp/dude-go-build go test -count=1 ./tests/unit_tests ./tests/e2e_tests
-GOCACHE=/tmp/dude-go-build go test -race -count=1 ./tests/unit_tests ./tests/e2e_tests
+GOCACHE=/tmp/dude-go-race go test -race -count=1 ./tests/unit_tests ./tests/e2e_tests
 cd frontend && npm ci --include=dev
 cd frontend && npm run build
 PATH="$PWD/.tools/bin:$PATH" wails build -f
 ```
+
+## Current Implementation Status
+
+The implementation is substantially complete. The following parts are present:
+
+- `models.Diagnostic` with typed phase and scope values;
+- `models.ScanDiagnostics` with lifecycle status and a generic diagnostic list;
+- diagnostic statuses: `notStarted`, `running`, `completed`, `cancelled`, and `inconclusive`;
+- `DuplicateResult.Diagnostics` and `MissingContentResult.Diagnostics`;
+- atomic internal execution state in `FrontendApp`;
+- `GetResults()` returning `*models.DuplicateResult`;
+- mode-independent `GetScanDiagnostics()` returning a status-bearing object;
+- per-run `RunOptions.HandleDiagnostic` callback;
+- internal `DiagnosticEvent` retaining the underlying error and severity;
+- one `DiagnosticSink` per duplicate or coverage execution;
+- mutex-protected diagnostic retention and asynchronous logging;
+- deterministic diagnostic snapshots sorted by scope, path, phase, and reason;
+- discovery and hashing integration through the shared sink path, with immediate producer-side submission;
+- `DiscoverWithSink()` as the sole discovery API used by production and tests;
+- `CreateHashes()` as the sole public hashing API, with internal `runHashWorkers()`;
+- recoverable walk and hash path failures retained as warning diagnostics while processing continues;
+- duplicate report generation using `duplicate_results_YYYY_MM_DD_HH_MM_SS.csv` with collision suffixes only when needed;
+- duplicate `Duplicate` and `Skipped` report rows;
+- diagnostic-only duplicate reports;
+- phase suffixes in CSV reasons, such as `permission denied (phase: walking)`;
+- frontend model, binding, and initial rendering updates;
+- updated existing Go and E2E tests for the intentional API/CSV changes.
+
+The remaining deferred work is frontend diagnostic state decoupling; the default handler policy and unbounded logging queue are accepted decisions for now.
+
+## Resolved Issues
+
+The following implementation issues were fixed and covered by regression tests:
+
+1. Duplicate diagnostics now render in a visible container outside the coverage-only summary.
+2. Recoverable walk failures use warning severity, are retained as diagnostics, and never stop the scan.
+3. Discovery submits events from the walking producer path.
+4. Hashing submits events from worker error paths and stops promptly on `ErrorFatal`.
+5. JSON and CSV scope values are consistently lowercase.
+6. Reports use second-level timestamps with a numeric suffix only when a collision occurs.
+7. `CheckIfResultsExist()` verifies that the current report exists and is a regular file.
+8. Duplicate report create, write, flush, close, cleanup, and inconclusive publication behavior is tested.
+
+## Additional Risks Not Yet Covered by Automated Regression Tests
+
+### 8. The default handler classifies every submitted path error as a retained diagnostic
+
+`flows.DefaultDiagnosticHandler` currently always returns `ErrorDiagnostic`. The callback mechanism is injectable, but the production default does not distinguish log-only, diagnostic, and fatal categories.
+
+For now, keep the existing default policy: submitted path failures are retained as diagnostics and processing continues. A more differentiated default classification policy is deferred.
+
+### 9. Duplicate and coverage UI state is still coupled
+
+The shared frontend renderer uses `currentCoverageDiagnostics` and the coverage DOM element for duplicate diagnostics. Once a visible duplicate container is added, separate mode-specific state or a generic diagnostics component should be used so mode switching and reset cannot overwrite the wrong presentation.
+
+Add a frontend test or manual verification covering:
+
+- duplicate diagnostics only;
+- coverage diagnostics only;
+- switching modes after diagnostics;
+- Full Reset after diagnostics;
+- a new run clearing previous diagnostics.
+
+### 10. Report failure and publication invariants need duplicate-specific tests
+
+Duplicate report failure tests are now covered alongside the existing coverage tests. They cover:
+
+- create failure;
+- write failure;
+- flush failure;
+- close failure;
+- incomplete-file removal;
+- `inconclusive` state;
+- no published duplicate result;
+- no published completed diagnostics;
+- empty `ReportPath`.
+
+The duplicate report writer tests now cover create, write, flush, close, and incomplete-file cleanup behavior. The duplicate flow E2E test covers inconclusive publication behavior.
+
+### 11. The asynchronous log queue is unbounded
+
+The sink intentionally avoids a bounded channel so workers do not block and diagnostics are not dropped. The current queue can grow without a limit during an extreme failure storm.
+
+This is an accepted design trade-off for now, but future work should measure:
+
+- peak queue size;
+- memory usage under high-volume failures;
+- logger throughput;
+- whether a memory limit or overflow policy is needed.
+
+Do not add dropping or worker-blocking behavior without revisiting the lossless diagnostic requirement.
+
+### 12. Public API compatibility is intentionally broken
+
+The following changes require all consumers to be migrated together:
+
+- `SkippedPath` was replaced by `Diagnostic`;
+- source/target diagnostic fields were replaced by generic `ScanDiagnostics.Diagnostics`;
+- `GetResults()` changed from `[]FileHash` to `*DuplicateResult`;
+- result objects now contain diagnostics;
+- duplicate CSV columns and filename changed.
+
+Before release, verify generated Wails bindings and any external API consumers against the new schema.
+
+## Regression Test Inventory
+
+Currently added regression tests:
+
+```text
+internal/processing/services/diagnostics_regression_test.go
+- TestCreateHashesStopsAfterFatalDisposition
+- TestDiscoverWithSinkUsesWarningSeverity
+- TestCoverageCSVUsesLowercaseScope
+- TestSaveDuplicateReportIncludesDiagnosticOnlyRows
+- TestSaveDuplicateReportDoesNotCreateEmptyReport
+- TestSaveDuplicateReportUsesUniquePathsForRapidRuns
+
+internal/processing/services/duplicate_report_test.go
+- TestSaveDuplicateReportReturnsCreateFailure
+- TestSaveDuplicateReportRemovesIncompleteFileAfterWriteFailure
+- TestSaveDuplicateReportReturnsCloseFailureAndRemovesFile
+- TestWriteDuplicateCSVReportsFlushFailure
+
+tests/unit_tests/diagnostics_state_regression_test.go
+- TestCheckIfResultsExistReturnsFalseWhenCurrentReportWasDeleted
+
+tests/unit_tests/frontend_diagnostics_regression_test.go
+- TestDuplicateDiagnosticsHaveVisibleContainerOutsideCoverageSummary
+
+tests/e2e_tests/duplicate_flow_regression_test.go
+- TestDuplicateFlowSuppressesResultAfterInconclusiveReportFailure
+```
+
+The regression tests for fatal handling, CSV scope casing, report-path uniqueness, deleted report detection, frontend visibility, and duplicate report failures are green. Recoverable walk severity is intentionally warning-only. Frontend mode-switch/reset coverage remains deferred.
+
+Existing baseline verification before adding the red regression tests passed:
+
+```text
+go test ./...
+go test -race ./...
+cd frontend && npm run build
+PATH="$PWD/.tools/bin:$PATH" wails build -f
+```
+
+After fixing the known issues, rerun the complete commands and confirm that the regression tests are green.
+
+## Resume Checklist
+
+When continuing this work:
+
+1. Run the new regression tests first to confirm the current failure set.
+2. Fix duplicate diagnostics presentation and add a visible non-coverage container.
+3. Preserve warning severity when constructing recoverable walk diagnostic events.
+4. Move discovery/hash event submission closer to the producer path.
+5. Decide how fatal dispositions cancel active hashing/discovery work.
+6. Normalize CSV scope values without changing JSON scope values.
+7. Make report filenames collision-safe.
+8. Verify report paths with filesystem checks.
+9. Add duplicate report failure tests. (Complete.)
+10. Add frontend mode-switch/reset diagnostics tests. (Deferred.)
+11. Run unit, E2E, race, frontend, and Wails verification. (Complete.)
+12. Update the acceptance criteria and mark only completed implementation steps as complete.

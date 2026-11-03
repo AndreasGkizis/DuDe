@@ -11,86 +11,88 @@ import (
 	"fmt"
 	"io/fs"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"sync"
 )
 
-// FileDiscovery collects eligible files from a set of directory roots. The
-// underlying walk remains the same as the duplicate flow's existing walk so
-// this extraction does not change filesystem eligibility or error handling.
+// FileDiscovery collects eligible files from a set of directory roots.
 type FileDiscovery struct{}
 
-// DiscoveryResult contains discovered files and non-fatal entries skipped by
-// the walker.
-type DiscoveryResult struct {
-	Files        *sync.Map
-	SkippedPaths []models.SkippedPath
-}
+type diagnosticSubmitter func(DiagnosticEvent)
 
 // NewFileDiscovery creates the shared file-discovery component.
 func NewFileDiscovery() FileDiscovery {
 	return FileDiscovery{}
 }
 
-// Discover walks each root concurrently and returns the collected file
-// metadata. Directory-walk errors are reported by WalkDir as before; only
-// cancellation is returned to the caller.
-func (d FileDiscovery) Discover(ctx context.Context, roots []string, reporter reporting.Reporter) (*sync.Map, error) {
-	result, err := d.DiscoverWithDiagnostics(ctx, roots, reporter)
-	return result.Files, err
-}
+// DiscoverWithSink walks roots and submits diagnostics to the execution sink
+// as soon as the walking producer encounters them.
+func (d FileDiscovery) DiscoverWithSink(ctx context.Context, roots []string, reporter reporting.Reporter, sink *DiagnosticSink, handler DiagnosticHandler, scope models.DiagnosticScope) (*sync.Map, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-// DiscoverWithDiagnostics walks roots using the duplicate-mode discovery rules
-// and retains non-fatal skipped-entry diagnostics for callers that need them.
-func (FileDiscovery) DiscoverWithDiagnostics(ctx context.Context, roots []string, reporter reporting.Reporter) (DiscoveryResult, error) {
-	result := DiscoveryResult{Files: &sync.Map{}}
+	var submitMu sync.Mutex
+	var fatalMu sync.Mutex
+	var fatalErr error
+	submit := func(event DiagnosticEvent) {
+		event.Diagnostic.Scope = scope
+		submitMu.Lock()
+		defer submitMu.Unlock()
+
+		disposition := handler(event)
+		sink.Submit(event, disposition)
+		if disposition == ErrorFatal {
+			fatalMu.Lock()
+			if fatalErr == nil {
+				fatalErr = event.Err
+			}
+			fatalMu.Unlock()
+			cancel()
+		}
+	}
+
+	files := &sync.Map{}
 	if len(roots) == 0 {
-		return result, nil
+		return files, nil
 	}
 
 	reading := visuals.NewProgressCounter(ctx, reporter, "Reading", len(roots))
 	reading.Start()
-	var skippedMu sync.Mutex
 	for _, root := range roots {
-		go walkDirWithDiagnostics(ctx, root, result.Files, reading, &result.SkippedPaths, &skippedMu)
+		go walkDirWithSink(ctx, root, files, reading, submit)
 	}
 	reading.Wait()
 
-	if err := ctx.Err(); errors.Is(err, context.Canceled) {
-		return result, err
+	fatalMu.Lock()
+	deferredFatalErr := fatalErr
+	fatalMu.Unlock()
+	if deferredFatalErr != nil {
+		return files, deferredFatalErr
 	}
-	return result, nil
+	if err := ctx.Err(); errors.Is(err, context.Canceled) {
+		return files, err
+	}
+	return files, nil
 }
 
-func WalkDir(ctx context.Context, path string, result *sync.Map, pt *visuals.ProgressCounter) {
-	walkDirWithDiagnostics(ctx, path, result, pt, nil, nil)
-}
-
-func walkDirWithDiagnostics(ctx context.Context, path string, result *sync.Map, pt *visuals.ProgressCounter, skipped *[]models.SkippedPath, skippedMu *sync.Mutex) {
-	defer func() {
-		pt.SenderFinished()
-	}()
+func walkDirWithSink(ctx context.Context, path string, result *sync.Map, pt *visuals.ProgressCounter, submit diagnosticSubmitter) {
+	defer pt.SenderFinished()
 
 	groupID := rand.Uint32()
 	log.InfoWithFuncName(fmt.Sprintf("Group %d started walking directory %s files", groupID, path))
 
-	err := filepath.WalkDir(path, storeFilePathsWithDiagnostics(ctx, result, pt, skipped, skippedMu))
+	err := filepath.WalkDir(path, storeFilePathsWithSink(ctx, result, pt, submit))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.WarnWithFuncName(fmt.Sprintf("Group %d walking cancelled by user.", groupID))
 			return
 		}
-		log.ErrorWithFuncName(fmt.Sprintf("Error walking directory: %v", err))
+		recordSkippedPath(submit, path, err)
 	}
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished walking directory %s files", groupID, path))
 }
 
-func storeFilePaths(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter) func(string, fs.DirEntry, error) error {
-	return storeFilePathsWithDiagnostics(ctx, result, pt, nil, nil)
-}
-
-func storeFilePathsWithDiagnostics(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter, skipped *[]models.SkippedPath, skippedMu *sync.Mutex) func(string, fs.DirEntry, error) error {
+func storeFilePathsWithSink(ctx context.Context, result *sync.Map, pt *visuals.ProgressCounter, submit diagnosticSubmitter) func(string, fs.DirEntry, error) error {
 	return func(path string, dirEntry fs.DirEntry, err error) error {
 		select {
 		case <-ctx.Done():
@@ -100,8 +102,7 @@ func storeFilePathsWithDiagnostics(ctx context.Context, result *sync.Map, pt *vi
 		}
 
 		if err != nil {
-			recordSkippedPath(skipped, skippedMu, path, err)
-			reportSkippedWalkEntry(ctx, pt, path, err)
+			recordSkippedPath(submit, path, err)
 			if dirEntry != nil && dirEntry.IsDir() {
 				return filepath.SkipDir
 			}
@@ -109,17 +110,14 @@ func storeFilePathsWithDiagnostics(ctx context.Context, result *sync.Map, pt *vi
 		}
 
 		if dirEntry == nil {
-			err := fmt.Errorf("directory entry is unavailable")
-			recordSkippedPath(skipped, skippedMu, path, err)
-			reportSkippedWalkEntry(ctx, pt, path, err)
+			recordSkippedPath(submit, path, fmt.Errorf("directory entry is unavailable"))
 			return nil
 		}
 
 		if !dirEntry.IsDir() {
 			info, err := dirEntry.Info()
 			if err != nil {
-				recordSkippedPath(skipped, skippedMu, path, err)
-				reportSkippedWalkEntry(ctx, pt, path, err)
+				recordSkippedPath(submit, path, err)
 				return nil
 			}
 
@@ -135,21 +133,17 @@ func storeFilePathsWithDiagnostics(ctx context.Context, result *sync.Map, pt *vi
 	}
 }
 
-func recordSkippedPath(skipped *[]models.SkippedPath, skippedMu *sync.Mutex, path string, err error) {
-	if skipped == nil || skippedMu == nil {
+func recordSkippedPath(submit diagnosticSubmitter, path string, err error) {
+	if submit == nil {
 		return
 	}
-	skippedMu.Lock()
-	*skipped = append(*skipped, models.SkippedPath{Path: path, Reason: err.Error()})
-	skippedMu.Unlock()
-}
-
-func reportSkippedWalkEntry(ctx context.Context, pt *visuals.ProgressCounter, path string, err error) {
-	message := fmt.Sprintf("Skipped %s: %v", path, err)
-	if errors.Is(err, os.ErrPermission) || os.IsNotExist(err) {
-		log.WarnWithFuncName(message)
-	} else {
-		log.ErrorWithFuncName(message)
-	}
-	pt.Reporter.LogDetailedStatus(ctx, message)
+	submit(DiagnosticEvent{
+		Diagnostic: models.Diagnostic{
+			Path:   path,
+			Reason: err.Error(),
+			Phase:  models.DiagnosticPhaseWalking,
+		},
+		Err:      err,
+		Severity: DiagnosticSeverityWarning,
+	})
 }

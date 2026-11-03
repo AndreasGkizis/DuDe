@@ -51,13 +51,16 @@ func (flow DuplicateFlow) Validate(args *models.ExecutionParams) error {
 }
 
 // Run finds duplicate file groups and publishes the completed duplicate result.
-func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher) error {
+func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher, options RunOptions) error {
 	log.Initialize(args.DebugMode)
 	timer := time.Now()
 	log.LogModelArgs(args)
 
-	errorLogger := newExecutionErrorLogger(100)
-	defer errorLogger.CloseAndWait()
+	if options.HandleDiagnostic == nil {
+		return errors.New("diagnostic handler is required")
+	}
+	sink := services.NewDiagnosticSink()
+	defer sink.Close()
 
 	memory := services.NewMemoryManager(&args, args.BufferSizeBytes, 1)
 	hashMemory := memory.LoadMemory()
@@ -71,8 +74,9 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 
 	discovery := services.NewFileDiscovery()
 
-	files, err := discovery.Discover(ctx, args.Directories, reporter)
+	files, err := discovery.DiscoverWithSink(ctx, args.Directories, reporter, sink, options.HandleDiagnostic, models.DiagnosticScopeDuplicate)
 	if err != nil {
+		sink.Close()
 		return err
 	}
 
@@ -82,7 +86,14 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	if fileCount == 0 {
 		reporter.LogProgress(ctx, "Error", 0)
 		reporter.LogDetailedStatus(ctx, "No files found in directory/directories! Check your paths again")
-		publisher.PublishDuplicateResult(models.DuplicateResult{})
+		sink.Close()
+		diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+		reportPath, reportErr := saveDuplicateReportIfNeeded(files, diagnostics, args.ResultsDir)
+		if reportErr != nil {
+			return reportErr
+		}
+		publisher.PublishScanDiagnostics(diagnostics)
+		publisher.PublishDuplicateResult(models.DuplicateResult{ReportPath: reportPath, Diagnostics: diagnostics})
 		return nil
 	}
 
@@ -97,14 +108,22 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 		reporter.LogProgress(ctx, "Done", 100)
 		reporter.FinishExecution(ctx)
-		publisher.PublishDuplicateResult(models.DuplicateResult{})
+		sink.Close()
+		diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+		reportPath, reportErr := saveDuplicateReportIfNeeded(files, diagnostics, args.ResultsDir)
+		if reportErr != nil {
+			return reportErr
+		}
+		publisher.PublishScanDiagnostics(diagnostics)
+		publisher.PublishDuplicateResult(models.DuplicateResult{ReportPath: reportPath, Diagnostics: diagnostics})
 		return nil
 	}
 
 	hashing := visuals.NewProgressTracker(ctx, reporter, "Hashing")
 	hashing.Start()
-	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, errorLogger.channel); err != nil {
+	if err := services.CreateHashes(ctx, files, args.WorkerCount, hashing, memory, &hashMemory, sink, options.HandleDiagnostic, models.DiagnosticScopeDuplicate); err != nil {
 		log.ErrorWithFuncName(fmt.Sprintf("Error Hashing directory: %v", err))
+		sink.Close()
 		return err
 	}
 	hashing.Wait()
@@ -150,45 +169,42 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	reporter.LogProgress(ctx, "Collecting", 100)
 	reporter.LogFilesCount(ctx, int64(collectedGroups), int64(groupsToCollect))
 
-	length = common.LenSyncMap(files)
-	if length != 0 {
+	sink.Close()
+	diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+	var reportPath string
+	if len(groups) != 0 || len(diagnostics.Diagnostics) != 0 {
 		savingStarted := time.Now()
-		if err := services.SaveResultsAsCSV(files, args.ResultsDir); err != nil {
-			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", err))
-			return err
+		var reportErr error
+		reportPath, reportErr = services.SaveDuplicateReport(files, diagnostics, args.ResultsDir)
+		if reportErr != nil {
+			log.FatalWithFuncName(fmt.Sprintf("Error saving result: %v", reportErr))
+			return reportErr
 		}
-		log.InfoWithFuncName(fmt.Sprintf("Took: %s to look through bytes", time.Since(savingStarted)))
+		log.InfoWithFuncName(fmt.Sprintf("Took: %s to write duplicate report", time.Since(savingStarted)))
 	} else {
-		log.InfoWithFuncName("No duplicates were found")
+		log.InfoWithFuncName("No duplicates or diagnostics were found")
 	}
 
 	log.InfoWithFuncName(fmt.Sprintf("Took: %s for buffer size %d", time.Since(timer), args.BufferSizeBytes))
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)
-	publisher.PublishDuplicateResult(models.DuplicateResult{Groups: groups})
+	diagnostics = completedDiagnosticsFromSnapshot(diagnostics.Diagnostics)
+	publisher.PublishScanDiagnostics(diagnostics)
+	publisher.PublishDuplicateResult(models.DuplicateResult{Groups: groups, ReportPath: reportPath, Diagnostics: diagnostics})
 	return nil
 }
 
-type executionErrorLogger struct {
-	channel chan error
-	wg      sync.WaitGroup
-	once    sync.Once
+func completedDiagnosticsFromSnapshot(snapshot []models.Diagnostic) models.ScanDiagnostics {
+	if snapshot == nil {
+		snapshot = []models.Diagnostic{}
+	}
+	return models.ScanDiagnostics{Status: models.DiagnosticStatusCompleted, Diagnostics: snapshot}
 }
 
-func newExecutionErrorLogger(bufferSize int) *executionErrorLogger {
-	logger := &executionErrorLogger{channel: make(chan error, bufferSize)}
-	logger.wg.Add(1)
-	go func() {
-		defer logger.wg.Done()
-		for err := range logger.channel {
-			log.WarnWithFuncName(err.Error())
-		}
-	}()
-	return logger
-}
-
-func (logger *executionErrorLogger) CloseAndWait() {
-	logger.once.Do(func() { close(logger.channel) })
-	logger.wg.Wait()
+func saveDuplicateReportIfNeeded(files *sync.Map, diagnostics models.ScanDiagnostics, directory string) (string, error) {
+	if len(diagnostics.Diagnostics) == 0 && common.LenSyncMap(files) == 0 {
+		return "", nil
+	}
+	return services.SaveDuplicateReport(files, diagnostics, directory)
 }

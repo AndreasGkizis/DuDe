@@ -102,7 +102,7 @@ func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 
 	if err != nil {
 		t.Fatalf("run find-missing-content flow: %v", err)
@@ -133,7 +133,7 @@ func TestFindMissingContentFlowMatchesFilesThroughTheExecutionPipeline(t *testin
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if err != nil {
 		t.Fatalf("run find-missing-content flow: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestFindMissingContentFlowStopsWithoutPublishingOnCancellation(t *testing.T
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}

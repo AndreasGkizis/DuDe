@@ -4,6 +4,7 @@ package flows
 
 import (
 	"DuDe/internal/models"
+	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"context"
 	"errors"
@@ -20,6 +21,16 @@ var (
 
 // ResultPublisher publishes concrete successful flow results. It deliberately
 // has one method per result type instead of introducing a shared result model.
+// RunOptions contains required per-execution diagnostic behavior.
+type RunOptions struct {
+	HandleDiagnostic services.DiagnosticHandler
+}
+
+// DefaultDiagnosticHandler retains non-fatal walk/hash path failures.
+func DefaultDiagnosticHandler(services.DiagnosticEvent) services.ErrorDisposition {
+	return services.ErrorDiagnostic
+}
+
 type ResultPublisher interface {
 	PublishDuplicateResult(result models.DuplicateResult)
 	PublishMissingContentResult(result models.MissingContentResult)
@@ -30,7 +41,7 @@ type ResultPublisher interface {
 type ExecutionFlow interface {
 	Mode() models.ExecutionMode
 	Validate(args *models.ExecutionParams) error
-	Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher) error
+	Run(ctx context.Context, args models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher, options RunOptions) error
 }
 
 // Registry stores the executable flow registered for each mode.

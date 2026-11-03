@@ -44,7 +44,7 @@ func (flow DuplicateFlow) Validate(args *models.ExecutionParams) error {
 }
 
 // Run is a development-only progress simulator.
-func (flow DuplicateFlow) Run(ctx context.Context, _ models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher) error {
+func (flow DuplicateFlow) Run(ctx context.Context, _ models.ExecutionParams, reporter reporting.Reporter, publisher ResultPublisher, _ RunOptions) error {
 	simulateExecution(ctx, reporter)
 	if err := ctx.Err(); err != nil {
 		return err

@@ -16,8 +16,11 @@ func TestWriteCoverageCSVWritesDeterministicMissingAndSkippedRows(t *testing.T) 
 		{Filename: "missing.txt", FullPath: "/source/missing.txt", Size: 12},
 	}}
 	diagnostics := models.ScanDiagnostics{
-		SkippedSourcePaths: []models.SkippedPath{{Path: "/source/private", Reason: "permission denied"}},
-		SkippedTargetPaths: []models.SkippedPath{{Path: "/target/private", Reason: "permission denied"}},
+		Status: models.DiagnosticStatusCompleted,
+		Diagnostics: []models.Diagnostic{
+			{Path: "/source/private", Scope: models.DiagnosticScopeSource, Phase: models.DiagnosticPhaseWalking, Reason: "permission denied"},
+			{Path: "/target/private", Scope: models.DiagnosticScopeTarget, Phase: models.DiagnosticPhaseWalking, Reason: "permission denied"},
+		},
 	}
 
 	if err := services.WriteCoverageCSV(&output, result, diagnostics); err != nil {
@@ -35,9 +38,9 @@ func TestWriteCoverageCSVWritesDeterministicMissingAndSkippedRows(t *testing.T) 
 	}
 	want := [][]string{
 		{"Type", "Scope", "Filename", "Full Path", "Size (bytes)", "Reason"},
-		{"Missing", "Source", "missing.txt", "/source/missing.txt", "12", "Not found in target"},
-		{"Skipped", "Source", "", "/source/private", "", "permission denied"},
-		{"Skipped", "Target", "", "/target/private", "", "permission denied"},
+		{"Missing", "source", "missing.txt", "/source/missing.txt", "12", "Not found in target"},
+		{"Skipped", "source", "", "/source/private", "", "permission denied (phase: walking)"},
+		{"Skipped", "target", "", "/target/private", "", "permission denied (phase: walking)"},
 	}
 	if !reflect.DeepEqual(rows, want) {
 		t.Fatalf("coverage rows = %#v, want %#v", rows, want)

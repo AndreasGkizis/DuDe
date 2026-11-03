@@ -539,7 +539,7 @@ function setupStatusListeners() {
             .catch(err => console.error('GetMissingContentResult error:', err));
     } else {
         GetResults()
-            .then(groups => renderResults(groups))
+            .then(result => renderResults(result))
             .catch(err => console.error('GetResults error:', err));
     }
 });
@@ -719,9 +719,8 @@ function renderCoverageResult(result, diagnostics) {
     const missing = coverage.MissingFiles || coverage.missingFiles || [];
     const reportPath = coverage.ReportPath || coverage.reportPath || '';
     showResultsButton.disabled = !reportPath;
-    const skippedSource = diagnostics?.SkippedSourcePaths || diagnostics?.skippedSourcePaths || [];
-    const skippedTarget = diagnostics?.SkippedTargetPaths || diagnostics?.skippedTargetPaths || [];
-    const skippedCount = skippedSource.length + skippedTarget.length;
+    const diagnosticItems = diagnostics?.Diagnostics || diagnostics?.diagnostics || [];
+    const skippedCount = diagnosticItems.length;
     const covered = Math.max(0, total - missing.length);
 
     coverageCovered.textContent = `${covered} / ${total}`;
@@ -759,27 +758,35 @@ function renderCoverageResult(result, diagnostics) {
         renderPage(1);
     }
 
-    currentCoverageDiagnostics = [
-        ...skippedSource.map(item => ['Source', item]),
-        ...skippedTarget.map(item => ['Target', item]),
-    ];
-    coverageDiagnostics.textContent = '';
-    coverageDiagnostics.hidden = skippedCount === 0;
-    if (skippedCount > 0) {
-        const heading = document.createElement('strong');
-        heading.textContent = `${skippedCount} source or target path${skippedCount === 1 ? '' : 's'} skipped; coverage applies only to discovered files.`;
-        coverageDiagnostics.appendChild(heading);
-        const list = document.createElement('ul');
-        currentCoverageDiagnostics.forEach(([scope, item]) => {
-            const entry = document.createElement('li');
-            entry.textContent = `${scope}: ${item.path || '(unknown path)'} — ${item.reason || 'unknown reason'}`;
-            list.appendChild(entry);
-        });
-        coverageDiagnostics.appendChild(list);
-    }
+    renderDiagnostics(diagnostics, 'source or target');
 
     coverageReportStatus.textContent = reportPath ? 'Coverage report generated for this run.' : '';
     coverageReportStatus.hidden = !reportPath;
+}
+
+function renderDiagnostics(diagnostics, label = 'scan') {
+    const items = diagnostics?.Diagnostics || diagnostics?.diagnostics || [];
+    currentCoverageDiagnostics = items;
+    coverageDiagnostics.textContent = '';
+    coverageDiagnostics.hidden = items.length === 0;
+    if (items.length === 0) {
+        return;
+    }
+
+    const heading = document.createElement('strong');
+    heading.textContent = `${items.length} ${label} path${items.length === 1 ? '' : 's'} skipped.`;
+    coverageDiagnostics.appendChild(heading);
+    const list = document.createElement('ul');
+    items.forEach(item => {
+        const entry = document.createElement('li');
+        const scope = item.scope || item.Scope || '';
+        const phase = item.phase || item.Phase || '';
+        const path = item.path || item.Path || '(unknown path)';
+        const reason = item.reason || item.Reason || 'unknown reason';
+        entry.textContent = `${scope}${scope ? ' / ' : ''}${phase}${phase ? ': ' : ''}${path} — ${reason}`;
+        list.appendChild(entry);
+    });
+    coverageDiagnostics.appendChild(list);
 }
 
 /**
@@ -824,12 +831,15 @@ function renderPage(page, scrollToResults = true) {
 }
 
 /**
- * Populates and shows the results panel from a raw array of backend FileHash objects.
- * Maps each entry to the frontend DuplicateGroup model before storing.
- * @param {Array} rawGroups - backend models.FileHash[] from GetResults()
+ * Populates and shows the results panel from a DuplicateResult.
+ * Maps each group to the frontend DuplicateGroup model before storing.
+ * @param {object} result - backend models.DuplicateResult from GetResults()
  */
-function renderResults(rawGroups) {
-    allGroups = (rawGroups || []).map(FrontEnd_DuplicateGroup.fromFileHash);
+function renderResults(result) {
+    const rawGroups = result?.groups || result?.Groups || [];
+    const diagnostics = result?.diagnostics || result?.Diagnostics;
+    allGroups = rawGroups.map(FrontEnd_DuplicateGroup.fromFileHash);
+    renderDiagnostics(diagnostics);
     allMissingFiles = [];
     currentPage = 1;
     window.currentPage = 1;
@@ -839,8 +849,15 @@ function renderResults(rawGroups) {
     statusDuplicates.textContent = groupCount === 0 ? '0' : `${totalDups}`;
     statusDuplicates.classList.toggle('status-value--orange', totalDups > 0);
 
-    if (groupCount === 0) {
+    const diagnosticItems = diagnostics?.diagnostics || diagnostics?.Diagnostics || [];
+    if (groupCount === 0 && diagnosticItems.length === 0) {
         resultsCountLabel.textContent = 'Results';
+        resultsSection.style.display = 'none';
+        resultsPageSize.disabled = true;
+        return;
+    }
+    if (groupCount === 0) {
+        resultsCountLabel.textContent = `Results — ${diagnosticItems.length} diagnostic${diagnosticItems.length === 1 ? '' : 's'}`;
         resultsSection.style.display = 'none';
         resultsPageSize.disabled = true;
         return;
