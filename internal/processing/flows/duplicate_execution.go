@@ -1,5 +1,3 @@
-//go:build !debug_progress
-
 package flows
 
 import (
@@ -87,7 +85,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		reporter.LogProgress(ctx, "Error", 0)
 		reporter.LogDetailedStatus(ctx, "No files found in directory/directories! Check your paths again")
 		sink.Close()
-		diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+		diagnostics := sink.CompletedSnapshot()
 		reportPath, reportErr := saveDuplicateReportIfNeeded(files, diagnostics, args.ResultsDir)
 		if reportErr != nil {
 			return reportErr
@@ -109,7 +107,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 		reporter.LogProgress(ctx, "Done", 100)
 		reporter.FinishExecution(ctx)
 		sink.Close()
-		diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+		diagnostics := sink.CompletedSnapshot()
 		reportPath, reportErr := saveDuplicateReportIfNeeded(files, diagnostics, args.ResultsDir)
 		if reportErr != nil {
 			return reportErr
@@ -170,7 +168,7 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	reporter.LogFilesCount(ctx, int64(collectedGroups), int64(groupsToCollect))
 
 	sink.Close()
-	diagnostics := completedDiagnosticsFromSnapshot(sink.Snapshot())
+	diagnostics := sink.CompletedSnapshot()
 	var reportPath string
 	if len(groups) != 0 || len(diagnostics.Diagnostics) != 0 {
 		savingStarted := time.Now()
@@ -189,17 +187,9 @@ func (flow DuplicateFlow) Run(ctx context.Context, args models.ExecutionParams, 
 	reporter.LogFilesCount(ctx, int64(fileCount), int64(fileCount))
 	reporter.LogProgress(ctx, "Done", 100)
 	reporter.FinishExecution(ctx)
-	diagnostics = completedDiagnosticsFromSnapshot(diagnostics.Diagnostics)
 	publisher.PublishScanDiagnostics(diagnostics)
 	publisher.PublishDuplicateResult(models.DuplicateResult{Groups: groups, ReportPath: reportPath, Diagnostics: diagnostics})
 	return nil
-}
-
-func completedDiagnosticsFromSnapshot(snapshot []models.Diagnostic) models.ScanDiagnostics {
-	if snapshot == nil {
-		snapshot = []models.Diagnostic{}
-	}
-	return models.ScanDiagnostics{Status: models.DiagnosticStatusCompleted, Diagnostics: snapshot}
 }
 
 func saveDuplicateReportIfNeeded(files *sync.Map, diagnostics models.ScanDiagnostics, directory string) (string, error) {

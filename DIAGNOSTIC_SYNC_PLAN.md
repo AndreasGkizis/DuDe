@@ -577,7 +577,7 @@ The implementation is substantially complete. The following parts are present:
 - frontend model, binding, and initial rendering updates;
 - updated existing Go and E2E tests for the intentional API/CSV changes.
 
-The remaining deferred work is frontend diagnostic state decoupling; the default handler policy and unbounded logging queue are accepted decisions for now.
+The initial implementation is present, but the PR review below identifies outstanding correctness and verification work. Treat the review checklist as the current resume point, rather than the historical completion notes below. Frontend diagnostic state decoupling remains deferred; the default handler policy and unbounded logging queue remain accepted decisions pending explicit reconsideration.
 
 ## Resolved Issues
 
@@ -588,7 +588,7 @@ The following implementation issues were fixed and covered by regression tests:
 3. Discovery submits events from the walking producer path.
 4. Hashing submits events from worker error paths and stops promptly on `ErrorFatal`.
 5. JSON and CSV scope values are consistently lowercase.
-6. Reports use second-level timestamps with a numeric suffix only when a collision occurs.
+6. Reports use second-level timestamps with a numeric suffix for sequential collisions. Concurrent path reservation is not yet safe; see R5 below.
 7. `CheckIfResultsExist()` verifies that the current report exists and is a regular file.
 8. Duplicate report create, write, flush, close, cleanup, and inconclusive publication behavior is tested.
 
@@ -695,19 +695,196 @@ PATH="$PWD/.tools/bin:$PATH" wails build -f
 
 After fixing the known issues, rerun the complete commands and confirm that the regression tests are green.
 
-## Resume Checklist
+## PR #10 Review Findings and Current Resume Checklist
 
-When continuing this work:
+Reviewed head: `21da4b8` (`unified-diagnostic-sink`). Review verdict: request changes. This section supersedes the historical resume checklist and completion notes for outstanding work. No implementation fixes were made during the review.
 
-1. Run the new regression tests first to confirm the current failure set.
-2. Fix duplicate diagnostics presentation and add a visible non-coverage container.
-3. Preserve warning severity when constructing recoverable walk diagnostic events.
-4. Move discovery/hash event submission closer to the producer path.
-5. Decide how fatal dispositions cancel active hashing/discovery work.
-6. Normalize CSV scope values without changing JSON scope values.
-7. Make report filenames collision-safe.
-8. Verify report paths with filesystem checks.
-9. Add duplicate report failure tests. (Complete.)
-10. Add frontend mode-switch/reset diagnostics tests. (Deferred.)
-11. Run unit, E2E, race, frontend, and Wails verification. (Complete.)
-12. Update the acceptance criteria and mark only completed implementation steps as complete.
+Work through the items individually, adding a focused regression test with each fix. Keep solutions based on standard Go primitives and avoid adding abstractions without a concrete need.
+
+### R1 — Resolved: remove the unused `debug_progress` build
+
+- [x] Remove the progress simulator and the production flow's conditional build tag.
+- [x] Remove simulator selection from VS Code and Zed tasks; retain normal Wails debug builds.
+- [x] Update development documentation to describe normal debug builds.
+- [x] Verify after removal: `go build ./...`, `go test -count=1 ./...`, and `go vet ./...` passed. Editor task JSON validation and `git diff --check` also passed. A full Wails desktop build was not run.
+
+Decision: remove the development-only simulator rather than maintain a second duplicate-flow implementation. The application's `DebugMode` logging option is unaffected.
+
+Follow-up simplification: removed the flow-local `completedDiagnosticsFromSnapshot` helper and use `sink.CompletedSnapshot()` in both flows. This convenience method wraps the deterministic, defensive `Snapshot()` with completed status; it does not close the sink or determine execution success. Closure remains explicit in the flows. Tests cover completed status, a non-nil empty collection, sorted defensive copies, and submissions after taking a completed snapshot. Removed the duplicate flow's unnecessary reconstruction of an already-completed diagnostic value. Terminal notification ordering remains separate work under R2.
+
+Locations: `internal/processing/flows/duplicate_execution.go:198` and `internal/processing/flows/find_missing_content.go:146` at the reviewed head.
+
+The coverage flow calls a helper defined in a file excluded by `//go:build !debug_progress`. Confirmed failure:
+
+```text
+go build -tags debug_progress ./...
+internal/processing/flows/find_missing_content.go:146:16: undefined: completedDiagnosticsFromSnapshot
+```
+
+Acceptance: normal builds and tests pass without a simulator-specific configuration. No CI check for the removed build tag is needed. The failure above is retained as historical review evidence.
+
+### R2 — High: terminal notifications precede application-state publication
+
+- [ ] Make the runner own the terminal completion notification after successful state publication.
+- [ ] Remove premature completion notifications from production flows. The debug simulator was removed under R1.
+- [ ] Publish cancelled/inconclusive state before sending the corresponding terminal notification.
+- [ ] Add a reporter test that reads getters immediately during the terminal notification.
+
+Locations: `internal/processing/flows/duplicate_execution.go:110,191`, `internal/processing/flows/find_missing_content.go:167`, and `internal/processing/runner.go:284–294` at the reviewed head.
+
+Flows currently emit `executionFinished` before their collected result is published by the runner. The frontend can therefore fetch a nil result or diagnostics still marked `running`. In the duplicate no-candidates branch, completion is even emitted before diagnostic report creation, which may subsequently fail.
+
+The notification-ordering problem predates parts of this PR, but it undermines the new atomic-publication guarantee.
+
+Acceptance: successful flow return → completed state publication → completion notification. Failed report generation must never emit successful completion. Getters invoked during terminal notifications must observe the corresponding terminal state.
+
+### R3 — High: discovery cancellation can deadlock on progress reporting
+
+- [ ] Make the discovery progress send select on `ctx.Done()`.
+- [ ] Add cancellation-during-progress and multi-root fatal-disposition regression tests.
+
+Location: `internal/processing/services/discovery.go:130` at the reviewed head.
+
+The unconditional `pt.Channel <- 1` can block forever if cancellation stops the progress receiver after the callback's initial context check. Discovery then waits forever for its senders. A fatal disposition from one root can trigger this while another root is discovering files.
+
+A temporary review test reproduced the blocked callback by cancelling during `DirEntry.Info()` and waiting for the progress receiver to exit. The temporary test was removed after verification. The unsafe send existed previously; fatal-disposition cancellation adds another trigger.
+
+Suggested implementation:
+
+```go
+select {
+case pt.Channel <- 1:
+    return nil
+case <-ctx.Done():
+    return ctx.Err()
+}
+```
+
+Acceptance: cancellation and fatal discovery errors return promptly, with all walkers and progress goroutines joined.
+
+### R4 — Medium: duplicate report access and diagnostic-only clearing are disabled
+
+- [ ] Set the duplicate report button state from the published result/report path, consistently with coverage rendering.
+- [ ] Enable clearing results for diagnostic-only duplicate runs.
+- [ ] Add behavioral frontend tests for groups with a report, diagnostics only with a report, and no report.
+
+Location: `frontend/src/main.js:838`, `renderResults`, at the reviewed head.
+
+Execution startup disables `showResultsButton`; duplicate rendering never re-enables it. `refreshResultsButtonState()` only runs at initialization. Diagnostic-only rendering also returns without enabling the clear-results control. The existing HTML substring test cannot detect these behavioral failures.
+
+Acceptance: completed duplicate reports can be opened, diagnostic-only output can be cleared, and absent reports do not enable report access.
+
+### R5 — Medium: report path selection is not atomic
+
+- [ ] Replace `Stat` followed by `Create` with atomic exclusive file creation shared by both report types.
+- [ ] Retry the numeric suffix only for `os.ErrExist`; return other errors.
+- [ ] Add concurrent-writer tests that verify distinct paths and preservation of existing contents.
+
+Location: `internal/processing/services/duplicate_report.go:19–60` at the reviewed head; coverage uses the same path-selection helper.
+
+Two application instances or concurrent writers can select the same free path. `os.Create` then truncates the existing report. The helper also incorrectly treats every `Stat` error as evidence that a path is available. The existing sequential rapid-run test does not cover concurrent reservation.
+
+Use `os.OpenFile` with `os.O_WRONLY|os.O_CREATE|os.O_EXCL` and the existing timestamp/suffix naming policy.
+
+Acceptance: concurrent writers cannot overwrite one another, and non-collision filesystem errors are returned without suffix retries.
+
+### R6 — Medium: `DiagnosticSink.Submit` and `Close` have inconsistent admission semantics
+
+- [ ] Choose and document the sink's producer/closure concurrency contract.
+- [ ] Prefer one mutex for closed-state admission, retention, and enqueueing unless measurement justifies a more complex design.
+- [ ] Add concurrent submission/closure tests.
+
+Location: `internal/processing/services/diagnostics.go:68–103` at the reviewed head.
+
+A submission can pass the initial closed check, be delayed until `Close` returns, append a retained diagnostic, and then return false at the second closed check without queueing the log event. Thus a rejected submission can alter a post-close snapshot. Current flows generally join producers first, but the API does not clearly state that restriction.
+
+Alternatively, explicitly require all producers to finish before `Close` and simplify the implementation around that contract.
+
+Acceptance: the documented contract is unambiguous; rejected submissions do not appear in retained diagnostics, and closure/draining behavior is covered by tests.
+
+### R7 — Medium: CI does not execute all test packages
+
+- [ ] Run recursive Go package tests so service-package and nested validation tests execute in CI.
+- [ ] Include race, vet, and normal build checks without introducing an elaborate pipeline.
+
+Location: `.github/workflows/ci.yml:29,47` at the reviewed head.
+
+CI currently runs only `./tests/unit_tests` and `./tests/e2e_tests`. It skips the new tests under `internal/processing/services` and nested validation tests.
+
+Suggested checks:
+
+```sh
+go test -count=1 ./...
+go test -race -count=1 ./...
+go vet ./...
+go build ./...
+```
+
+Acceptance: every test package is exercised and the normal build is checked by CI. The simulator-specific regression in R1 was resolved by removing that configuration.
+
+### S1 — Cleanup: remove obsolete code and duplicate cleanup
+
+- [ ] Remove unused `drainHashErrors` from `internal/processing/flows/find_missing_content.go`.
+- [ ] Remove the duplicate `defer memory.CloseAndWait()` in that flow.
+
+Keep the sink-based path as the sole error-handling implementation.
+
+### S2 — Consistency: use one completed diagnostic source of truth
+
+- [ ] Evaluate removing separate completed diagnostic publication when diagnostics are already part of the concrete result.
+- [ ] Ensure publisher inputs cannot silently disagree about completed diagnostics.
+
+The publisher currently accepts result diagnostics and a separate diagnostic snapshot, then overwrites result diagnostics in `PublishTo`. Prefer deriving completed diagnostics from the concrete result where possible; preserve the standalone running/cancelled/inconclusive application state.
+
+### S3 — Correctness: defensive copies must include nested duplicate slices
+
+- [ ] Copy nested `FileHash.DuplicatesFound` slices at publication/getter boundaries.
+- [ ] Add a mutation-isolation test for nested duplicate results.
+
+Location: `internal/processing/runner.go`, `copyDuplicateResult` and `PublishDuplicateResult`.
+
+Copying only the outer `Groups` slice leaves nested duplicates aliased to stored state. Mutating a result returned by a getter must not alter later getter results.
+
+### S4 — Simplicity: avoid speculative classification layers
+
+- [ ] Reassess the handler abstraction only if simplification is warranted; do not add more classification layers without concrete production policies.
+
+The production handler always returns `ErrorDiagnostic`. Keeping that policy is currently accepted. This is a design consideration, not a requirement to invent new classifications or remove an otherwise justified callback.
+
+### S5 — Measurement: asynchronous logging memory trade-off
+
+- [ ] Add a high-volume failure test or benchmark measuring queue size, peak memory, and logger throughput.
+- [ ] Revisit asynchronous logging only with evidence; synchronous logging may be simpler if adequate.
+
+The unbounded log queue retains original errors in addition to retained diagnostics. This remains an acknowledged trade-off, not an automatic merge blocker. Do not introduce dropped diagnostics or worker-blocking behavior without explicitly reconsidering the lossless requirement.
+
+### S6 — Test isolation: E2E cleanup shares a directory across test processes
+
+- [ ] Give each E2E test its own `t.TempDir()` and scope cleanup to that directory.
+
+Separate concurrent test commands interfered through shared `./test_files/` cleanup. Isolated reruns passed. This is a test infrastructure limitation observed during review, not evidence of a production data race.
+
+## Review Verification Baseline
+
+At reviewed head `21da4b8`:
+
+| Check | Result |
+| --- | --- |
+| `go test ./...` | Passed |
+| `go test -race -count=1 ./...` | Passed in isolation |
+| `go vet ./...` | Passed |
+| `cd frontend && npm run build` | Passed |
+| `go build -tags debug_progress ./...` | Failed; see R1 |
+| Internal statement coverage using `-coverpkg=./internal/...` | 78.5% on an isolated run |
+| Targeted discovery cancellation reproduction | Blocked callback reproduced; see R3 |
+
+Coverage command:
+
+```sh
+go test -count=1 -coverpkg=./internal/... -coverprofile=/tmp/dude-cover.out ./...
+go tool cover -func=/tmp/dude-cover.out
+```
+
+Do not run separate E2E-bearing test commands concurrently until S6 is resolved. Wails desktop build and interactive UI behavior were not verified during this review; the frontend production build is not a substitute for behavioral UI tests.
+
+After addressing the checklist, rerun all checks, update this section with current results, and mark only verified items complete.

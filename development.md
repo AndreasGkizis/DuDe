@@ -21,14 +21,13 @@ The `webkit2_41` Linux build tag is configured in `wails.json`.
 wails dev
 ```
 
-## VS Code Debug Modes
+## Debug Builds
 
-Starting either Wails debug configuration prompts for an execution mode:
+VS Code and Zed debug tasks build the normal application with debugging symbols. Debug builds run real scans; there is no separate simulated progress mode.
 
-- `real_execution` runs the normal scan.
-- `debug_progress` runs the simulated progress flow without scanning files.
-
-The selected mode is compiled into the debug binary with a Go build tag.
+```bash
+wails build -debug
+```
 
 ## Build The Application
 

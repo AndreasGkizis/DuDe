@@ -129,6 +129,15 @@ func (s *DiagnosticSink) Snapshot() []models.Diagnostic {
 	return result
 }
 
+// CompletedSnapshot returns a defensive snapshot marked completed. It does not
+// close the sink or determine execution success; the caller chooses this status.
+func (s *DiagnosticSink) CompletedSnapshot() models.ScanDiagnostics {
+	return models.ScanDiagnostics{
+		Status:      models.DiagnosticStatusCompleted,
+		Diagnostics: s.Snapshot(),
+	}
+}
+
 func (s *DiagnosticSink) logLoop() {
 	defer close(s.logDone)
 	for {

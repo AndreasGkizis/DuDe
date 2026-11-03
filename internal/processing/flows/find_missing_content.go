@@ -143,7 +143,7 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 	mergeHashedInto(sourceFiles, filteredSourceFiles)
 	mergeHashedInto(targetFiles, hashTargetMap)
 	sink.Close()
-	diagnostics = completedDiagnosticsFromSnapshot(sink.Snapshot())
+	diagnostics = sink.CompletedSnapshot()
 	deleteSkippedFiles(sourceFiles, diagnostics.Diagnostics, models.DiagnosticScopeSource)
 	deleteSkippedFiles(targetFiles, diagnostics.Diagnostics, models.DiagnosticScopeTarget)
 	publisher.PublishScanDiagnostics(diagnostics)
