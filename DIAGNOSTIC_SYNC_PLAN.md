@@ -870,12 +870,14 @@ Acceptance verified locally: every test package is included, frontend tests and 
 
 Verification: clean frontend dependency installation passed; frontend behavioral tests and production build passed under Node 18.20.8; `go test -race -count=1 ./...`, `go vet ./...`, `go build ./...`, workflow validation with actionlint v1.7.7, and `git diff --check` passed. The GitHub-hosted job itself has not yet run. Existing npm audit findings remain unchanged.
 
-### S1 — Cleanup: remove obsolete code and duplicate cleanup
+### S1 — Resolved: remove obsolete code and duplicate cleanup
 
-- [ ] Remove unused `drainHashErrors` from `internal/processing/flows/find_missing_content.go`.
-- [ ] Remove the duplicate `defer memory.CloseAndWait()` in that flow.
+- [x] Remove unused `drainHashErrors` from `internal/processing/flows/find_missing_content.go`.
+- [x] Remove the duplicate `defer memory.CloseAndWait()` in that flow.
 
-Keep the sink-based path as the sole error-handling implementation.
+The sink-based path remains the sole discovery/hash diagnostic implementation. The memory manager retains one deferred cleanup immediately after construction. No behavior changes were intended.
+
+Verification: `go test -race -count=1 ./...`, `go vet ./...`, `go build ./...`, and `git diff --check` passed. S2 and logging-queue memory policy remain unchanged.
 
 ### S2 — Consistency: use one completed diagnostic source of truth
 

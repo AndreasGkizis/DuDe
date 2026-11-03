@@ -73,7 +73,6 @@ func (flow FindMissingContentFlow) Run(ctx context.Context, args models.Executio
 		cacheWarningReported = true
 	}
 	memory.Start()
-	defer memory.CloseAndWait()
 
 	// reading files
 	discovery := services.NewFileDiscovery()
@@ -191,24 +190,6 @@ func deleteSkippedFiles(files *sync.Map, diagnostics []models.Diagnostic, scope 
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Scope == scope && diagnostic.Path != "" {
 			files.Delete(diagnostic.Path)
-		}
-	}
-}
-
-func drainHashErrors(errorsChannel <-chan error, scope models.DiagnosticScope) []models.Diagnostic {
-	var skipped []models.Diagnostic
-	for {
-		select {
-		case err := <-errorsChannel:
-			log.WarnWithFuncName(err.Error())
-			var hashErr services.HashError
-			if errors.As(err, &hashErr) {
-				skipped = append(skipped, models.Diagnostic{Path: hashErr.Path, Reason: hashErr.Err.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope})
-			} else {
-				skipped = append(skipped, models.Diagnostic{Reason: err.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope})
-			}
-		default:
-			return skipped
 		}
 	}
 }
