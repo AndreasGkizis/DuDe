@@ -8,29 +8,33 @@ import (
 	"sync"
 )
 
-func GetExecutableDir() string {
+func GetExecutableDir() (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
-		panic(err) // Handle error appropriately in production code
+		return "", fmt.Errorf("get executable path: %w", err)
 	}
-	return filepath.Dir(exePath)
+	return filepath.Dir(exePath), nil
 }
 
-// GetSafeResultsDir returns a writable directory for saving results.
+// ResolveResultsDir returns the platform-specific directory for saving results.
 // On macOS, app bundles are not writable, so we use the user's Documents folder.
 // On other platforms, we use the executable directory.
-func GetSafeResultsDir(platform string) string {
+func ResolveResultsDir(platform string) (string, error) {
 	if platform == "darwin" {
-		// On macOS, use Documents folder instead of app bundle
+		// On macOS, use Documents folder instead of app bundle.
 		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			documentsDir := filepath.Join(homeDir, "Documents", "DuDe")
-			// Create the directory if it doesn't exist
-			os.MkdirAll(documentsDir, 0755)
-			return documentsDir
+		if err != nil {
+			return "", fmt.Errorf("get user home directory: %w", err)
 		}
+
+		documentsDir := filepath.Join(homeDir, "Documents", "DuDe")
+		if err := os.MkdirAll(documentsDir, 0o755); err != nil {
+			return "", fmt.Errorf("create results directory %q: %w", documentsDir, err)
+		}
+		return documentsDir, nil
 	}
-	// Fallback to executable directory for Windows/Linux
+
+	// Use the executable directory on Windows/Linux.
 	return GetExecutableDir()
 }
 

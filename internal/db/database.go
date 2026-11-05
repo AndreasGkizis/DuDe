@@ -62,9 +62,5 @@ func TruncateDatabase(db *sql.DB) error {
 
 // Removes db file, currently unsed but maybe useful
 func DeleteDatabase(path string) error {
-	err := os.Remove(path)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(path)
 }

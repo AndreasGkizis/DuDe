@@ -37,7 +37,7 @@ func FilesMatch(ctx context.Context, primaryFile *os.File, primary, candidate mo
 // FilesEqual compares two files byte for byte. It checks cancellation before
 // opening and before each read, and leaves the first file rewound for reuse by
 // callers comparing multiple candidates.
-func FilesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error) {
+func FilesEqual(ctx context.Context, file1 *os.File, path2 string) (equal bool, err error) {
 	if ctx.Err() != nil {
 		return false, ctx.Err()
 	}
@@ -46,7 +46,12 @@ func FilesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error)
 	if err != nil {
 		return false, fmt.Errorf("error opening duplicate file: %w", err)
 	}
-	defer file2.Close()
+	defer func() {
+		if closeErr := file2.Close(); closeErr != nil {
+			equal = false
+			err = errors.Join(err, fmt.Errorf("close duplicate file %q: %w", path2, closeErr))
+		}
+	}()
 
 	const chunkSize = 4096
 	buf1 := make([]byte, chunkSize)
@@ -61,7 +66,8 @@ func FilesEqual(ctx context.Context, file1 *os.File, path2 string) (bool, error)
 
 		n1, err1 := file1.Read(buf1)
 		n2, err2 := file2.Read(buf2)
-		if err1 != nil && !errors.Is(err1, io.EOF) || err2 != nil && !errors.Is(err2, io.EOF) {
+		if (err1 != nil && !errors.Is(err1, io.EOF)) ||
+			(err2 != nil && !errors.Is(err2, io.EOF)) {
 			return false, fmt.Errorf("read error: %w", errors.Join(err1, err2))
 		}
 		if n1 != n2 || !bytes.Equal(buf1[:n1], buf2[:n2]) {

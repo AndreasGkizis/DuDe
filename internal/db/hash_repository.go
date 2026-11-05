@@ -19,16 +19,16 @@ type FileHashRepo interface {
 }
 
 type FileHashRepository struct {
-	Db *sql.DB
+	db *sql.DB
 }
 
 func NewFileHashRepository(db *sql.DB) *FileHashRepository {
-	return &FileHashRepository{Db: db}
+	return &FileHashRepository{db: db}
 }
 
 func (r *FileHashRepository) GetAll() ([]*db_models.FileHash, error) {
 	var filehashes []*db_models.FileHash
-	rows, err := r.Db.Query(`SELECT id, path, hash, size, modified_time, created_at FROM file_hashes`)
+	rows, err := r.db.Query(`SELECT id, path, hash, size, modified_time, created_at FROM file_hashes`)
 
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *FileHashRepository) GetAll() ([]*db_models.FileHash, error) {
 
 func (r *FileHashRepository) GetByPath(path string) (*db_models.FileHash, error) {
 	filehash := &db_models.FileHash{}
-	row := r.Db.QueryRow("SELECT id, path, hash, size, modified_time, updated_at, created_at FROM file_hashes WHERE path = ?", path)
+	row := r.db.QueryRow("SELECT id, path, hash, size, modified_time, updated_at, created_at FROM file_hashes WHERE path = ?", path)
 	err := row.Scan(&filehash.ID, &filehash.FilePath, &filehash.Hash, &filehash.FileSize, &filehash.ModTime, &filehash.UpdatedAt, &filehash.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -65,8 +65,8 @@ func (r *FileHashRepository) GetByPath(path string) (*db_models.FileHash, error)
 }
 
 func (r *FileHashRepository) Create(fh *db_models.FileHash) error {
-	result, err := r.Db.Exec("INSERT INTO file_hashes (path, hash, size, modified_time, created_at) VALUES (?, ?, ?, ?, ?)",
-		fh.FilePath, fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFrmt))
+	result, err := r.db.Exec("INSERT INTO file_hashes (path, hash, size, modified_time, created_at) VALUES (?, ?, ?, ?, ?)",
+		fh.FilePath, fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFormat))
 
 	if err != nil {
 		return err
@@ -105,9 +105,9 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 		return nil
 	}
 
-	result, err = r.Db.Exec(`UPDATE file_hashes SET 
+	result, err = r.db.Exec(`UPDATE file_hashes SET
 		hash = ?, 	size = ?, 		modified_time = ? ,updated_at =?		WHERE 	id = ?`,
-		fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFrmt), existingFH.ID)
+		fh.Hash, fh.FileSize, fh.ModTime, time.Now().UTC().Format(common.TimeFormat), existingFH.ID)
 
 	if err != nil {
 		return err
@@ -127,8 +127,8 @@ func (r *FileHashRepository) Update(fh *db_models.FileHash) error {
 }
 
 func (r *FileHashRepository) Upsert(fh *db_models.FileHash) error {
-	now := time.Now().UTC().Format(common.TimeFrmt)
-	_, err := r.Db.Exec(`
+	now := time.Now().UTC().Format(common.TimeFormat)
+	_, err := r.db.Exec(`
 		INSERT INTO file_hashes (path, hash, size, modified_time, created_at)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET

@@ -1,14 +1,16 @@
 # DuDe
 
-DuDe is a desktop application for finding duplicate files across one or more directories. It is built with Go and Wails.
+DuDe is a Go/Wails desktop application for finding duplicate files and checking whether source content exists in a target directory.
 
 ## Features
 
+- Duplicate detection across multiple directories
+- Find Missing Content checks between source and target directories
 - Concurrent file scanning and hashing
 - File-size filtering to avoid unnecessary hashing
 - Optional SQLite hash cache for faster repeated scans
 - Optional byte-for-byte duplicate verification
-- In-app paginated results and CSV reports
+- In-app paginated results, skipped-path diagnostics, and CSV reports
 - Linux and Windows builds
 
 ## Installation
@@ -43,14 +45,22 @@ wails dev
 
 ## Usage
 
-Select one or more directories, configure optional settings, and start the scan. DuDe groups possible duplicates by size, hashes the remaining candidates, and displays confirmed hash matches in the application. Paranoid Mode additionally compares matching files byte by byte.
+Choose an operation:
+
+- **Duplicates:** select one or more directories. DuDe filters candidates by size, hashes them, and displays matching content groups.
+- **Find Missing Content:** select a source and target directory. DuDe lists source files whose content is not found in the target, regardless of filenames or relative paths.
+
+Paranoid Mode adds byte-for-byte verification. Recoverable filesystem failures appear as skipped-path diagnostics. DuDe does not delete files.
 
 ## Runtime Files
 
-- CSV reports are named `results_YYYY_MM_DD_HH_MM_SS.csv` and saved in the selected results directory.
+- Duplicate reports use `duplicate_results_YYYY_MM_DD_HH_MM_SS.csv`; coverage reports use `coverage_report_YYYY_MM_DD_HH_MM_SS.csv`. Filename collisions add a numeric suffix without overwriting existing reports.
+- Duplicate reports are created when duplicates or diagnostics exist; coverage reports are created for every completed coverage run.
 - The optional cache is stored as `memory.db` in the selected cache directory.
 - If those directories are not selected, Linux and Windows use the executable directory.
 - Debug logs are written to `logs/` beside the executable only when Debug Logging is enabled.
+
+See [development.md](development.md) for build/test commands and [TODO.md](TODO.md) for the backlog.
 
 ## License
 

@@ -3,5 +3,5 @@ package common
 import "time"
 
 const (
-	TimeFrmt = time.RFC3339
+	TimeFormat = time.RFC3339
 )

@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -30,7 +31,7 @@ func (OS) CanWrite(p string) bool {
 
 	closeErr := testFile.Close()
 	removeErr := os.Remove(testFile.Name())
-	return closeErr == nil && removeErr == nil
+	return errors.Join(closeErr, removeErr) == nil
 }
 
 func (OS) Parent(p string) string {

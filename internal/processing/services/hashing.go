@@ -50,10 +50,21 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 	pt.AddTotal(int64(numFilesToHash))
 
 	var wg sync.WaitGroup
+	var invalidEntryErr error
 
 	sem := make(chan struct{}, maxWorkers) // Define semaphore with buffer size
 
 	sourceFiles.Range(func(key, value interface{}) bool {
+		path, ok := key.(string)
+		if !ok {
+			invalidEntryErr = fmt.Errorf("sourceFiles contains non-string key of type %T", key)
+			return false
+		}
+		fileHash, ok := value.(models.FileHash)
+		if !ok {
+			invalidEntryErr = fmt.Errorf("sourceFiles[%q] contains value of type %T, want models.FileHash", path, value)
+			return false
+		}
 
 		select {
 		case <-ctx.Done():
@@ -69,7 +80,7 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 			var hash string
 			var err error
 
-			currentFilePath := key.(string)
+			currentFilePath := path
 
 			// Acquire a slot
 			select {
@@ -98,7 +109,7 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 			}
 
 			currentFileDiskSize := currentFileDiskStats.Size()
-			currentFileDiskModTime := currentFileDiskStats.ModTime().Format(com.TimeFrmt)
+			currentFileDiskModTime := currentFileDiskStats.ModTime().Format(com.TimeFormat)
 
 			memoryOfFile, memoryExists := (*memory)[currentFilePath]
 
@@ -140,7 +151,7 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 			// safeResend(mm.Channel, newMem, 500*time.Microsecond), something to never miss a new memory?
 
 			pt.Increment()
-		}(key.(string), value.(models.FileHash))
+		}(path, fileHash)
 		return true
 	})
 
@@ -149,8 +160,8 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 	log.InfoWithFuncName(fmt.Sprintf("Group %d finished hashing %d files with %d workers", groupID, int64(numFilesToHash), maxWorkers))
 
 	close(sem)
-	// Check if the overall context was canceled or nil if not
-	return ctx.Err()
+	// Check if the overall context was canceled or nil if not.
+	return errors.Join(invalidEntryErr, ctx.Err())
 }
 
 // CreateHashes hashes files and routes path-specific failures through the execution sink.
@@ -205,10 +216,19 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 	}
 
 	// Count every file comparison so progress has an accurate total.
-	input.Range(func(_, value any) bool {
-		num += len(value.(models.FileHash).DuplicatesFound)
+	var invalidEntryErr error
+	input.Range(func(key, value any) bool {
+		fileHash, ok := value.(models.FileHash)
+		if !ok {
+			invalidEntryErr = fmt.Errorf("input[%v] contains value of type %T, want models.FileHash", key, value)
+			return false
+		}
+		num += len(fileHash.DuplicatesFound)
 		return true
 	})
+	if invalidEntryErr != nil {
+		return invalidEntryErr
+	}
 
 	if num == 0 {
 		log.WarnWithFuncName("No duplicates to ensure")
@@ -229,6 +249,17 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 
 	// Each map entry is one hash group with a primary file and its matches.
 	input.Range(func(itemHash, item any) bool {
+		hash, ok := itemHash.(string)
+		if !ok {
+			recordError(fmt.Errorf("input contains key of type %T, want string", itemHash))
+			return false
+		}
+		fileHash, ok := item.(models.FileHash)
+		if !ok {
+			recordError(fmt.Errorf("input[%q] contains value of type %T, want models.FileHash", hash, item))
+			return false
+		}
+
 		select {
 		case <-ctx.Done():
 			log.DebugWithFuncName("stopped spawning workers due to context cancellation.")
@@ -324,7 +355,7 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 			// Replace the original group with its verified matches.
 			item.DuplicatesFound = confirmedDuplicates
 			input.Store(itemHash, item)
-		}(itemHash.(string), item.(models.FileHash))
+		}(hash, fileHash)
 		return true
 	})
 
@@ -381,7 +412,12 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 	hashCounts := make(map[string]int)
 	hashPaths := make(map[string][]models.FileHash)
 
-	fileHashes.Range(func(_, value any) bool {
+	fileHashes.Range(func(key, value any) bool {
+		fileHash, ok := value.(models.FileHash)
+		if !ok {
+			log.ErrorWithFuncName(fmt.Sprintf("fileHashes[%v] contains value of type %T, want models.FileHash", key, value))
+			return false
+		}
 
 		select {
 		case <-ctx.Done():
@@ -391,10 +427,10 @@ func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *vis
 			// Continue
 		}
 
-		hash := value.(models.FileHash).Hash
+		hash := fileHash.Hash
 
 		hashCounts[hash]++
-		hashPaths[hash] = append(hashPaths[hash], value.(models.FileHash))
+		hashPaths[hash] = append(hashPaths[hash], fileHash)
 		return true
 	})
 	if ctx.Err() != nil {
@@ -444,7 +480,11 @@ func GetFlattened(input *sync.Map) []models.ResultEntry {
 		DuplicateFullPath: com.ResultsFileSeperator}
 
 	input.Range(func(key, value any) bool {
-		val := value.(models.FileHash)
+		val, ok := value.(models.FileHash)
+		if !ok {
+			log.WarnWithFuncName(fmt.Sprintf("input[%v] contains value of type %T, want models.FileHash", key, value))
+			return false
+		}
 		for _, dup := range val.DuplicatesFound {
 			a := models.ResultEntry{
 				Filename:          val.FileName,

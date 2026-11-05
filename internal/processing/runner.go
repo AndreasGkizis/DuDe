@@ -89,19 +89,27 @@ func (app *FrontendApp) FullReset() error {
 	args := app.executionArgs()
 	cacheDir := args.CacheDir
 	if cacheDir == "" {
-		cacheDir = common.GetSafeResultsDir(app.platform)
+		var dirErr error
+		cacheDir, dirErr = common.ResolveResultsDir(app.platform)
+		if dirErr != nil {
+			log.WarnWithFuncName(fmt.Sprintf("FullReset: could not resolve cache directory: %v", dirErr))
+		}
 	}
 
 	// Open the DB and truncate all cached hashes.
 	// A missing or un-initialised DB is not a fatal error for a full reset.
-	db, err := database.GetDatabaseConnection(cacheDir)
-	if err != nil {
-		log.WarnWithFuncName(fmt.Sprintf("FullReset: could not open cache DB (may not exist yet): %v", err))
-	} else {
-		if truncErr := database.TruncateDatabase(db); truncErr != nil {
-			log.WarnWithFuncName(fmt.Sprintf("FullReset: could not truncate cache: %v", truncErr))
+	if cacheDir != "" {
+		db, err := database.GetDatabaseConnection(cacheDir)
+		if err != nil {
+			log.WarnWithFuncName(fmt.Sprintf("FullReset: could not open cache DB (may not exist yet): %v", err))
+		} else {
+			if truncErr := database.TruncateDatabase(db); truncErr != nil {
+				log.WarnWithFuncName(fmt.Sprintf("FullReset: could not truncate cache: %v", truncErr))
+			}
+			if closeErr := db.Close(); closeErr != nil {
+				log.WarnWithFuncName(fmt.Sprintf("FullReset: could not close cache DB: %v", closeErr))
+			}
 		}
-		db.Close()
 	}
 
 	// Reset transient state only.
@@ -147,21 +155,26 @@ func (a *FrontendApp) CheckIfResultsExist() bool {
 // ShowResults opens the results file defined in the execution arguments using the default OS handler.
 // It is directly exposed to the JavaScript frontend.
 func (a *FrontendApp) ShowResults() error {
-	var resultsDirectory string
+	var resultsDir string
 	args := a.executionArgs()
 
 	if args.ResultsDir == "" {
-		resultsDirectory = common.GetSafeResultsDir(a.platform)
+		var err error
+		resultsDir, err = common.ResolveResultsDir(a.platform)
+		if err != nil {
+			a.reporter.LogDetailedStatus(a.wailsCtx, fmt.Sprintf("Cannot resolve results directory: %v", err))
+			return fmt.Errorf("resolve results directory: %w", err)
+		}
 	} else {
-		resultsDirectory = args.ResultsDir
+		resultsDir = args.ResultsDir
 	}
 
-	if resultsDirectory == "" {
+	if resultsDir == "" {
 		a.reporter.LogDetailedStatus(a.wailsCtx, "Cannot open results: Results file path is not set.")
 		return fmt.Errorf("results file path is empty")
 	}
 
-	cmd, err := common.GetOpenDirectoryFunc(resultsDirectory, a.platform)
+	cmd, err := common.GetOpenDirectoryFunc(resultsDir, a.platform)
 	if err != nil {
 		a.reporter.LogDetailedStatus(a.wailsCtx, fmt.Sprintf("Cannot open results: %v", err))
 		runtime.EventsEmit(a.wailsCtx, "errorUpdate", err.Error())
@@ -171,7 +184,7 @@ func (a *FrontendApp) ShowResults() error {
 	// --- Execute Command ---
 	err = cmd.Start()
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsDirectory, err)
+		errorMsg := fmt.Sprintf("Failed to execute OS command to open file '%s'. Error: %v", resultsDir, err)
 		runtime.EventsEmit(a.wailsCtx, "errorUpdate", errorMsg)
 		return fmt.Errorf("failed to open file: %w", err)
 	}
@@ -244,14 +257,19 @@ func (a *FrontendApp) StartExecution(args models.ExecutionParams) error {
 	// Resolve and validate before acquiring the execution gate. Validation is
 	// mode-specific, and a rejected request must not briefly occupy the active
 	// execution slot or interfere with FullReset.
-	safeDir := common.GetSafeResultsDir(a.platform)
+	resultsDir, err := common.ResolveResultsDir(a.platform)
+	if err != nil {
+		a.reporter.ReportError(a.wailsCtx, fmt.Sprintf("failed to resolve results directory: %v", err))
+		return fmt.Errorf("resolve results directory: %w", err)
+	}
+
 	flow, err := a.flowRegistry.Resolve(args.Mode)
 	if err != nil {
 		a.reporter.ReportError(a.wailsCtx, err.Error())
 		return err
 	}
 
-	validation.ResolveExecutionArgs(&args, safeDir)
+	validation.ResolveExecutionArgs(&args, resultsDir)
 	if err := validation.ValidateSharedExecutionArgs(&args, a.pathValidator); err != nil {
 		executionErr := fmt.Errorf("validation failed: %w", err)
 		a.reporter.ReportError(a.wailsCtx, executionErr.Error())

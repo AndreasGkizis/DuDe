@@ -1,548 +1,199 @@
 # DuDe Project Context
 
-This document is a handoff for future ChatGPT/Codex conversations. It describes the current project state, architecture, execution flow, important decisions, development workflow, and remaining work.
-
-Last reviewed against the repository on **2026-08-18**.
+This is a handoff for future work. It describes the source tree after the PR #10 review fixes, including commit `1206ca5`; it does not describe a newly published release. Inspect the implementation before relying on historical assumptions.
 
 ## Project Summary
 
-**DuDe — Duplicate Detection** is a desktop application that finds duplicate files across one or more selected directories.
+**DuDe — Duplicate Detection** is a Go/Wails desktop application with two execution modes:
 
-The application:
+- **Duplicates:** find equivalent file content across one or more selected directories.
+- **Find Missing Content:** identify source files whose content is absent from a target directory, regardless of filename or relative path. One target file may cover multiple identical source files.
 
-1. Walks every selected directory concurrently.
-2. Collects file path, size, and modification-time metadata.
-3. Removes files whose sizes are unique because they cannot have duplicates in the current scan.
-4. Hashes the remaining candidates, reusing valid cached hashes when enabled.
-5. Groups files with matching hashes.
-6. Optionally verifies hash matches byte for byte in Paranoid Mode.
-7. Displays duplicate groups in the UI and writes a CSV report.
-
-DuDe reports duplicates but does not delete files. Deletion is intentionally left to the user.
+Both modes share discovery, size filtering, hashing, optional SQLite caching, diagnostics, and report services. Paranoid Mode adds byte-for-byte verification. DuDe reports findings but does not delete files.
 
 ## Current State
 
-- Repository: `https://github.com/AndreasGkizis/DuDe`
-- Branch: `master`
-- Latest Git tag at review time: `v1.2.1`
-- Source metadata version: `1.2.0`; the release workflow replaces it with the pushed tag version.
-- Supported release targets: Linux AMD64 and Windows AMD64.
-- macOS is not currently supported or validated.
+- Repository: `https://github.com/AndreasGkizis/DuDe`.
+- Review branch: `unified-diagnostic-sink`, targeting `master`.
+- Latest tag observed: `v1.2.1`; source metadata remains `1.2.0`, overridden from the tag by release packaging.
+- Go 1.24, Wails v2.11.0, pure-Go `modernc.org/sqlite`, and Zap logging.
+- Plain JavaScript/HTML/CSS with Vite 3 and generated Wails bindings.
+- Frontend behavioral tests use Node's built-in test runner, JSDOM, and Vite module loading; there is no frontend application framework.
+- Supported release targets: Linux AMD64 and Windows AMD64. macOS is not validated or supported.
+- Linux desktop builds require GTK3 and WebKitGTK 4.1; `wails.json` configures `webkit2_41`.
 - License: Apache License 2.0.
-- The application is considered functionally close to a production release, with additional cleanup and platform testing listed in `TODO.md`.
 
-## Technology Stack
+## Review Completion and Validation Boundary
 
-### Backend
+The agreed PR #10 review implementation is complete:
 
-- Go 1.24, declared by `go.mod`
-- Wails v2.11.0
-- `modernc.org/sqlite` for a pure-Go SQLite implementation
-- Zap for optional structured debug logging
+- R1–R7 resolved: simulator removal, terminal notification ordering, cancellation-safe discovery progress, duplicate-result buttons, exclusive report creation, consistent sink synchronization, and complete CI test discovery.
+- S1–S3 resolved: dead cleanup removal, result-owned completed diagnostics, and deep copies of nested duplicate results.
+- S4: keep the existing diagnostic handler and default classification policy as-is.
+- Logging-queue memory investigation and E2E fixture isolation are general backlog items in root `TODO.md`, not remaining implementation steps in the diagnostic plan.
 
-### Frontend
+Recorded local checks passed: all Go tests with race detection, frontend behavioral tests and production build, Go vet/build, workflow actionlint, and diff checks. Frontend tests/build were also checked under Node 18.20.8 when updating CI.
 
-- Plain JavaScript, HTML, and CSS
-- Vite 3
-- Wails-generated JavaScript bindings
-- No frontend framework and currently no frontend unit-test framework
+This is not full release validation: a fresh Wails desktop build and interactive smoke testing were not performed during these review fixes. The GitHub-hosted CI result is not inferred from local checks. npm audit reports six existing Vite-toolchain vulnerabilities (one moderate, five high); those dependencies were not upgraded as part of the review.
 
-### Linux Runtime and Build Dependencies
+See `DIAGNOSTIC_SYNC_PLAN.md` for design and review evidence, `development.md` for commands, and `TODO.md` for the general backlog.
 
-- GTK3
-- WebKitGTK 4.1
-- The `webkit2_41` build tag is configured in `wails.json`.
+## Important Decisions
 
-## Important Project Decisions
-
-These decisions came from the development discussions and should not be changed casually.
-
-1. **MD5 remains the file checksum.** It is used for fast, local, non-adversarial file comparison, not passwords, signatures, or security. Paranoid Mode provides optional byte-for-byte verification. Do not replace MD5 solely because it is cryptographically broken.
-2. **Size filtering does not claim same-size files are duplicates.** A unique size proves a file cannot have a duplicate in the current scan. Files sharing a size remain candidates and are still hashed.
-3. **The SQLite implementation must remain pure Go.** `modernc.org/sqlite` is intentional so releases remain self-contained executables without a CGO SQLite dependency.
-4. **The cache is optional and non-critical.** Cache initialization, reads, writes, or closure failures must be logged/reported, but must never stop duplicate detection.
-5. **There is one local cache database.** Database changes should be justified for this single-user, local-desktop workload rather than designed as if it were a multi-user server.
-6. **Tests belong under `/tests`.** Do not add Go test files beside production packages unless this decision is explicitly revisited.
-7. **Use tests first for correctness fixes.** Add a failing regression test, then implement the fix.
-8. **Do not run benchmarks unless explicitly requested.** Normal tests and builds may be run for validation.
-9. **The UI uses one progress bar.** Each operation resets and reuses it. The operation name belongs in the existing Current Job field, not above the bar.
-10. **Keep user-facing documentation concise.** Avoid unnecessary marketing language or long explanations in `README.md`.
+1. **Keep MD5 for the current trust model.** It supports local, non-adversarial content comparison, not authentication or signatures. Paranoid Mode provides byte verification.
+2. **Size filtering only excludes impossible matches.** Equal size does not establish equivalent content.
+3. **Keep SQLite pure Go.** `modernc.org/sqlite` avoids a CGO SQLite dependency in self-contained releases.
+4. **Caching is optional and non-critical.** Cache failures warn and disable caching rather than stop scanning.
+5. **Allow only one active execution per application instance.** `ExecutionGate` coordinates start, cancellation, and Full Reset. Exclusive report creation is defensive hardening, not parallel-run support.
+6. **Use one progress bar.** Phase names belong in Current Job; updates are throttled rather than emitted to the frontend per file.
+7. **Flows decide outcomes by returning.** The runner publishes terminal application state before notifying the frontend.
+8. **Completed diagnostics belong to the concrete result.** There is no separate `PublishScanDiagnostics` method. The runner derives standalone completed diagnostic state from that result.
+9. **Keep the injectable handler policy as-is.** Production currently classifies submitted walk/hash path failures as `ErrorDiagnostic`; do not add speculative classification layers.
+10. **Keep diagnostic retention lossless.** The asynchronous logging queue is unbounded by an accepted trade-off. Measure before changing its policy; any dropping or backpressure change requires an explicit decision.
+11. **Use regression tests for correctness fixes.** Tests under `tests/` remain useful for public behavior; colocated Go tests are now also used under `internal/processing` and `internal/processing/services` for private contracts and service regressions. Run `./...` so neither location is skipped.
+12. **Do not run benchmarks unless requested.** Normal tests/builds are expected validation; timing benchmarks are a separate workflow.
+13. **Keep changes small and homogeneous.** Prefer standard-library primitives, explicit ownership, and existing abstractions. No file deletion feature without a separate safety design.
 
 ## Repository Layout
 
 | Path | Responsibility |
 | --- | --- |
-| `main.go` | Embeds the frontend, creates the Wails app, and binds `FrontendApp`. |
-| `internal/processing/runner.go` | Main application API and end-to-end execution orchestration. |
-| `internal/processing/files.go` | Directory walking, size filtering, CSV output, and result-file checks. |
-| `internal/processing/hashing.go` | Hashing, duplicate grouping, Paranoid Mode comparison, and result flattening. |
-| `internal/processing/memory.go` | Optional asynchronous SQLite cache lifecycle. |
-| `internal/processing/execution_gate.go` | Prevents overlapping runs and coordinates cancellation and Full Reset. |
-| `internal/processing/execution_mode_*.go` | Selects real or simulated execution through build tags. |
+| `main.go` | Embeds `frontend/dist`, creates the Wails app, binds `FrontendApp`. |
+| `internal/processing/runner.go` | Frontend API, execution orchestration, atomic state publication, defensive copies. |
+| `internal/processing/execution_gate.go` | Rejects overlapping runs and coordinates reset/cancellation. |
+| `internal/processing/flows/` | Mode-specific validation, registry, duplicate and coverage execution. |
+| `internal/processing/services/discovery.go` | Concurrent filesystem discovery with scoped diagnostics. |
+| `internal/processing/services/hashing.go` | Hashing, duplicate grouping, and byte verification. |
+| `internal/processing/services/candidates.go` | Shared file-size filtering helpers. |
+| `internal/processing/services/coverage.go` | Source-to-target content matching. |
+| `internal/processing/services/diagnostics.go` | Per-run retention and asynchronous diagnostic logging. |
+| `internal/processing/services/memory.go` | Optional asynchronous SQLite hash-cache lifecycle. |
+| `internal/processing/services/reports.go` | CSV output, report cleanup, and collision-safe file creation. |
 | `internal/db/` | SQLite schema and file-hash repository. |
-| `internal/handlers/validation/` | Argument defaults and filesystem validation. |
-| `internal/reporting/` | Backend-to-frontend reporting abstraction and Wails implementation. |
-| `internal/visuals/` | Progress tracking and throttled UI progress updates. |
-| `internal/models/` | Execution parameters, file metadata, duplicate groups, and CSV row models. |
-| `internal/common/` | Filesystem helpers, platform helpers, constants, and logging. |
-| `frontend/src/` | Plain JavaScript UI, HTML template, CSS, pagination, and Wails event handlers. |
-| `tests/unit_tests/` | Regression, validation, database, cache, progress, CSV, and processing tests. |
-| `tests/e2e_tests/` | Filesystem-based tests that call the real backend execution pipeline. |
-| `tests/benchmarks/` | Production hashing/grouping benchmark and saved before/after results. |
-| `.github/workflows/release.yml` | Tagged Linux and Windows release builds. |
-| `package_builder.sh` | Local Linux/Windows packaging helper. |
-| `development.md` | Development, debugging, testing, benchmark, and build commands. |
-| `TODO.md` | Remaining work and completed hardening items. |
+| `internal/handlers/validation/` | Shared defaults and filesystem validation. |
+| `internal/reporting/`, `internal/visuals/` | Reporter interface, Wails events, and progress tracking. |
+| `internal/models/` | Execution parameters, results, file metadata, and diagnostics. |
+| `internal/common/` | Platform/filesystem helpers, constants, and logging. |
+| `frontend/src/` | UI, templates, styling, pagination, and event handlers. |
+| `frontend/tests/` | Behavioral tests with mocked Wails calls and actual frontend rendering. |
+| `tests/unit_tests/`, `tests/e2e_tests/` | Public-contract regression and filesystem pipeline tests. |
+| `tests/benchmarks/` | Explicit production hashing/grouping benchmarks and historical comparisons. |
+| `.github/workflows/ci.yml` | Frontend checks plus every Go test package, race detection, vet, and build. |
+| `.github/workflows/release.yml` | Tagged Linux/Windows Wails builds and packaging. |
+| `package_builder.sh` | Local packaging helper. |
 
-## Backend Entry Point
+## FrontendApp API and State
 
-`main.go` embeds `frontend/dist`, constructs a `reporting.WailsReporter`, creates `processing.FrontendApp`, and binds it to Wails.
+Key Wails methods:
 
-The Wails window has a 1000x800 baseline, an 800x600 minimum, and Windows-specific Mica configuration.
-
-## FrontendApp API
-
-The following methods are exposed to the frontend through Wails:
-
-- `Startup(ctx)` stores the Wails context and detected platform.
-- `SelectFolder()` opens a native directory picker.
-- `StartExecution(args)` validates arguments and runs duplicate detection.
+- `StartExecution(args)` resolves shared defaults, validates the selected mode, acquires the execution gate, and runs the flow.
 - `CancelExecution()` cancels the active execution context.
-- `FullReset()` cancels and awaits active work, truncates the cache, resets backend state, and tells the frontend to reset.
-- `GetResults()` returns duplicate groups from the last completed execution.
-- `ShowResults()` opens the results directory with the platform file manager.
-- `RevealInExplorer(path)` opens the containing directory for a result file.
-- `CheckIfResultsExist()` checks whether any `results*.csv` file exists in the configured results directory.
+- `FullReset()` cancels/awaits active work, truncates cache where possible, resets transient state, and emits `fullReset`.
+- `GetResults()` returns `*models.DuplicateResult`, or nil without a successful duplicate result.
+- `GetMissingContentResult()` returns `*models.MissingContentResult`, or nil without a successful coverage result.
+- `GetScanDiagnostics()` returns mode-independent lifecycle status and diagnostics, including when no successful result exists.
+- `CheckIfResultsExist()` checks the current completed result's `ReportPath` and requires a regular file; stale reports do not count.
+- `ShowResults()` opens the configured results directory, not the CSV directly.
+- `RevealInExplorer(path)` opens a result file's containing directory.
+- `SelectFolder()` opens a native directory picker; `Startup(ctx)` stores the lifecycle context/platform.
 
-`FrontendApp` protects mutable execution arguments, context, and last results with `stateMu`.
+`stateMu` protects execution state. Getters return defensive copies. Duplicate copying recursively clones `FileHash.DuplicatesFound` slices at collection, application-publication, and getter boundaries.
 
-## Execution Parameters
+Diagnostic lifecycle statuses are `notStarted`, `running`, `completed`, `cancelled`, and `inconclusive`. A new accepted run clears prior results and diagnostics. Validation/gate rejection leaves existing execution state untouched. Cancellation and execution failure publish no successful result and an empty retained diagnostic array. Full Reset restores `notStarted`.
 
-`models.ExecutionParams` contains:
+## Execution Parameters and Validation
+
+`models.ExecutionParams` uses the current names:
 
 | Field | Meaning |
 | --- | --- |
-| `Directories` | One or more directories to scan. |
-| `UseCache` | Enables the SQLite hash cache. |
-| `CacheDir` | Directory containing `memory.db`. |
-| `ResultsDir` | Directory for generated CSV reports. |
-| `ParanoidMode` | Enables byte-for-byte verification after hash grouping. |
-| `CPUs` | Maximum concurrent hashing/comparison workers. |
-| `BufSize` | Cache-channel buffer size. |
-| `DebugMode` | Enables file logging. |
+| `Mode` | Explicit operation: duplicates (`1`) or find-missing-content (`2`); zero is invalid. |
+| `Directories` | Duplicate-mode scan roots. |
+| `FindMissingSourceDir`, `FindMissingTargetDir` | Coverage-mode input directories. |
+| `UseCache`, `CacheDir` | Enable optional caching and select the `memory.db` directory. |
+| `ResultsDir` | CSV output directory. |
+| `ParanoidMode` | Enable byte-for-byte verification. |
+| `WorkerCount` | Concurrent hashing/comparison worker limit. |
+| `BufferSizeBytes` | Memory-manager buffer budget; retain the established API name. |
+| `DebugMode` | Enable file logging; independent of debug build symbols. |
 
-Validation and defaults are applied before state is published:
+Worker counts default/clamp to `runtime.GOMAXPROCS(0)`. Buffer values default to 1024 and clamp to 1,048,576. Blank results/cache paths resolve to safe platform defaults. Results must be writable; input readability validation is mode-specific. Writable probes use temporary files and do not overwrite existing data. Cache unavailability is tolerated.
 
-- At least one readable scan directory is required.
-- The results directory must be writable.
-- Blank cache and results directories fall back to a safe platform directory.
-- `CPUs <= 0` becomes `runtime.GOMAXPROCS(0)` and values above it are clamped.
-- `BufSize <= 0` becomes 1024 and values above 1,048,576 are clamped.
-- An unavailable cache directory is tolerated because caching is optional.
-- Writable checks use temporary probe files and do not overwrite existing user files.
+## Execution Lifecycle
 
-## Production Execution Flow
+1. The runner resolves/validates arguments and acquires `ExecutionGate`.
+2. It publishes `running`, then invokes the selected flow with a temporary result collector.
+3. The flow initializes optional logging/cache, creates a diagnostic sink, and performs discovery/filtering/hashing/matching.
+4. Producers and progress trackers finish before flow return, including hashing error/cancellation paths. Discovery's blocking progress send selects on `ctx.Done()`.
+5. The flow closes the sink, obtains `CompletedSnapshot()`, generates any required report, and publishes one concrete result to the collector.
+6. On successful return, the runner atomically publishes the result plus diagnostics derived from it, then calls `FinishExecution`.
+7. On error/cancellation, the runner publishes `inconclusive`/`cancelled` before the corresponding notification. The gate is released during final cleanup.
 
-The real pipeline is orchestrated by `startExecution` in `internal/processing/runner.go`.
+An empty or no-match scan can complete successfully; it still publishes an empty concrete result and receives the runner's completion notification. Report failure prevents successful publication.
 
-### 1. Execution Ownership
+### Duplicate Mode
 
-`ExecutionGate.Start` rejects a second execution while one is running and rejects starts while Full Reset is active. It creates a cancellable execution context.
+Walk selected roots concurrently with `filepath.WalkDir`, collect metadata into a `sync.Map`, and use `RemoveUniqueSizeFiles` to discard unique sizes. `CreateHashes` re-stats files, reuses valid cached hashes, or calculates MD5. Failed path candidates are removed and diagnosed. `FindDuplicatesInMap` transforms path entries into hash groups. Paranoid Mode uses `EnsureDuplicates` for byte verification and fails visibly on comparison errors. The flow collects groups and finalizes report/result data.
 
-All execution-owned workers and channels are awaited before the gate is released.
+### Find Missing Content Mode
 
-### 2. Logging and Error Drain
+Discover source and target separately with their own diagnostic scopes. Filter hashing candidates by possible size matches across the collections. Preserve unmatched source sizes as missing; do not unnecessarily hash irrelevant target files. Remove skipped paths before `MatchCoverage`. Matching uses content rather than names/paths; target matches are reusable. Coverage generates a report even when the source is empty.
 
-Debug logging is initialized from `DebugMode`. Logging is a no-op when disabled.
+### Diagnostics and Cache
 
-An execution error channel is drained by a dedicated goroutine. It records per-file hashing errors without blocking workers and is closed and awaited during cleanup.
+`Diagnostic` contains `path`, `reason`, `phase` (`walking`/`hashing`), and `scope` (`duplicate`/`source`/`target`). Snapshots sort by scope, path, phase, then reason and expose non-nil diagnostic arrays.
 
-### 3. Cache Initialization
+`DiagnosticSink` uses one mutex for its closed flag, records, and log queue. Concurrent `Submit` either accepts/queues the event and retains it according to disposition, or rejects without mutation. `Close` rejects further events and waits for every accepted log outside the lock. `CompletedSnapshot` only wraps a defensive snapshot with completed status; it neither closes the sink nor determines execution success.
 
-`MemoryManager` is created before scanning:
+`ErrorLogOnly` logs without retention; `ErrorDiagnostic` also retains; `ErrorFatal` logs and lets discovery/hashing cancel active work and return the original error. All flows require a handler; production intentionally returns `ErrorDiagnostic` for submitted path failures. Cache, comparison, validation, and report errors are not retained scan diagnostics.
 
-- If caching is disabled, it performs no database work.
-- If initialization fails, it records one cache error and disables itself.
-- Cached records are loaded into a map keyed by full file path.
-- A single asynchronous writer consumes newly calculated hashes.
-- Cache failures produce a warning and processing continues without cache.
+`MemoryManager` loads cached hashes keyed by full path and asynchronously writes new hashes. Validity uses path, size, and modification time; unchanged metadata can conceal changed content. Cache errors disable caching with warnings instead of aborting a scan. SQLite uses one `memory.db` and the `file_hashes` table, with upserts; only `sql.ErrNoRows` becomes the domain not-found error.
 
-### 4. Reading
+## Reports and Runtime Files
 
-Each selected directory is walked in its own goroutine using `filepath.WalkDir`.
+- Duplicate reports: `duplicate_results_YYYY_MM_DD_HH_MM_SS.csv`; created only for duplicate or diagnostic rows, including diagnostic-only runs.
+- Coverage reports: `coverage_report_YYYY_MM_DD_HH_MM_SS.csv`; created for every completed coverage run.
+- Collisions add `_1`, `_2`, etc. Both report writers use exclusive file creation and retry only `os.ErrExist`; existing reports cannot be truncated by a colliding creation attempt.
+- CSV includes a UTF-8 BOM; Windows uses semicolons, other platforms commas. Write/flush/close errors propagate, and incomplete output is removed where possible.
+- Duplicate columns: `Type`, `Filename`, `Full Path`, `Duplicate Filename`, `Duplicate Full Path`, `Reason`.
+- Coverage columns: `Type`, `Scope`, `Filename`, `Full Path`, `Size (bytes)`, `Reason`.
+- Diagnostic rows use `Skipped`; reasons include `(phase: walking)` or `(phase: hashing)`. Scope values are lowercase.
+- Cache: `memory.db`. Optional debug logs: `logs/YYYY-MM-DD_HH-MM-SS.log` beside the executable.
+- Blank cache/results paths default to the executable directory on supported Linux/Windows platforms. macOS helper code is not a support guarantee.
 
-Every discovered non-directory entry is stored in a `sync.Map` as a `FileHash` containing:
+## Frontend Contract
 
-- filename
-- full path
-- byte size
-- modification time formatted as RFC3339
+Wails events remain `progressUpdate`, `filesCount`, `detailedLog`, `errorUpdate`, `executionFinished`, and `fullReset`. `executionFinished` is emitted only after completed state is readable. The frontend fetches the mode-specific result; coverage also fetches standalone diagnostics.
 
-Reading progress initially has an unknown total. The Files Checked field shows the discovered count. Directory-walk permission and filesystem errors are reported and skipped where possible instead of silently disappearing or stopping the whole scan.
+Duplicate groups render as paginated, collapsible cards; missing files use coverage cards. Page sizes are 3, 5, 10, 25, and 50. Diagnostics have a shared visible container outside the coverage-only summary. Duplicate report access is enabled from the result's report path, and clear-results is available for groups or diagnostics. Report-button rendering is path-based; the backend existence getter separately checks the actual file.
 
-The final Files Checked value is the number of readable, discovered non-directory entries. It can be lower than a file manager's displayed count because unreadable entries, failed metadata reads, or differing counting rules are not included.
+Progress updates are throttled to roughly 250 ms plus phase boundaries. Unknown/zero progress is indeterminate. Full Reset clears frontend state after backend cleanup. Mode-specific diagnostic state decoupling remains general frontend cleanup, not an unfinished review fix.
 
-### 5. Filtering
+## Development, Testing, and CI
 
-`FilterHashCandidatesBySize` counts how many files have each size and removes only files whose size occurs once.
+See `development.md` for setup. Normal Wails debug builds run real scans (`wails build -debug`); the separate `debug_progress` simulator/build tag was removed. `DebugMode` logging remains available.
 
-This is a safe exclusion:
-
-- unique size: cannot be duplicated in this scan, so hashing is unnecessary
-- repeated size: might or might not be duplicated, so it remains for hashing
-
-The initial discovered file count is retained for the final Files Checked display even when files are filtered before hashing.
-
-### 6. Hashing and Cache Reuse
-
-`CreateHashes` processes candidates concurrently with a semaphore capped by `CPUs`.
-
-For each candidate:
-
-1. The file is statted again to get current size and modification time.
-2. A cached hash is reused when path, size, and modification time match.
-3. Otherwise the file is read and an MD5 hash is calculated.
-4. Newly calculated metadata and hash are queued for asynchronous cache storage.
-5. Files that cannot be statted or read are removed from the candidate map and reported.
-
-Hashing and cache writes overlap. The UI changes to a separate Caching phase only when writes remain after hashing completes, so Caching may be short or absent.
-
-### 7. Finding
-
-`FindDuplicatesInMap` groups files by hash. Hashes represented by only one file are removed. For every repeated hash, the first file becomes the group's primary file and the rest become `DuplicatesFound`.
-
-The map is transformed from `path -> FileHash` into `hash -> duplicate group` during this phase.
-
-### 8. Comparing, Optional
-
-When Paranoid Mode is enabled, `EnsureDuplicates` compares every candidate duplicate byte for byte against its group's primary file.
-
-- Comparison workers are capped by `CPUs`.
-- The primary file is opened once per group and rewound between candidates.
-- Only confirmed byte-equal files remain in `DuplicatesFound`.
-- Comparison errors are not treated as matches.
-- Groups with no confirmed duplicates are removed.
-- All workers are awaited before the phase completes.
-
-This phase protects against hash collisions among files that were grouped together. MD5 remains acceptable for the normal local workflow by explicit project decision.
-
-### 9. Collecting
-
-The final duplicate groups are copied into `FrontendApp.lastResults`. `GetResults()` later returns a defensive slice copy to the UI.
-
-### 10. CSV Output and Completion
-
-Duplicate groups are flattened into rows containing:
-
-- primary filename
-- primary full path
-- duplicate filename
-- duplicate full path
-
-CSV output includes a UTF-8 BOM for Excel compatibility. Linux and macOS use commas; Windows uses semicolons. Flush and close errors are returned, and incomplete files are removed.
-
-The backend then reports the original discovered file total, emits Done at 100%, and emits `executionFinished`.
-
-## Progress and UI Event Contract
-
-The backend uses a `Reporter` interface so processing can be tested without Wails.
-
-| Event | Payload | Frontend behavior |
-| --- | --- | --- |
-| `progressUpdate` | `{title, percent}` | Updates Current Job and resets/reuses the single progress bar when the phase changes. |
-| `filesCount` | `{current, total}` | Updates Files Checked for every operation. |
-| `detailedLog` | string | Shows a detailed status message in Current Job. |
-| `errorUpdate` | string | Marks the active phase as failed and displays the error. |
-| `executionFinished` | none | Restores controls, marks completion, fetches groups, and renders results. |
-| `fullReset` | none | Resets all frontend form and result state. |
-
-Progress updates from `ProgressTracker` are limited to a 250 ms ticker plus immediate phase start/completion events. This avoids emitting one UI event per processed file during hashing, grouping, and comparison.
-
-The Reading phase uses `ProgressCounter`, also updating on a 250 ms ticker, because its total is unknown until walking finishes.
-
-The UI intentionally shows one progress bar, not a stack of phase bars. A zero-percent active phase is displayed as indeterminate until measurable progress arrives.
-
-## Frontend Results
-
-After `executionFinished`, the frontend calls `GetResults()` and maps backend `FileHash` values into frontend duplicate-group models.
-
-Results are rendered as collapsible cards with buttons to reveal each file's directory. Pagination is handled entirely in the frontend.
-
-Available groups-per-page values are:
-
-- 3
-- 5
-- 10
-- 25
-- 50
-
-Changing page size preserves the first visible group's approximate position.
-
-## Cancellation and Full Reset
-
-Cancellation propagates through the execution context. Directory walking, worker spawning, hash grouping, and byte comparison check this context.
-
-`ExecutionGate` guarantees:
-
-- only one execution runs at a time
-- reset cannot overlap a new execution
-- reset cancels and waits for an active execution
-- concurrent reset callers wait for the reset owner
-- execution state is not cleared while workers still use it
-
-Full Reset then:
-
-1. Resolves the cache directory.
-2. Opens and truncates `file_hashes` when possible.
-3. Clears execution arguments and in-memory results.
-4. Emits `fullReset` for the frontend.
-
-Cache reset failures are warnings rather than fatal application errors.
-
-## SQLite Cache
-
-The cache file is named `memory.db` and contains one table:
-
-```sql
-CREATE TABLE IF NOT EXISTS file_hashes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    path TEXT UNIQUE,
-    hash TEXT,
-    size INTEGER,
-    modified_time TEXT,
-    updated_at TEXT,
-    created_at TEXT
-)
-```
-
-Writes use SQLite `INSERT ... ON CONFLICT(path) DO UPDATE`. Database errors are returned directly; only `sql.ErrNoRows` becomes the domain-specific not-found error.
-
-The cache validity check uses path, size, and modification time. A file changed without either metadata value changing can retain a stale cached hash; this is an inherent limitation of the current cache key strategy.
-
-## Runtime Files
-
-- CSV reports: `results_YYYY_MM_DD_HH_MM_SS.csv`
-- Cache database: `memory.db`
-- Debug logs: `logs/YYYY-MM-DD_HH-MM-SS.log`
-
-When cache/results directories are blank:
-
-- Linux and Windows use the executable directory.
-- macOS helper code uses `~/Documents/DuDe`, but macOS releases are not validated or supported.
-
-Debug logs are written beside the executable only when Debug Logging is enabled.
-
-## Error-Handling Policy
-
-- Argument validation errors stop execution and are shown in the UI.
-- A second concurrent start is rejected visibly.
-- Cancellation is treated as a normal stop rather than a processing failure.
-- Cache failures are warnings and never stop scanning.
-- Individual directory-walk and hash-read failures are reported and skipped.
-- Paranoid comparison errors fail verification rather than creating false matches.
-- CSV creation, flush, or close failures fail execution and remove incomplete output where possible.
-- All execution-owned channels and goroutines must be closed and awaited on every exit path.
-
-## Testing
-
-All Go tests are under `tests/`.
-
-### Unit Tests
-
-Coverage includes:
-
-- validation and defaults
-- safe writable-directory probing
-- directory-walk error reporting and file counting
-- unique-size filtering
-- same-size files with different contents
-- hashing read failures
-- zero-work and all-failed progress completion
-- Paranoid Mode correctness and comparison failures
-- SQLite schema and repository behavior
-- cache initialization, read, write, and closure failures
-- CSV flush failures and incomplete-file cleanup
-- execution cancellation/reset synchronization
-- frontend-facing validation error reporting
-
-Run without Go's test-result cache:
+CI uses one sequential Ubuntu job with Go from `go.mod` and Node 18, matching the existing release workflow. Build frontend assets before recursive Go checks because `main.go` embeds the ignored `frontend/dist` directory:
 
 ```bash
-go test -count=1 ./tests/unit_tests
-```
-
-### End-to-End Tests
-
-The E2E tests create real temporary directory trees and call `FrontendApp.StartExecution`, exercising the production backend pipeline and CSV output without launching the Wails window.
-
-They cover single and multiple directories, nested content, empty folders, hidden files, special characters, cross-directory duplicates, different content, Paranoid Mode, Unicode normalization, and permission failures.
-
-```bash
-go test -count=1 ./tests/e2e_tests
-```
-
-Run all Go tests uncached:
-
-```bash
-go test -count=1 ./...
-```
-
-Useful additional checks:
-
-```bash
-go test -race -count=1 ./tests/unit_tests
-go vet ./...
+npm --prefix frontend ci --include=dev
+npm --prefix frontend test
 npm --prefix frontend run build
+go test -race -v -count=1 ./...
+go vet ./...
+go build ./...
 ```
 
-Fast tests are normal. Go tests use small temporary files and in-process SQLite databases, so speed does not mean they were skipped. `-count=1` guarantees results are not reused from the test cache.
+Run separate E2E-bearing commands sequentially until fixture isolation is addressed; their shared `./test_files/` cleanup can interfere across processes. Colocated tests exercise sink closure/admission, cancellation, report collisions, terminal publication, and deep-copy contracts. Public unit/E2E tests cover matching, validation, cache, CSV, reset, and filesystem behavior. Frontend tests execute actual rendering with mocked Wails bindings.
 
-## Benchmarks
+For a complete desktop build use `wails build -f`; normal `go build ./...` and a Vite build do not replace desktop integration or interactive validation.
 
-`BenchmarkHashAndGroupPipeline` executes the real production functions:
+Benchmarks remain manual. `BenchmarkHashAndGroupPipeline` exercises `RemoveUniqueSizeFiles`, `CreateHashes`, and `FindDuplicatesInMap`; commands/results are in `tests/benchmarks/README.md`. Do not invoke timing benchmarks unless requested.
 
-- `FilterHashCandidatesBySize`
-- `CreateHashes`
-- `FindDuplicatesInMap`
+The release workflow builds Windows/Linux archives on pushed `v*` tags using Wails v2.11.0, Go 1.24, Node 18, and Linux WebKitGTK 4.1. No release was created by these review fixes.
 
-It creates 128 real files and tests scenarios where 0% through 100% of files share a size.
+## Remaining Work and Future Changes
 
-Do not run benchmarks unless explicitly requested.
+Use root `TODO.md` as the general backlog, rather than reopening the completed diagnostic plan. It includes logging-memory measurement, E2E fixture isolation, Wails/toolchain upgrades, frontend state cleanup, large-file testing, and possible future platform/feature work. Existing frontend toolchain security findings also need remediation. Full desktop build/smoke testing remains the release-validation boundary noted above.
 
-```bash
-go test ./tests/benchmarks -run '^$' \
-  -bench '^BenchmarkHashAndGroupPipeline$' \
-  -benchmem -benchtime=1s -count=10
-```
-
-Save before/after output and compare it with `benchstat`. Existing results demonstrated large improvements when most files had unique sizes, with a small overhead when every file remained a candidate.
-
-## Development and Debugging
-
-Install Wails:
-
-```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
-```
-
-Run in development:
-
-```bash
-wails dev
-```
-
-Build:
-
-```bash
-wails build
-```
-
-Force dependency installation and a fresh Wails build:
-
-```bash
-wails build -f
-```
-
-The Wails frontend install command is `npm ci --include=dev` because Vite is a development dependency but is still required during production compilation.
-
-### Debug Builds
-
-VS Code and Zed tasks build the normal application with debugging symbols. Debug builds run the production pipeline; no execution-mode build tag or progress simulator is required.
-
-Command-line example:
-
-```bash
-wails build -debug
-```
-
-## Release Process
-
-The GitHub Actions release workflow builds:
-
-- Windows AMD64 ZIP
-- Linux AMD64 tarball
-
-It uses Go 1.24, Node.js 18, Wails v2.11.0, and WebKitGTK 4.1 on Linux. A pushed `v*` tag creates a GitHub release and uploads both platform packages.
-
-Example next patch release:
-
-```bash
-git tag -a v1.2.2 -m "Release v1.2.2"
-git push origin v1.2.2
-```
-
-The local packaging script derives its version from the latest tag or accepts `VERSION` explicitly.
-
-## Major Hardening Completed
-
-The project was reviewed and improved throughout the development conversation. Important completed work includes:
-
-1. Database errors are no longer mistaken for missing records.
-2. SQL schema, repository, and lifecycle functionality has dedicated tests.
-3. File metadata is captured during directory walking.
-4. Unique-size files are excluded before hashing.
-5. Production hashing/grouping benchmarks and before/after comparison instructions were added.
-6. Result groups per page can be changed dynamically.
-7. CSV flush and close failures are detected and incomplete files are removed.
-8. Writable-directory checks no longer modify a pre-existing probe-named file.
-9. Progress phases complete explicitly, including zero-work and all-failed phases.
-10. Reading, filtering, hashing, caching, finding, comparing, and collecting are represented as distinct work phases.
-11. The UI reuses one progress bar and displays phase names in Current Job.
-12. Files Checked updates during all operations and returns to the original discovered total at completion.
-13. Every execution-owned worker and channel is closed and awaited.
-14. Full Reset is synchronized with active execution cleanup.
-15. Processing and validation failures are reported clearly in the UI.
-16. Cache initialization and runtime failures disable caching safely without stopping duplicate detection.
-17. Paranoid Mode waits for all workers and never treats comparison errors as confirmed duplicates.
-18. Release metadata, runtime files, dependencies, and supported platforms were documented.
-
-## Remaining Work
-
-Current `TODO.md` items, in their present order:
-
-1. Remove unused code.
-2. Review log levels and details.
-3. Test with large files and constrained buffers.
-4. Throttle or summarize repeated filesystem errors before sending them to the UI.
-5. Simplify frontend state flow.
-6. Validate macOS permissions, packaging, signing, notarization, and runtime behavior on real hardware.
-7. Consider a duplicate-file deletion feature.
-
-Additional notes retained in `TODO.md`:
-
-- Investigate whether metadata such as time and size should be packed into one value/blob for simpler or faster handling.
-- Reconsider use of a `Must` helper pattern.
-
-The repeated-filesystem-error item matters because a large number of inaccessible files can still flood the Wails event stream and make the UI stutter, despite normal progress updates already being throttled.
-
-## Guidance for Future ChatGPT/Codex Work
-
-When continuing this project:
-
-1. Read `README.md`, `development.md`, `TODO.md`, and this file first.
-2. Inspect the current implementation before relying on historical assumptions in this document.
-3. Keep changes focused and consistent with the existing architecture.
-4. For bug fixes, write the failing test first and place it under `tests/`.
-5. Run the smallest relevant tests first, then broader tests before finalizing.
-6. Do not run benchmarks unless the user asks.
-7. Preserve MD5 unless the application's trust model changes.
-8. Preserve `modernc.org/sqlite` and the self-contained executable requirement.
-9. Cache problems must degrade gracefully and never stop duplicate detection.
-10. Avoid high-frequency frontend events; progress should stay throttled or summarized.
-11. Keep the single progress-bar design and Current Job phase label.
-12. Treat the initial discovered file count as the final Files Checked total.
-13. Keep macOS support marked experimental/unsupported until tested on real hardware.
-14. Do not add deletion behavior without explicit user approval and a careful safety design.
-15. Keep README changes short; put implementation detail in `development.md` or this context file.
-
-## Terminology
-
-- **Reading:** walking selected directories and collecting metadata.
-- **Filtering:** removing files with sizes that occur only once.
-- **Hashing:** calculating or reusing checksums for remaining candidates.
-- **Caching:** finishing asynchronous writes of newly calculated hashes.
-- **Finding:** grouping files by checksum and removing unique hashes.
-- **Comparing:** optional byte-for-byte verification in Paranoid Mode.
-- **Collecting:** copying final duplicate groups into frontend-accessible state.
-- **Duplicate group:** one primary file plus one or more files with matching content criteria.
-- **Files Checked:** phase-specific progress while running; original discovered file total when complete.
+Keep fixes focused, add a reproducing test where practical, and run relevant checks before finalizing. Preserve the agreed content-matching semantics, graceful cache degradation, serialized execution ownership, state-before-notification ordering, defensive result copies, and lossless diagnostic requirement. Do not introduce deletion, new classification policies, or logging overflow behavior without explicit agreement.

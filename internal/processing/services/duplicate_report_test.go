@@ -10,6 +10,20 @@ import (
 	"DuDe/internal/models"
 )
 
+func TestCountDuplicateEntriesExcludesGroupSeparators(t *testing.T) {
+	data := &sync.Map{}
+	data.Store("hash-1", models.FileHash{
+		DuplicatesFound: []models.FileHash{{FilePath: "/duplicate-1"}, {FilePath: "/duplicate-2"}},
+	})
+	data.Store("hash-2", models.FileHash{
+		DuplicatesFound: []models.FileHash{{FilePath: "/duplicate-3"}},
+	})
+
+	if got, want := countDuplicateEntries(data), 3; got != want {
+		t.Fatalf("countDuplicateEntries() = %d, want %d", got, want)
+	}
+}
+
 type duplicateTestFile struct {
 	bytes.Buffer
 	closeErr error

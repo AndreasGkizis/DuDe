@@ -27,4 +27,14 @@ func TestCanWriteDoesNotModifyExistingProbeNamedFile(t *testing.T) {
 	if string(content) != string(existingContent) {
 		t.Fatalf("expected existing file content to remain unchanged, got %q", content)
 	}
+
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatalf("read directory after writable check: %v", err)
+	}
+	for _, entry := range entries {
+		if matched, _ := filepath.Match(".dude-write-test-*", entry.Name()); matched {
+			t.Fatalf("writable check left probe file %q behind", entry.Name())
+		}
+	}
 }

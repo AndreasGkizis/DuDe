@@ -9,6 +9,40 @@ import (
 	"testing"
 )
 
+func TestFilesEqualComparesContentsAndRewindsPrimary(t *testing.T) {
+	root := t.TempDir()
+	primaryPath := filepath.Join(root, "primary.txt")
+	candidatePath := filepath.Join(root, "candidate.txt")
+	if err := os.WriteFile(primaryPath, []byte("content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(candidatePath, []byte("content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	primaryFile, err := os.Open(primaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer primaryFile.Close()
+
+	equal, err := services.FilesEqual(context.Background(), primaryFile, candidatePath)
+	if err != nil {
+		t.Fatalf("files equal: %v", err)
+	}
+	if !equal {
+		t.Fatal("expected identical files to match")
+	}
+
+	position, err := primaryFile.Seek(0, 1)
+	if err != nil {
+		t.Fatalf("read primary position: %v", err)
+	}
+	if position != 0 {
+		t.Fatalf("primary file position = %d, want 0", position)
+	}
+}
+
 func TestFilesMatchAcceptsSameHashWithoutParanoidComparison(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "file.txt")
