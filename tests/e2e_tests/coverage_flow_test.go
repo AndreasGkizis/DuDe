@@ -99,7 +99,7 @@ func TestCoverageFlowRetainsSkippedPathDiagnostics(t *testing.T) {
 		t.Fatalf("coverage execution failed: %v", err)
 	}
 	diagnostics := app.GetScanDiagnostics()
-	if diagnostics == nil || (len(diagnostics.SkippedSourcePaths) == 0 && len(diagnostics.SkippedTargetPaths) == 0) {
+	if diagnostics == nil || len(diagnostics.Diagnostics) == 0 {
 		t.Skip("filesystem permissions are readable by the test user")
 	}
 	if result := app.GetMissingContentResult(); result == nil || result.TotalSourceFiles != 1 || len(result.MissingFiles) != 0 {

@@ -19,13 +19,9 @@ func TestCreateHashesReportsReadErrors(t *testing.T) {
 	directory := t.TempDir()
 	sourceFiles.Store(directory, models.FileHash{FilePath: directory})
 
-	errChan := make(chan error, 1)
-	runCreateHashes(t, sourceFiles, errChan)
-
-	select {
-	case <-errChan:
-	default:
-		t.Fatal("expected hashing a directory to report its read error")
+	diagnostics := runCreateHashes(t, sourceFiles)
+	if len(diagnostics) != 1 || diagnostics[0].Path != directory {
+		t.Fatalf("expected hashing a directory to report its read error, got %#v", diagnostics)
 	}
 }
 
@@ -135,8 +131,7 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 	tracker.Start()
 	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
-	errChan := make(chan error, 2)
-
+	sink := services.NewDiagnosticSink()
 	if err := services.CreateHashes(
 		ctx,
 		sourceFiles,
@@ -144,11 +139,14 @@ func TestCreateHashesCompletesProgressWhenAllCandidatesFail(t *testing.T) {
 		tracker,
 		memoryManager,
 		&memory,
-		errChan,
+		sink,
+		retainHashDiagnostic,
+		models.DiagnosticScopeDuplicate,
 	); err != nil {
 		t.Fatalf("create hashes: %v", err)
 	}
 
+	sink.Close()
 	waitForTrackerToFinish(t, tracker, cancel)
 }
 
@@ -170,12 +168,13 @@ func waitForTrackerToFinish(t *testing.T, tracker *visuals.ProgressTracker, canc
 	}
 }
 
-func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
+func runCreateHashes(t *testing.T, sourceFiles *sync.Map) []models.Diagnostic {
 	t.Helper()
 
 	tracker := visuals.NewProgressTracker(context.Background(), reporting.NoOpReporter{}, "test")
 	memoryManager := services.NewMemoryManager(&models.ExecutionParams{}, 1, 1)
 	memory := make(map[string]models.FileHash)
+	sink := services.NewDiagnosticSink()
 
 	err := services.CreateHashes(
 		context.Background(),
@@ -184,11 +183,16 @@ func runCreateHashes(t *testing.T, sourceFiles *sync.Map, errChan chan error) {
 		tracker,
 		memoryManager,
 		&memory,
-		errChan,
+		sink,
+		retainHashDiagnostic,
+		models.DiagnosticScopeDuplicate,
 	)
 	if err != nil {
 		t.Fatalf("create hashes: %v", err)
 	}
+	sink.Close()
+	tracker.Wait()
+	return sink.Snapshot()
 }
 
 type capturingReporter struct {

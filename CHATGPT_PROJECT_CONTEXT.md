@@ -445,19 +445,14 @@ wails build -f
 
 The Wails frontend install command is `npm ci --include=dev` because Vite is a development dependency but is still required during production compilation.
 
-### Build-Tag Debug Modes
+### Debug Builds
 
-VS Code tasks prompt for an execution mode:
-
-- `real_execution`: normal production pipeline
-- `debug_progress`: simulated phase progress without scanning files
-
-The simulated mode is compiled through the `debug_progress` Go build tag. It exists to debug UI phase transitions and progress behavior independently from filesystem speed.
+VS Code and Zed tasks build the normal application with debugging symbols. Debug builds run the production pipeline; no execution-mode build tag or progress simulator is required.
 
 Command-line example:
 
 ```bash
-wails build -debug -tags debug_progress
+wails build -debug
 ```
 
 ## Release Process

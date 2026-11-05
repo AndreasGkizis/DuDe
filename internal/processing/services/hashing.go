@@ -31,7 +31,7 @@ func (e HashError) Unwrap() error {
 	return e.Err
 }
 
-func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, errChan chan error) error {
+func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, submitHashError func(error) bool) error {
 	defer pt.Complete()
 
 	if maxWorkers < 1 {
@@ -88,10 +88,13 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 
 			currentFileDiskStats, err := os.Stat(val.FilePath)
 			if err != nil {
-				errChan <- HashError{Path: val.FilePath, Err: err}
+				fatal := submitHashError(HashError{Path: val.FilePath, Err: err})
 				sourceFiles.Delete(val.FilePath)
 				pt.DecrementFromTotal() // remove for progress bar
-				return                  // stop this iteration
+				if fatal {
+					return
+				}
+				return // stop this iteration
 			}
 
 			currentFileDiskSize := currentFileDiskStats.Size()
@@ -110,9 +113,12 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 					return // Stop this iteration/worker
 				}
 				if err != nil {
+					fatal := submitHashError(HashError{Path: val.FilePath, Err: err})
 					sourceFiles.Delete(val.FilePath)
 					pt.DecrementFromTotal() // remove for progress bar
-					errChan <- HashError{Path: val.FilePath, Err: err}
+					if fatal {
+						return
+					}
 					return // stop this iteration
 				}
 
@@ -145,6 +151,44 @@ func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt
 	close(sem)
 	// Check if the overall context was canceled or nil if not
 	return ctx.Err()
+}
+
+// CreateHashes hashes files and routes path-specific failures through the execution sink.
+func CreateHashes(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *visuals.ProgressTracker, mm *MemoryManager, memory *map[string]models.FileHash, sink *DiagnosticSink, handler DiagnosticHandler, scope models.DiagnosticScope) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var firstFatal error
+	var submitMu sync.Mutex
+	submit := func(hashErr error) bool {
+		var diagnostic models.Diagnostic
+		var typed HashError
+		if errors.As(hashErr, &typed) {
+			diagnostic = models.Diagnostic{Path: typed.Path, Reason: typed.Err.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope}
+		} else {
+			diagnostic = models.Diagnostic{Reason: hashErr.Error(), Phase: models.DiagnosticPhaseHashing, Scope: scope}
+		}
+
+		submitMu.Lock()
+		defer submitMu.Unlock()
+		event := DiagnosticEvent{Diagnostic: diagnostic, Err: hashErr, Severity: DiagnosticSeverityWarning}
+		disposition := handler(event)
+		sink.Submit(event, disposition)
+		if disposition == ErrorFatal {
+			if firstFatal == nil {
+				firstFatal = hashErr
+			}
+			cancel()
+			return true
+		}
+		return false
+	}
+
+	err := runWorkers(ctx, sourceFiles, maxWorkers, pt, mm, memory, submit)
+	if firstFatal != nil {
+		return firstFatal
+	}
+	return err
 }
 
 func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.ProgressTracker, maxWorkers int) error {

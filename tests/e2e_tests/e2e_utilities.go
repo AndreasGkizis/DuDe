@@ -152,7 +152,7 @@ func readResultsFile(t *testing.T, dir string) ([][]string, error) {
 		name := entry.Name()
 
 		// Check if file starts with "results" and ends with ".csv"
-		if strings.HasPrefix(name, "results") && strings.HasSuffix(name, ".csv") {
+		if strings.HasPrefix(name, "duplicate_results") && strings.HasSuffix(name, ".csv") {
 			filePath = filepath.Join(dir, name)
 		}
 	}
@@ -208,8 +208,12 @@ func csvContainsNumberOfRowsExpected(t *testing.T, allCsvLines [][]string, expec
 	found := 0
 	for _, line := range allCsvLines {
 
+		firstCell := ""
+		if len(line) > 0 {
+			firstCell = strings.TrimPrefix(line[0], "\ufeff")
+		}
 		if !slices.Contains(line, common.ResultsFileSeperator) &&
-			!slices.Equal(line[len(line)-3:], common.ResultsHeader[len(common.ResultsHeader)-3:]) {
+			!(firstCell == "Type" || firstCell == "File Name") {
 			found++
 		}
 	}

@@ -21,7 +21,7 @@ func (registryTestFlow) Validate(*models.ExecutionParams) error {
 	return nil
 }
 
-func (registryTestFlow) Run(context.Context, models.ExecutionParams, reporting.Reporter, flows.ResultPublisher) error {
+func (registryTestFlow) Run(context.Context, models.ExecutionParams, reporting.Reporter, flows.ResultPublisher, flows.RunOptions) error {
 	return nil
 }
 

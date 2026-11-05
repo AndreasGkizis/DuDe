@@ -21,14 +21,13 @@ The `webkit2_41` Linux build tag is configured in `wails.json`.
 wails dev
 ```
 
-## VS Code Debug Modes
+## Debug Builds
 
-Starting either Wails debug configuration prompts for an execution mode:
+VS Code and Zed debug tasks build the normal application with debugging symbols. Debug builds run real scans; there is no separate simulated progress mode.
 
-- `real_execution` runs the normal scan.
-- `debug_progress` runs the simulated progress flow without scanning files.
-
-The selected mode is compiled into the debug binary with a Go build tag.
+```bash
+wails build -debug
+```
 
 ## Build The Application
 
@@ -48,10 +47,20 @@ npm --prefix frontend run build
 
 ## Tests
 
+Run the same checks as CI, including every Go test package and the frontend behavioral tests:
+
 ```bash
-go test ./tests/unit_tests
-go test ./tests/e2e_tests
+npm --prefix frontend ci --include=dev
+npm --prefix frontend test
+npm --prefix frontend run build
+go test -race -v -count=1 ./...
+go vet ./...
+go build ./...
 ```
+
+Build the frontend before the Go checks: `main.go` embeds `frontend/dist`, which is absent on a fresh checkout. Frontend behavioral tests use Node.js's built-in test runner and JSDOM, with Vite loading the actual frontend modules.
+
+Run Go test commands sequentially; separate E2E test processes currently share a cleanup directory.
 
 ## Benchmarks
 

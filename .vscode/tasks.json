@@ -16,9 +16,7 @@
         "--",
         "/home/andreas/go/bin/wails",
         "build",
-        "-debug",
-        "-tags",
-        "${input:debugFeature}"
+        "-debug"
       ],
       "detail": "Wails debug build with DWARF symbols"
     },
@@ -37,9 +35,7 @@
         "--",
         "/home/andreas/go/bin/wails",
         "build",
-        "-debug",
-        "-tags",
-        "${input:debugFeature}"
+        "-debug"
       ],
       "detail": "Wails debug build with DWARF symbols (Windows)"
     },
@@ -69,18 +65,6 @@
         "embed"
       ],
       "detail": "Full Wails build for Linux/amd64 with UPX and LDFLAGS"
-    }
-  ],
-  "inputs": [
-    {
-      "id": "debugFeature",
-      "type": "pickString",
-      "description": "Choose the execution mode to debug",
-      "options": [
-        "real_execution",
-        "debug_progress"
-      ],
-      "default": "real_execution"
     }
   ]
 }

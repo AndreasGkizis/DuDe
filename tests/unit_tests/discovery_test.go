@@ -2,12 +2,14 @@ package unit_tests
 
 import (
 	"DuDe/internal/models"
+	"DuDe/internal/processing/flows"
 	"DuDe/internal/processing/services"
 	"DuDe/internal/reporting"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -27,7 +29,7 @@ func TestFileDiscoveryCollectsNestedAndHiddenFiles(t *testing.T) {
 		}
 	}
 
-	files, err := services.NewFileDiscovery().Discover(context.Background(), []string{root}, reporting.NoOpReporter{})
+	files, _, err := discoverFiles(context.Background(), []string{root})
 	if err != nil {
 		t.Fatalf("discover: %v", err)
 	}
@@ -54,11 +56,7 @@ func TestFileDiscoveryKeepsRootsSeparateInOneCollection(t *testing.T) {
 		}
 	}
 
-	files, err := services.NewFileDiscovery().Discover(
-		context.Background(),
-		[]string{first, second},
-		reporting.NoOpReporter{},
-	)
+	files, _, err := discoverFiles(context.Background(), []string{first, second})
 	if err != nil {
 		t.Fatalf("discover: %v", err)
 	}
@@ -74,11 +72,25 @@ func TestFileDiscoveryReturnsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	files, err := services.NewFileDiscovery().Discover(ctx, []string{t.TempDir()}, reporting.NoOpReporter{})
+	files, _, err := discoverFiles(ctx, []string{t.TempDir()})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}
 	if files == nil {
 		t.Fatal("expected a file collection even when discovery is cancelled")
 	}
+}
+
+func discoverFiles(ctx context.Context, roots []string) (*sync.Map, []models.Diagnostic, error) {
+	sink := services.NewDiagnosticSink()
+	defer sink.Close()
+	files, err := services.NewFileDiscovery().DiscoverWithSink(
+		ctx,
+		roots,
+		reporting.NoOpReporter{},
+		sink,
+		flows.DefaultDiagnosticHandler,
+		models.DiagnosticScopeDuplicate,
+	)
+	return files, sink.Snapshot(), err
 }

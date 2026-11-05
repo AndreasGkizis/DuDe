@@ -80,16 +80,12 @@ func TestFindMissingContentFlowRequiresSourceAndTarget(t *testing.T) {
 }
 
 type missingContentPublisher struct {
-	result      models.MissingContentResult
-	diagnostics models.ScanDiagnostics
+	result models.MissingContentResult
 }
 
 func (p *missingContentPublisher) PublishDuplicateResult(models.DuplicateResult) {}
 func (p *missingContentPublisher) PublishMissingContentResult(result models.MissingContentResult) {
 	p.result = result
-}
-func (p *missingContentPublisher) PublishScanDiagnostics(diagnostics models.ScanDiagnostics) {
-	p.diagnostics = diagnostics
 }
 
 func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {
@@ -102,7 +98,7 @@ func TestFindMissingContentFlowRunsAgainstEmptyDirectories(t *testing.T) {
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 
 	if err != nil {
 		t.Fatalf("run find-missing-content flow: %v", err)
@@ -133,7 +129,7 @@ func TestFindMissingContentFlowMatchesFilesThroughTheExecutionPipeline(t *testin
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if err != nil {
 		t.Fatalf("run find-missing-content flow: %v", err)
 	}
@@ -157,7 +153,7 @@ func TestFindMissingContentFlowStopsWithoutPublishingOnCancellation(t *testing.T
 		ResultsDir:           t.TempDir(),
 		WorkerCount:          1,
 		BufferSizeBytes:      1,
-	}, reporting.NoOpReporter{}, publisher)
+	}, reporting.NoOpReporter{}, publisher, flows.RunOptions{HandleDiagnostic: flows.DefaultDiagnosticHandler})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
