@@ -76,7 +76,8 @@ See the historical diagnostic plan if present, [`../../development.md`](../../de
 | `internal/common/` | Platform/filesystem helpers, constants, and logging. |
 | `frontend/src/` | UI, templates, styling, pagination, and event handlers. |
 | `frontend/tests/` | Behavioral tests with mocked Wails calls and actual frontend rendering. |
-| `tests/unit_tests/`, `tests/e2e_tests/` | Public-contract regression and filesystem pipeline tests. |
+| `tests/unit_tests/` | Public-contract tests organized to mirror relevant internal packages (`common/fs`, `db`, `handlers/validation`, `models`, `processing/flows`, and `processing/services`). |
+| `tests/e2e_tests/` | Public filesystem-pipeline and full execution-flow tests. |
 | `tests/benchmarks/` | Explicit production hashing/grouping benchmarks and historical comparisons. |
 | `.github/workflows/ci.yml` | Frontend checks plus every Go test package, race detection, vet, and build. |
 | `.github/workflows/release.yml` | Tagged Linux/Windows Wails builds and packaging. |

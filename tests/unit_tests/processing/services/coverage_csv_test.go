@@ -1,13 +1,14 @@
 package unit_tests
 
 import (
-	"DuDe/internal/models"
-	"DuDe/internal/processing/services"
 	"bytes"
 	"encoding/csv"
 	"reflect"
 	"strings"
 	"testing"
+
+	"DuDe/internal/models"
+	"DuDe/internal/processing/services"
 )
 
 func TestWriteCoverageCSVWritesDeterministicMissingAndSkippedRows(t *testing.T) {
@@ -30,7 +31,7 @@ func TestWriteCoverageCSVWritesDeterministicMissingAndSkippedRows(t *testing.T) 
 		t.Fatal("expected UTF-8 BOM")
 	}
 
-	reader := csv.NewReader(strings.NewReader(string(output.Bytes()[3:])))
+	reader := csv.NewReader(strings.NewReader(output.String()[3:]))
 	reader.Comma = services.GetDelimiterForOS()
 	rows, err := reader.ReadAll()
 	if err != nil {
@@ -52,7 +53,7 @@ func TestWriteCoverageCSVWritesHeaderForEmptyResult(t *testing.T) {
 	if err := services.WriteCoverageCSV(&output, models.MissingContentResult{}, models.ScanDiagnostics{}); err != nil {
 		t.Fatalf("write empty coverage CSV: %v", err)
 	}
-	if got := strings.Count(string(output.Bytes()), "Type"); got != 1 {
+	if got := strings.Count(output.String(), "Type"); got != 1 {
 		t.Fatalf("expected one header row, got %d occurrences", got)
 	}
 }

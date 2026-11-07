@@ -7,7 +7,7 @@ import (
 )
 
 func TestDuplicateDiagnosticsHaveVisibleContainerOutsideCoverageSummary(t *testing.T) {
-	content, err := os.ReadFile("../../frontend/src/template.html")
+	content, err := os.ReadFile("../../../frontend/src/template.html")
 	if err != nil {
 		t.Fatalf("read frontend template: %v", err)
 	}
