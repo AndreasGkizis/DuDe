@@ -1,53 +1,75 @@
-## Planned Features
+# Backlog
 
-1. [x] Target Coverage Check — Find Missing Content verifies source content against a target directory using the shared matching pipeline. See [Usage](README.md#usage); the historical target-coverage plan was removed.
+This list is ordered roughly by usefulness and urgency. Items in **Next** are the best candidates for the next development pass; **Later** items are worthwhile but should not block reliability or release work.
 
-## Later
+## Next
 
-- Upgrade Wails after confirming a version compatible with the project's next Go toolchain; update the CLI, Go module, generated bindings, VS Code tasks, and release build verification together.
-- Remediate the existing frontend dependency audit findings with a compatible Vite/toolchain upgrade; recheck frontend tests, Wails asset builds, and supported Node versions.
-- Remove unused code.
-- Make `ExecutionParams` immutable after separating raw requests from resolved execution configuration.
-- Review log levels and details.
-- Measure diagnostic logging queue size, peak memory, and throughput under high-volume failures. Revisit the unbounded asynchronous queue only with evidence; preserve lossless diagnostic retention unless the requirements explicitly change.
-- Isolate E2E test data with per-test `t.TempDir()` ownership and scoped cleanup. Separate test processes currently interfere through shared `./test_files/` cleanup; verify concurrent test commands no longer delete one another's fixtures.
-- Test with large files and constrained buffers.
-- Throttle or summarize repeated filesystem errors before sending them to the UI.
-- Simplify frontend state flow, including mode-independent diagnostic naming/state and tests for mode switching, new runs, and Full Reset.
-- Validate macOS permissions, packaging, signing, notarization, and runtime behavior on real hardware.
-- Consider a duplicate-file deletion feature.
+### 1. Release validation
+
+- [ ] Perform a fresh Wails desktop build (`wails build -f`) and interactive smoke test on the supported Linux and Windows targets.
+- [ ] Verify packaged assets, startup, directory selection, duplicate scans, Find Missing Content scans, cancellation, reset, reports, cache, and diagnostics.
+
+### 2. Test realistic file sizes and memory limits
+
+- [x] Add an E2E test with moderately large files and a constrained buffer size.
+- [ ] Cover cancellation and hashing errors while large files are being read.
+
+### 4. Fix frontend dependency vulnerabilities
+
+- [ ] Upgrade the Vite/frontend toolchain from the current Vite 3 dependency set in a compatible, deliberate change.
+- [ ] Re-run the frontend tests and production build, Wails asset embedding, `npm audit`, and supported Node-version checks.
+
+## Important but not urgent
+
+- [ ] Measure diagnostic logging queue length, peak memory, and throughput under high-volume failures. Keep the current lossless unbounded queue unless measurements and requirements justify a policy change.
+- [ ] Simplify frontend state flow, especially mode-independent diagnostic naming/state. Add coverage for mode switching, new runs, and Full Reset.
+- [ ] Review log levels and log detail for user-facing and debug output.
+- [ ] Remove genuinely unused code after confirming it is not part of the Wails/generated/build surface.
+- [ ] Decide whether to separate raw requests from resolved execution configuration, then make `ExecutionParams` immutable after resolution. This is an API/design change, not a cleanup-only task.
+- [ ] Review the stale inline hashing note about adding a blob suffix for uniqueness (`internal/processing/services/hashing.go`); either define the requirement and implement it or remove the note.
+
+## Toolchain maintenance
+
+- [ ] Upgrade Wails only after confirming compatibility with the next Go toolchain. Update the CLI, Go module, generated bindings, VS Code tasks, and release-build verification together.
+
+## Future features and platform work
+
+- [ ] Validate macOS permissions, packaging, signing, notarization, and runtime behavior on real hardware before calling macOS supported.
+- [ ] Consider a duplicate-file deletion feature. This needs a separate safety/design review; DuDe currently reports findings and does not delete files.
 
 ## Done
 
-- complete the unified diagnostic pipeline and agreed PR #10 review fixes; see `DIAGNOSTIC_SYNC_PLAN.md`
-- publish terminal application state before frontend completion/error/cancellation notifications
-- make discovery progress sends cancellation-aware and join hashing progress trackers on error paths
-- reserve duplicate/coverage report paths with exclusive creation and collision-only suffix retries
-- use one sink mutex and derive completed diagnostics from the concrete result
-- deep-copy nested duplicate results at collection, publication, and getter boundaries
-- run every Go test package with race detection and frontend behavioral tests/build in CI
-- remove the unused progress simulator while preserving normal debug builds and logging
-- prevent concurrent executions and cancellation/restart overlap
-- handle cache initialization, reads, writes, and connection cleanup without panics
-- report directory-walk permission and filesystem errors without silently skipping files
-- fix Paranoid Mode correctness, worker completion, and comparison error handling
-- handle file read errors during hashing
-- distinguish missing cache records from database errors
-- add SQL repository and database lifecycle tests
-- collect file metadata during directory walking
-- skip uniquely sized files before hashing
-- test same-size files with different contents
-- add production hashing benchmarks and comparison workflow
-- allow users to change result groups per page dynamically
-- detect CSV flush and close errors and remove incomplete result files
-- validate writable directories without modifying existing user files
-- complete progress phases explicitly, including zero-work and all-failed phases
-- close and await every execution-owned channel and worker on all exit paths
-- synchronize Full Reset with active execution cleanup and shared state
-- report processing failures clearly in the UI
-- correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms
-  
-## Notes
+- [x] Target Coverage Check: Find Missing Content verifies source content against the target directory using the shared matching pipeline.
+- [x] Isolate E2E fixtures with per-test `t.TempDir()` ownership so concurrent test processes cannot delete one another's data.
+- [x] Complete the unified diagnostic pipeline and the agreed PR #10 review fixes.
+- [x] Publish terminal application state before frontend completion/error/cancellation notifications.
+- [x] Make discovery progress sends cancellation-aware and join hashing progress trackers on error paths.
+- [x] Reserve duplicate/coverage report paths with exclusive creation and collision-only suffix retries.
+- [x] Use one sink mutex and derive completed diagnostics from the concrete result.
+- [x] Deep-copy nested duplicate results at collection, publication, and getter boundaries.
+- [x] Run every Go test package with race detection and frontend behavioral tests/build in CI.
+- [x] Remove the unused progress simulator while preserving normal debug builds and logging.
+- [x] Prevent concurrent executions and cancellation/restart overlap.
+- [x] Handle cache initialization, reads, writes, and connection cleanup without panics.
+- [x] Report directory-walk permission and filesystem errors without silently skipping files.
+- [x] Fix Paranoid Mode correctness, worker completion, and comparison error handling.
+- [x] Handle file read errors during hashing.
+- [x] Distinguish missing cache records from database errors.
+- [x] Add SQL repository and database lifecycle tests.
+- [x] Collect file metadata during directory walking.
+- [x] Skip uniquely sized files before hashing.
+- [x] Test same-size files with different contents.
+- [x] Add production hashing benchmarks and comparison workflow.
+- [x] Allow users to change result groups per page dynamically.
+- [x] Detect CSV flush and close errors and remove incomplete result files.
+- [x] Validate writable directories without modifying existing user files.
+- [x] Complete progress phases explicitly, including zero-work and all-failed phases.
+- [x] Close and await every execution-owned channel and worker on all exit paths.
+- [x] Synchronize Full Reset with active execution cleanup and shared state.
+- [x] Report processing failures clearly in the UI.
+- [x] Correct release metadata and document cache, logs, CSV output, dependencies, and supported platforms.
 
-  1. merge time and size and the rest to a single blob and work with the blob after?
-  1. use must pattern?
+## Untriaged ideas
+
+- Merge time and size and the rest to a single blob, then work with the blob.
+- Use a MUST pattern.

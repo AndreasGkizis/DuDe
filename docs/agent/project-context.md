@@ -30,13 +30,13 @@ The agreed PR #10 review implementation is complete:
 - R1–R7 resolved: simulator removal, terminal notification ordering, cancellation-safe discovery progress, duplicate-result buttons, exclusive report creation, consistent sink synchronization, and complete CI test discovery.
 - S1–S3 resolved: dead cleanup removal, result-owned completed diagnostics, and deep copies of nested duplicate results.
 - S4: keep the existing diagnostic handler and default classification policy as-is.
-- Logging-queue memory investigation and E2E fixture isolation are general backlog items in root `TODO.md`, not remaining implementation steps in the diagnostic plan.
+- Logging-queue memory investigation is a general backlog item in root `TODO.md`, not a remaining implementation step in the diagnostic plan.
 
 Recorded local checks passed: all Go tests with race detection, frontend behavioral tests and production build, Go vet/build, workflow actionlint, and diff checks. Frontend tests/build were also checked under Node 18.20.8 when updating CI.
 
 This is not full release validation: a fresh Wails desktop build and interactive smoke testing were not performed during these review fixes. The GitHub-hosted CI result is not inferred from local checks. npm audit reports six existing Vite-toolchain vulnerabilities (one moderate, five high); those dependencies were not upgraded as part of the review.
 
-See `DIAGNOSTIC_SYNC_PLAN.md` for design and review evidence, `development.md` for commands, and `TODO.md` for the general backlog.
+See the historical diagnostic plan if present, [`../../development.md`](../../development.md) for commands, and [`../../TODO.md`](../../TODO.md) for the general backlog.
 
 ## Important Decisions
 
@@ -80,7 +80,7 @@ See `DIAGNOSTIC_SYNC_PLAN.md` for design and review evidence, `development.md` f
 | `tests/benchmarks/` | Explicit production hashing/grouping benchmarks and historical comparisons. |
 | `.github/workflows/ci.yml` | Frontend checks plus every Go test package, race detection, vet, and build. |
 | `.github/workflows/release.yml` | Tagged Linux/Windows Wails builds and packaging. |
-| `package_builder.sh` | Local packaging helper. |
+| `DevHelpers/` | Optional manual stress-fixture generation; automated E2E tests create their own fixtures. |
 
 ## FrontendApp API and State
 
@@ -171,7 +171,7 @@ Progress updates are throttled to roughly 250 ms plus phase boundaries. Unknown/
 
 ## Development, Testing, and CI
 
-See `development.md` for setup. Normal Wails debug builds run real scans (`wails build -debug`); the separate `debug_progress` simulator/build tag was removed. `DebugMode` logging remains available.
+See [`../../development.md`](../../development.md) for setup. Normal Wails debug builds run real scans (`wails build -debug`); the separate `debug_progress` simulator/build tag was removed. `DebugMode` logging remains available.
 
 CI uses one sequential Ubuntu job with Go from `go.mod` and Node 18, matching the existing release workflow. Build frontend assets before recursive Go checks because `main.go` embeds the ignored `frontend/dist` directory:
 
@@ -184,7 +184,7 @@ go vet ./...
 go build ./...
 ```
 
-Run separate E2E-bearing commands sequentially until fixture isolation is addressed; their shared `./test_files/` cleanup can interfere across processes. Colocated tests exercise sink closure/admission, cancellation, report collisions, terminal publication, and deep-copy contracts. Public unit/E2E tests cover matching, validation, cache, CSV, reset, and filesystem behavior. Frontend tests execute actual rendering with mocked Wails bindings.
+E2E fixtures are owned by each test via `t.TempDir()`, so separate E2E-bearing commands no longer share a cleanup directory. Colocated tests exercise sink closure/admission, cancellation, report collisions, terminal publication, and deep-copy contracts. Public unit/E2E tests cover matching, validation, cache, CSV, reset, and filesystem behavior. Frontend tests execute actual rendering with mocked Wails bindings.
 
 For a complete desktop build use `wails build -f`; normal `go build ./...` and a Vite build do not replace desktop integration or interactive validation.
 
@@ -194,6 +194,6 @@ The release workflow builds Windows/Linux archives on pushed `v*` tags using Wai
 
 ## Remaining Work and Future Changes
 
-Use root `TODO.md` as the general backlog, rather than reopening the completed diagnostic plan. It includes logging-memory measurement, E2E fixture isolation, Wails/toolchain upgrades, frontend state cleanup, large-file testing, and possible future platform/feature work. Existing frontend toolchain security findings also need remediation. Full desktop build/smoke testing remains the release-validation boundary noted above.
+Use [`../../TODO.md`](../../TODO.md) as the general backlog, rather than reopening the completed diagnostic plan. It includes logging-memory measurement, Wails/toolchain upgrades, frontend state cleanup, additional large-file cancellation testing, and possible future platform/feature work. Existing frontend toolchain security findings also need remediation. Full desktop build/smoke testing remains the release-validation boundary noted above.
 
 Keep fixes focused, add a reproducing test where practical, and run relevant checks before finalizing. Preserve the agreed content-matching semantics, graceful cache degradation, serialized execution ownership, state-before-notification ordering, defensive result copies, and lossless diagnostic requirement. Do not introduce deletion, new classification policies, or logging overflow behavior without explicit agreement.

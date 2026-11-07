@@ -24,9 +24,6 @@ import (
 	"testing"
 )
 
-var baseDir string = "./test_files/"
-var dataSubDir string = "dude-test-data-"
-
 // FileType represents the type of test file to create
 type FileType int
 
@@ -73,23 +70,7 @@ func (fo FileOptions) CalculateTotalDuplicateFiles() int {
 // function to remove the directory and its contents.
 func createTestFilesByteArray(t *testing.T, files map[string][]byte) (string, func()) {
 	t.Helper()
-	// Ensure baseDir exists
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		t.Fatalf("failed to create base directory: %v", err)
-	}
-
-	// Create temp directory under the base directory
-	tempDir, err := os.MkdirTemp(baseDir, "dude-test-data-")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-
-	// Ensure the path is in the correct format for the current OS
-	tempDir, err = filepath.Abs(tempDir)
-	if err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("failed to get absolute path for temp dir: %v", err)
-	}
+	tempDir := t.TempDir()
 
 	cleanup := func() {
 		if err := os.RemoveAll(tempDir); err != nil {
@@ -121,14 +102,11 @@ func createTestFilesByteArray(t *testing.T, files map[string][]byte) (string, fu
 
 }
 
-// Deletes the directory in which test files were
-func deleteTestFolder(t *testing.T) error {
-	var err error
-	if err := os.RemoveAll(baseDir); err != nil {
-		t.Errorf("failed to clean up temporary directory %q: %v", baseDir, err)
-	}
-
-	return err
+// deleteTestFolder is retained for compatibility with older E2E tests.
+// Each fixture now belongs to its test via t.TempDir, so global cleanup is unsafe
+// and intentionally does nothing.
+func deleteTestFolder(_ *testing.T) error {
+	return nil
 }
 
 // Reads and parses the CSV results file from the specified directory.
@@ -264,24 +242,7 @@ func createTestFiles(t *testing.T, options FileOptions) (string, func()) {
 }
 
 func createBaseDirs(t *testing.T) (string, error) {
-	// Ensure baseDir exists
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		t.Fatalf("failed to create base directory: %v", err)
-	}
-
-	// Create temp directory under the base directory
-	tempDir, err := os.MkdirTemp(baseDir, dataSubDir)
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-
-	// Ensure the path is absolute
-	tempDir, err = filepath.Abs(tempDir)
-	if err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("failed to get absolute path for temp dir: %v", err)
-	}
-	return tempDir, nil
+	return t.TempDir(), nil
 }
 
 // createRandomContent generates random content of specified size

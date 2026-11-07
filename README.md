@@ -60,7 +60,7 @@ Paranoid Mode adds byte-for-byte verification. Recoverable filesystem failures a
 - If those directories are not selected, Linux and Windows use the executable directory.
 - Debug logs are written to `logs/` beside the executable only when Debug Logging is enabled.
 
-See [development.md](development.md) for build/test commands and [TODO.md](TODO.md) for the backlog.
+See [development.md](development.md) for build/test commands, [TODO.md](TODO.md) for the backlog, [DevHelpers/README.md](DevHelpers/README.md) for optional manual stress fixtures and cleanup, and [docs/agent/project-context.md](docs/agent/project-context.md) for deeper project context.
 
 ## License
 
