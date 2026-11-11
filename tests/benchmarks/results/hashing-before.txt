@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: DuDe/tests/benchmarks
+cpu: AMD Ryzen 7 5700X3D 8-Core Processor           
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     447	   2738377 ns/op	3063.35 MB/s	 4343770 B/op	    2688 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     435	   2749142 ns/op	3051.35 MB/s	 4343825 B/op	    2688 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     433	   2748261 ns/op	3052.33 MB/s	 4344129 B/op	    2692 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     433	   2773715 ns/op	3024.32 MB/s	 4344197 B/op	    2691 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     433	   2747269 ns/op	3053.44 MB/s	 4343431 B/op	    2684 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     430	   2772255 ns/op	3025.91 MB/s	 4344104 B/op	    2690 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     434	   2786597 ns/op	3010.34 MB/s	 4344045 B/op	    2691 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     434	   2780399 ns/op	3017.05 MB/s	 4343745 B/op	    2687 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     435	   2747168 ns/op	3053.55 MB/s	 4343280 B/op	    2682 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     433	   2736788 ns/op	3065.13 MB/s	 4343809 B/op	    2688 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     830	   1447591 ns/op	5794.87 MB/s	 2177966 B/op	    1374 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     841	   1432517 ns/op	5855.85 MB/s	 2178193 B/op	    1375 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     855	   1423709 ns/op	5892.08 MB/s	 2178178 B/op	    1375 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     825	   1438555 ns/op	5831.28 MB/s	 2178381 B/op	    1378 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     823	   1423558 ns/op	5892.71 MB/s	 2178134 B/op	    1375 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     816	   1425711 ns/op	5883.80 MB/s	 2178201 B/op	    1376 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     835	   1434004 ns/op	5849.78 MB/s	 2178265 B/op	    1377 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     835	   1451579 ns/op	5778.95 MB/s	 2177694 B/op	    1371 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     825	   1437512 ns/op	5835.50 MB/s	 2178165 B/op	    1376 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	     837	   1422777 ns/op	5895.94 MB/s	 2178174 B/op	    1375 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      74	  17200395 ns/op	7803.18 MB/s	 1085808 B/op	     671 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      72	  17024995 ns/op	7883.57 MB/s	 1085761 B/op	     672 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      81	  17018971 ns/op	7886.36 MB/s	 1085701 B/op	     670 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      78	  16989236 ns/op	7900.16 MB/s	 1085495 B/op	     668 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      76	  16632515 ns/op	8069.60 MB/s	 1085665 B/op	     670 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      80	  16879460 ns/op	7951.54 MB/s	 1085745 B/op	     671 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      66	  17281327 ns/op	7766.63 MB/s	 1085818 B/op	     671 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      74	  17310181 ns/op	7753.69 MB/s	 1085542 B/op	     670 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      73	  16967977 ns/op	7910.06 MB/s	 1085843 B/op	     671 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	      80	  16734513 ns/op	8020.41 MB/s	 1085646 B/op	     670 allocs/op
+PASS
+ok  	DuDe/tests/benchmarks	42.684s

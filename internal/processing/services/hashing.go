@@ -6,9 +6,9 @@ import (
 	models "DuDe/internal/models"
 	visuals "DuDe/internal/visuals"
 	"context"
-	"crypto/md5"
 	"errors"
 	"fmt"
+	"github.com/zeebo/xxh3"
 	"io"
 	"math/rand"
 	"os"
@@ -118,7 +118,7 @@ func runWorkers(ctx context.Context, sourceFiles *sync.Map, maxWorkers int, pt *
 			fileNeedsReHashing := !memoryExists || fileHasChangedOnDisk
 
 			if fileNeedsReHashing {
-				hash, err = calculateMD5Hash(ctx, val)
+				hash, err = calculateContentHash(ctx, val)
 				if errors.Is(err, context.Canceled) {
 					log.DebugWithFuncName(fmt.Sprintf("Hashing stopped due to context cancellation. | filepath: %s", currentFilePath))
 					return // Stop this iteration/worker
@@ -367,13 +367,13 @@ func EnsureDuplicates(ctx context.Context, input *sync.Map, pt *visuals.Progress
 	return errors.Join(comparisonErrors...)
 }
 
-func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error) {
+func calculateContentHash(ctx context.Context, file models.FileHash) (string, error) {
 
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
 
-	hasherMD5 := md5.New()
+	hasher := xxh3.New()
 
 	f, err := os.Open(file.FilePath)
 	if err != nil {
@@ -394,10 +394,10 @@ func calculateMD5Hash(ctx context.Context, file models.FileHash) (string, error)
 	// 💡 Performance Note: For cancellation during long reads,
 	// you would need a custom Reader that checks ctx.Done() periodically.
 	// For now, we assume the open/close is the main blocking point.
-	if _, err := io.Copy(hasherMD5, f); err != nil {
+	if _, err := io.Copy(hasher, f); err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	} // TODO: add blob suffix for uniquness
-	return fmt.Sprintf("%x", hasherMD5.Sum(nil)), nil
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 func FindDuplicatesInMap(ctx context.Context, fileHashes *sync.Map, tracker *visuals.ProgressTracker) {

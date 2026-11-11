@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: DuDe/tests/benchmarks
+cpu: AMD Ryzen 7 5700X3D 8-Core Processor           
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     835	   1404324 ns/op	5973.41 MB/s	 4492715 B/op	    2693 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     834	   1390930 ns/op	6030.93 MB/s	 4492967 B/op	    2696 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     861	   1389240 ns/op	6038.27 MB/s	 4492795 B/op	    2694 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     861	   1396979 ns/op	6004.82 MB/s	 4492743 B/op	    2694 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     870	   1407233 ns/op	5961.07 MB/s	 4493351 B/op	    2700 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     855	   1402237 ns/op	5982.30 MB/s	 4493226 B/op	    2699 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     854	   1387872 ns/op	6044.22 MB/s	 4492974 B/op	    2696 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     844	   1401173 ns/op	5986.85 MB/s	 4493109 B/op	    2697 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     835	   1394547 ns/op	6015.29 MB/s	 4492946 B/op	    2696 allocs/op
+BenchmarkCreateHashes/128x64KiB_same_size-16         	     853	   1405931 ns/op	5966.58 MB/s	 4493328 B/op	    2700 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1654	    755819 ns/op	11098.69 MB/s	 2251634 B/op	    1365 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1592	    754697 ns/op	11115.20 MB/s	 2251735 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1574	    758120 ns/op	11065.01 MB/s	 2251705 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1581	    759251 ns/op	11048.53 MB/s	 2251685 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1578	    758078 ns/op	11065.62 MB/s	 2251652 B/op	    1365 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1593	    761803 ns/op	11011.51 MB/s	 2251767 B/op	    1367 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1574	    760626 ns/op	11028.56 MB/s	 2251736 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1591	    756890 ns/op	11082.99 MB/s	 2251670 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1566	    761933 ns/op	11009.64 MB/s	 2251701 B/op	    1366 allocs/op
+BenchmarkCreateHashes/128_mixed_sizes_50pct_candidates-16         	    1598	    755531 ns/op	11102.93 MB/s	 2251637 B/op	    1365 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     324	   3606298 ns/op	37217.59 MB/s	 1123465 B/op	     675 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     330	   3593360 ns/op	37351.59 MB/s	 1123255 B/op	     673 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     333	   3671822 ns/op	36553.44 MB/s	 1123603 B/op	     676 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     333	   3638399 ns/op	36889.23 MB/s	 1123627 B/op	     677 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     331	   3611019 ns/op	37168.94 MB/s	 1123510 B/op	     675 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     328	   3642976 ns/op	36842.88 MB/s	 1123789 B/op	     677 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     327	   3609746 ns/op	37182.04 MB/s	 1123429 B/op	     674 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     327	   3716703 ns/op	36112.04 MB/s	 1123604 B/op	     676 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     296	   3636632 ns/op	36907.15 MB/s	 1123429 B/op	     674 allocs/op
+BenchmarkCreateHashes/32x4MiB_same_size-16                        	     304	   3989745 ns/op	33640.68 MB/s	 1124461 B/op	     685 allocs/op
+PASS
+ok  	DuDe/tests/benchmarks	45.672s
